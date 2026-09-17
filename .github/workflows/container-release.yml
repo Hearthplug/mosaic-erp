@@ -10,7 +10,7 @@ permissions:
   attestations: write
 env:
   # Replace only after the Docker Hub namespace is confirmed by its owner.
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/mosaic-erp
+  IMAGE_NAME: ghcr.io/hearthplug/mosaic-erp
 jobs:
   validate:
     runs-on: ubuntu-24.04
