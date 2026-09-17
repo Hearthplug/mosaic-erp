@@ -1,0 +1,14 @@
+# Mosaic ERP
+
+Mosaic ERP is an MIT-licensed conversational retail ERP architect. It turns a plain-language business interview into a tailored, versioned ERP blueprint. It is not an accounting ledger, tax filing service, certification, or legal/tax advice.
+
+- Product: https://hearthplug.github.io/mosaic-erp/
+- Source: https://github.com/Hearthplug/mosaic-erp
+- Current release: https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.1.0
+- Architecture and limits: https://github.com/Hearthplug/mosaic-erp/blob/main/ARCHITECTURE.md
+- Deployment: https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DEPLOYMENT.md
+- Security: https://github.com/Hearthplug/mosaic-erp/blob/main/SECURITY.md
+
+Current verified facts: v1.1.0; 82 application/security tests; PostgreSQL 17 restricted-runtime-role tenant-isolation integration; strict Helm lint/render; Docker readiness smoke; signed linux/amd64 and linux/arm64 images on Docker Hub and GHCR; SBOM and provenance; configured HIGH/CRITICAL vulnerability gate passed. Operator-owned DNS/TLS, managed PostgreSQL HA/PITR and restore drills, cluster failover/capacity evidence, a selected/tested OIDC provider, and independent penetration testing remain required before real hosted financial-data use.
+
+This file is a transparent discovery aid. It does not guarantee inclusion or ranking in any AI answer system.
