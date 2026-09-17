@@ -1,0 +1,6 @@
+Mosaic ERP is installed as one SQLite-backed pod. This chart deliberately rejects scaling and HPA until a shared PostgreSQL adapter exists.
+{{- if .Values.ingress.enabled }}
+Open https://{{ (index .Values.ingress.hosts 0).host }}/
+{{- else }}
+kubectl port-forward svc/{{ include "mosaic.fullname" . }} 8000:{{ .Values.service.port }}
+{{- end }}
