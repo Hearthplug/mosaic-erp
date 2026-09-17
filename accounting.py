@@ -30,7 +30,7 @@ CREATE TRIGGER journal_lines_no_update BEFORE UPDATE ON journal_lines BEGIN SELE
 CREATE TRIGGER journal_lines_no_delete BEFORE DELETE ON journal_lines BEGIN SELECT RAISE(ABORT,'posted journal lines are immutable'); END;
 '''
 
-DEFAULT_ACCOUNTS=(('1000','Cash','asset','cash'),('1010','Bank','asset','bank'),('1100','Accounts receivable','asset','receivable'),('1200','Inventory','asset','inventory'),('2000','Accounts payable','liability','payable'),('2100','Sales tax payable','liability','sales_tax'),('2110','Purchase tax recoverable','asset','purchase_tax'),('3000','Owner equity','equity','equity'),('3100','Opening balance equity','equity','opening'),('4000','Sales','income','sales'),('4100','Sales returns','income','sales_returns'),('5000','Cost of goods sold','expense','cogs'),('6000','General expenses','expense','expense'),('6999','Rounding','expense','rounding'))
+DEFAULT_ACCOUNTS=(('1000','Cash','asset','cash'),('1010','Bank','asset','bank'),('1100','Accounts receivable','asset','receivable'),('1200','Inventory','asset','inventory'),('2000','Accounts payable','liability','payable'),('2100','Sales tax payable','liability','sales_tax'),('2110','Purchase tax recoverable','asset','purchase_tax'),('3000','Owner equity','equity','equity'),('3100','Opening balance equity','equity','opening'),('4000','Sales','income','sales'),('4100','Sales returns','income','sales_returns'),('5000','Cost of goods sold','expense','cogs'),('6000','General expenses','expense','expense'),('6999','Rounding','expense','rounding'),('7900','Foreign exchange gain/loss','income','fx_gain_loss'))
 MATERIAL_KEYS={'base_currency','fiscal_year_start','chart_of_accounts','tax_registration','tax_codes','invoice_numbering','legal_name','legal_address','country','jurisdiction'}
 
 def minor(value):
@@ -218,3 +218,94 @@ class Accounting:
             if entity=='accounts':self.create_account(wid,actor,r['code'],r['name'],r['type'])
             else:self.create_party(wid,actor,'customer' if entity=='customers' else 'vendor',r['name'],email=r.get('email'),tax_id=r.get('tax_id'),currency=r.get('currency'))
         return {'valid':True,'dry_run':False,'imported':len(rows),'errors':[]}
+
+    def opening_balance(self,wid,actor,effective_date,balances,approved_by):
+        """Post reconciled opening balances against opening-balance equity."""
+        if not approved_by: raise ValueError('opening balances require approval')
+        lines=[]; net=0
+        for x in balances:
+            amount=int(x['balance_minor']); normal=x.get('normal','debit')
+            if amount<0: amount=-amount; normal='credit' if normal=='debit' else 'debit'
+            line={'account_id':x['account_id'],'debit_minor':amount if normal=='debit' else 0,'credit_minor':amount if normal=='credit' else 0,'memo':'Opening balance'}
+            lines.append(line); net+=line['debit_minor']-line['credit_minor']
+        if net: lines.append({'account_id':self._system(wid,'opening'),'debit_minor':max(-net,0),'credit_minor':max(net,0),'memo':'Opening balance offset'})
+        return self.post_journal(wid,actor,effective_date,'Approved opening balances',lines,'opening_balance',ident('open'),approved_by=approved_by)
+
+    def record_payment(self,wid,actor,target_document_id,amount_minor,paid_on,bank_account_id=None,currency=None,exchange_rate='1',refund=False):
+        d=self.s._db.execute('SELECT * FROM documents WHERE id=? AND workspace_id=?',(target_document_id,wid)).fetchone()
+        if not d or d['status']!='posted': raise Conflict('payment target must be posted')
+        amount=int(amount_minor)
+        if amount<=0 or amount>d['balance_minor']: raise ValueError('payment exceeds positive outstanding balance')
+        cash=bank_account_id or self._system(wid,'bank'); control=self._system(wid,'payable' if d['kind']=='purchase_bill' else 'receivable')
+        incoming=d['kind'] in ('sales_invoice','debit_note')
+        lines=[{'account_id':cash,('credit_minor' if refund or not incoming else 'debit_minor'):amount},{'account_id':control,'party_id':d['party_id'],('debit_minor' if refund or not incoming else 'credit_minor'):amount}]
+        kind='refund' if refund else 'payment'; pid=ident('doc'); settings=self.status(wid)
+        with self.s.tx():
+            number=self._next(wid,kind)
+            self.s._db.execute('INSERT INTO documents(id,workspace_id,kind,number,party_id,currency,exchange_rate,issue_date,status,subtotal_minor,total_tax_minor,total_minor,balance_minor,memo,created_by,approved_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(pid,wid,kind,number,d['party_id'],currency or d['currency'],str(exchange_rate),paid_on,'posted',amount,0,amount,0,'Settlement for '+d['number'],actor,actor,utcnow()))
+        j=self.post_journal(wid,actor,paid_on,f'{kind} {number}',lines,kind,pid,number,currency or d['currency'],exchange_rate,actor)
+        base_settled=int((Decimal(amount)*Decimal(str(exchange_rate))).quantize(Decimal('1'))); historic=int((Decimal(amount)*Decimal(str(d['exchange_rate']))).quantize(Decimal('1'))); fx=base_settled-historic
+        if fx:
+            fxid=self._system(wid,'fx_gain_loss')
+            self.post_journal(wid,actor,paid_on,'Realized foreign exchange difference',[{'account_id':control,'debit_minor':max(fx,0),'credit_minor':max(-fx,0)},{'account_id':fxid,'debit_minor':max(-fx,0),'credit_minor':max(fx,0)}],'fx_settlement',pid+'-fx')
+        with self.s.tx():
+            self.s._db.execute('UPDATE documents SET balance_minor=balance_minor-? WHERE id=?',(amount,target_document_id))
+            self.s._db.execute('INSERT INTO settlements(id,workspace_id,payment_document_id,target_document_id,amount_minor,created_at) VALUES(?,?,?,?,?,?)',(ident('set'),wid,pid,target_document_id,amount,utcnow()))
+            self.s._audit(wid,actor,'settlement.create',{'payment_document_id':pid,'target_document_id':target_document_id,'amount_minor':amount,'realized_fx_minor':fx})
+        return {'payment_document_id':pid,'journal_id':j['id'],'remaining_minor':d['balance_minor']-amount,'realized_fx_minor':fx}
+
+    def aging(self,wid,as_of,kind='receivable'):
+        kinds=('sales_invoice','debit_note') if kind=='receivable' else ('purchase_bill',)
+        marks=','.join('?' for _ in kinds); rows=self.s._db.execute(f"SELECT id,number,party_id,due_date,currency,balance_minor FROM documents WHERE workspace_id=? AND kind IN ({marks}) AND status='posted' AND balance_minor>0",(wid,*kinds)).fetchall(); buckets={'current':0,'1_30':0,'31_60':0,'61_90':0,'over_90':0}; detail=[]
+        from datetime import date
+        anchor=date.fromisoformat(as_of)
+        for r in rows:
+            days=max(0,(anchor-date.fromisoformat(r['due_date'] or as_of)).days); b='current' if days==0 else '1_30' if days<=30 else '31_60' if days<=60 else '61_90' if days<=90 else 'over_90'; buckets[b]+=r['balance_minor']; detail.append(dict(r)|{'days_overdue':days,'bucket':b})
+        return {'kind':kind,'as_of':as_of,'buckets':buckets,'documents':detail}
+
+    def import_bank_transactions(self,wid,actor,account_id,rows):
+        results=[]
+        with self.s.tx():
+            for x in rows:
+                bid=ident('bnk')
+                try:self.s._db.execute('INSERT INTO bank_transactions(id,workspace_id,account_id,posted_on,description,amount_minor,external_id) VALUES(?,?,?,?,?,?,?)',(bid,wid,account_id,x['posted_on'],x['description'],int(x['amount_minor']),x.get('external_id')));results.append({'id':bid,'status':'unmatched'})
+                except Exception as e: results.append({'external_id':x.get('external_id'),'error':str(e)})
+            self.s._audit(wid,actor,'bank.import',{'rows':len(rows),'accepted':sum('id' in x for x in results)})
+        return results
+
+    def match_bank_transaction(self,wid,actor,bank_transaction_id,journal_id):
+        with self.s.tx():
+            b=self.s._db.execute('SELECT amount_minor FROM bank_transactions WHERE id=? AND workspace_id=? AND status=?',(bank_transaction_id,wid,'unmatched')).fetchone(); j=self.s._db.execute('SELECT id FROM journals WHERE id=? AND workspace_id=?',(journal_id,wid)).fetchone()
+            if not b or not j: raise Conflict('unmatched bank transaction and journal are required')
+            self.s._db.execute("UPDATE bank_transactions SET status='matched',matched_journal_id=? WHERE id=?",(journal_id,bank_transaction_id)); self.s._audit(wid,actor,'bank.match',{'bank_transaction_id':bank_transaction_id,'journal_id':journal_id})
+        return {'matched':True}
+
+    def record_inventory_movement(self,wid,actor,item_id,effective_date,quantity,unit_cost_minor,kind,warehouse='main',source_document_id=None):
+        qty=Decimal(str(quantity)); total=int((qty*int(unit_cost_minor)).quantize(Decimal('1'))); iid=ident('mov')
+        with self.s.tx():
+            self.s._db.execute('INSERT INTO inventory_movements(id,workspace_id,item_id,warehouse,effective_date,quantity,unit_cost_minor,total_cost_minor,kind,source_document_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(iid,wid,item_id,warehouse,effective_date,str(qty),int(unit_cost_minor),total,kind,source_document_id,utcnow())); self.s._audit(wid,actor,'inventory.movement',{'movement_id':iid,'item_id':item_id,'quantity':str(qty),'total_cost_minor':total})
+        return {'id':iid,'quantity':str(qty),'total_cost_minor':total}
+
+    def inventory_valuation(self,wid,as_of=None):
+        q='SELECT item_id,warehouse,SUM(CAST(quantity AS REAL)) quantity,SUM(total_cost_minor) value_minor FROM inventory_movements WHERE workspace_id=?';args=[wid]
+        if as_of:q+=' AND effective_date<=?';args.append(as_of)
+        q+=' GROUP BY item_id,warehouse'; rows=[dict(r) for r in self.s._db.execute(q,tuple(args)).fetchall()]
+        return {'method':'movement-cost totals; costing policy must be verified','as_of':as_of,'positions':rows,'total_value_minor':sum(r['value_minor'] for r in rows)}
+
+    def configure_statutory_adapter(self,wid,actor,jurisdiction,capability,rules_version,verified_by=None,notes=''):
+        status='verified' if verified_by else 'disabled'; aid=ident('adp')
+        with self.s.tx():
+            self.s._db.execute('INSERT INTO statutory_adapters(id,workspace_id,jurisdiction,capability,status,rules_version,verified_by,verified_at,notes) VALUES(?,?,?,?,?,?,?,?,?)',(aid,wid,jurisdiction,capability,status,rules_version,verified_by,utcnow() if verified_by else None,notes)); self._invalidate(wid,actor,'statutory adapter changed')
+        return {'id':aid,'status':status,'jurisdiction':jurisdiction,'capability':capability}
+
+    def migration_reconciliation(self,wid,actor,source_system,row_count,control_total_minor,posted_total_minor,detail=None):
+        variance=int(posted_total_minor)-int(control_total_minor); bid=ident('mig'); status='reconciled' if variance==0 else 'variance'
+        with self.s.tx():
+            self.s._db.execute('INSERT INTO migration_batches(id,workspace_id,source_system,imported_at,row_count,control_total_minor,posted_total_minor,status,variance_minor,detail_json) VALUES(?,?,?,?,?,?,?,?,?,?)',(bid,wid,source_system,utcnow(),int(row_count),int(control_total_minor),int(posted_total_minor),status,variance,canon(detail or {}))); self.s._audit(wid,actor,'migration.reconcile',{'batch_id':bid,'status':status,'variance_minor':variance})
+        return {'id':bid,'status':status,'variance_minor':variance}
+
+    def run_acceptance(self,wid,actor,sample_name,expected):
+        actual={'trial_balance':self.trial_balance(wid),'statements':self.financial_statements(wid)}; differences={k:{'expected':v,'actual':actual.get(k)} for k,v in expected.items() if actual.get(k)!=v}; status='passed' if not differences else 'failed'; rid=ident('accpt'); payload={'sample':sample_name,'expected':expected,'actual':actual}
+        with self.s.tx():
+            self.s._db.execute('INSERT INTO acceptance_runs(id,workspace_id,run_at,actor_id,sample_name,expected_json,actual_json,status,difference_json,checksum) VALUES(?,?,?,?,?,?,?,?,?,?)',(rid,wid,utcnow(),actor,sample_name,canon(expected),canon(actual),status,canon(differences),sha256(canon(payload)))); self.s._audit(wid,actor,'acceptance.run',{'run_id':rid,'status':status})
+        return {'id':rid,'status':status,'differences':differences,'checksum':sha256(canon(payload))}
