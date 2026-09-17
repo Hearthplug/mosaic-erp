@@ -31,3 +31,11 @@ Before live use, a qualified local accountant or implementer must verify the leg
 - independent security, accounting-control and recovery review
 
 Jurisdiction packs in the blueprint generator are planning inputs, not legal or tax certification. No return or statutory invoice should be filed or issued solely from an unverified pack.
+
+## Controls and recovery evidence
+
+The accounting core uses the existing atomic database transaction boundary, tenant-scoped actors and audit events. Posted journals and lines have database-level update/delete blocks; period locks block back-posting; numbering is allocated inside the write transaction. The SQLite online-backup and restore commands already exercised by the persistence suite include the accounting tables. Production PostgreSQL still requires a restore drill that checks accounting trial-balance equality and acceptance-run checksums after recovery.
+
+Every source migration must record the source control total, row count, posted total and variance. A non-zero variance remains visible as `variance`, not reconciled. Acceptance runs store expected and actual results, differences and a checksum so an accountant can sign off against agreed real sample data.
+
+Statutory adapters are fail-closed. They are `disabled` until a named professional verifies a jurisdiction, capability and rules version. Configuration invalidates the overall accounting sign-off.
