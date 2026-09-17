@@ -2,7 +2,7 @@
 
 Mosaic ERP is a conversational retail ERP architect. During setup, it interviews the owner in plain language and visibly reshapes the ERP in real time: navigation, dashboard KPIs, business terminology, modules, tax profile, workflows, and team roles all change with each answer.
 
-This is not a fixed dashboard with different labels. The configuration engine produces structurally different systems for grocery, fashion, electronics, pharmacy, beauty and wellness, and specialty retail, across ten tax jurisdictions. Multi-store, omnichannel, credit, batch/expiry, serial/warranty, services/appointments, and team-control capabilities activate only when the operating model calls for them.
+This is not a fixed dashboard with different labels. The configuration engine produces structurally different systems for grocery, fashion, electronics, pharmacy, beauty and wellness, and specialty retail, across 22 tax jurisdictions. Multi-store, omnichannel, credit, batch/expiry, serial/warranty, services/appointments, and team-control capabilities activate only when the operating model calls for them.
 
 ## Run
 
@@ -18,12 +18,13 @@ Open http://localhost:8000. No packages or API key are required.
 python3 -m unittest test_customization -v
 ```
 
-48 tests cover partial live configuration, vertical reshaping, ten jurisdiction tax packs, full JSON export, and the conversational tax-configuration layer (view, preview, apply, rollback, refusals, multi-turn jurisdiction switches).
+53 tests cover partial live configuration, vertical reshaping, 22 jurisdiction tax packs, full JSON export, and the conversational tax-configuration layer (view, preview, apply, rollback, refusals, multi-turn jurisdiction switches).
 
 ## Product architecture
 
 - **Discovery schema:** a ten-question base interview plus dynamic jurisdiction questions. Picking a country adds the follow-ups that jurisdiction needs - subdivision for the United States, Canada, and the EU, turnover bands in the local currency, registration types, supply reach, and buyer mix. `POST /api/questions` returns the tailored question set for the answers so far.
 - **Jurisdiction tax packs:** India (GST 2.0: 5/18/40 slabs, CGST/SGST vs IGST, HSN 4/6 digits by AATO, e-invoicing above Rs 5 crore, e-way bills, composition scheme, LUT exports, TCS), UAE (VAT 5%, AED 375,000 threshold), Singapore (GST 9%, S$1 million), China (VAT 13/9/6, general vs small-scale, fapiao), Vietnam (10% with the 8% reduction to 31 Dec 2026, mandatory e-invoice), Malaysia (SST 5/10 + 8% service tax, RM500,000), UK (VAT 20%, £90,000, MTD), USA (state sales tax, economic nexus, marketplace facilitator, no federal tax), Canada (GST/HST/PST/QST by province, CA$30,000 small supplier), and the EU (VAT Directive floor 15%, member-state rates, OSS, VIES reverse charge). Every pack carries its authoritative source links and a verification date.
+- **Extended jurisdiction packs:** Australia, New Zealand, Japan, South Korea, Saudi Arabia, South Africa, Brazil, Mexico, Indonesia, Philippines, Thailand, and Switzerland. Each pack stores official authority links, a verification/effective date, registration and electronic-invoicing checks, transaction-classification warnings, local rates, and invoice metadata. Brazil, Mexico, and Switzerland collect a required state/region/establishment fact; unsafe product, customer, place-of-supply, regime, threshold, and mandate assumptions remain explicit validation steps rather than universal defaults.
 - **Conversational compliance control:** after onboarding, the same chat drives tax settings. The engine understands view, change, apply, cancel, export, and rollback intents across country, subdivision, registration, turnover, supply scope, and buyers. Every mutation first returns a structured preview - old and new value, affected modules/workflows/tax fields, validation warnings, source and effective date - and applies only on explicit confirmation. Changes are versioned with an audit trail and one-word rollback; forged or stale pending changes are rejected.
 - **Configuration compiler:** deterministic rules choose terminology, navigation, KPIs, modules, workflows, access roles, and the tax pack. Every choice is explainable.
 - **Live blueprint:** `/api/preview` accepts partial answers and returns a valid evolving configuration.
