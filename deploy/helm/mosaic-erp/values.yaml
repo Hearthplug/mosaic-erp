@@ -1,0 +1,44 @@
+replicaCount: 1
+image:
+  repository: mosaic-erp
+  tag: "dev"
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+config:
+  rateLimitRpm: 120
+service:
+  type: ClusterIP
+  port: 80
+persistence:
+  enabled: true
+  accessModes: [ReadWriteOnce]
+  size: 1Gi
+  storageClass: ""
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: mosaic.example.com
+      paths:
+        - {path: /, pathType: Prefix}
+  tls: []
+resources:
+  requests: {cpu: 100m, memory: 64Mi}
+  limits: {cpu: "1", memory: 512Mi}
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 0
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  targetCPUUtilizationPercentage: 70
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
