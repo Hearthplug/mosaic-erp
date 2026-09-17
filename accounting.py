@@ -309,3 +309,15 @@ class Accounting:
         with self.s.tx():
             self.s._db.execute('INSERT INTO acceptance_runs(id,workspace_id,run_at,actor_id,sample_name,expected_json,actual_json,status,difference_json,checksum) VALUES(?,?,?,?,?,?,?,?,?,?)',(rid,wid,utcnow(),actor,sample_name,canon(expected),canon(actual),status,canon(differences),sha256(canon(payload)))); self.s._audit(wid,actor,'acceptance.run',{'run_id':rid,'status':status})
         return {'id':rid,'status':status,'differences':differences,'checksum':sha256(canon(payload))}
+
+    def import_transactions(self,wid,actor,rows,dry_run=True):
+        """Validation-first journal import with source control totals."""
+        errors=[]; debit=credit=0
+        for n,row in enumerate(rows,1):
+            lines=row.get('lines',[]);d=sum(int(x.get('debit_minor',0)) for x in lines);c=sum(int(x.get('credit_minor',0)) for x in lines)
+            if len(lines)<2 or d!=c or d<=0:errors.append({'row':n,'error':'journal is not positive and balanced'})
+            debit+=d;credit+=c
+        if errors or dry_run:return {'valid':not errors,'dry_run':True,'rows':len(rows),'debit_control_minor':debit,'credit_control_minor':credit,'errors':errors}
+        results=[self.post_journal(wid,actor,x['effective_date'],x['description'],x['lines'],'import',x.get('source_id',ident('imp')),x.get('reference')) for x in rows]
+        recon=self.migration_reconciliation(wid,actor,'journal-import',len(rows),debit,sum(x['debit_minor'] for x in results),{'journals':[x['id'] for x in results]})
+        return {'valid':True,'dry_run':False,'imported':len(results),'reconciliation':recon}
