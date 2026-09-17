@@ -21,7 +21,9 @@ RUN groupadd --gid 10001 mosaic \
  && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin mosaic \
  && install -d -o mosaic -g mosaic -m 0700 /data
 WORKDIR /app
-COPY --chown=10001:10001 app.py store.py identity.py extra_packs.py static.html static.css static.js LICENSE ./
+COPY --chown=10001:10001 requirements.txt ./
+RUN pip install --no-cache-dir --requirement requirements.txt
+COPY --chown=10001:10001 app.py store.py postgres_store.py identity.py extra_packs.py static.html static.css static.js LICENSE ./
 USER 10001:10001
 VOLUME ["/data"]
 EXPOSE 8000
