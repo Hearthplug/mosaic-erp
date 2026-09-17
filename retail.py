@@ -75,7 +75,7 @@ class Retail:
 
  def set_credit(self,wid,actor,party_id,limit_minor,terms_days=0,blocked=False):
   with self.s.tx():
-   self.s._db.execute('INSERT OR REPLACE INTO credit_policies(workspace_id,party_id,limit_minor,terms_days,blocked) VALUES(?,?,?,?,?)',(wid,party_id,int(limit_minor),int(terms_days),int(blocked)));self.s._audit(wid,actor,'credit.policy',{'party_id':party_id,'limit_minor':int(limit_minor),'blocked':blocked})
+   self.s._db.execute('INSERT INTO credit_policies(workspace_id,party_id,limit_minor,terms_days,blocked) VALUES(?,?,?,?,?) ON CONFLICT(workspace_id,party_id) DO UPDATE SET limit_minor=excluded.limit_minor,terms_days=excluded.terms_days,blocked=excluded.blocked',(wid,party_id,int(limit_minor),int(terms_days),int(blocked)));self.s._audit(wid,actor,'credit.policy',{'party_id':party_id,'limit_minor':int(limit_minor),'blocked':blocked})
  def check_credit(self,wid,party_id,new_amount_minor):
   p=self.s._db.execute('SELECT * FROM credit_policies WHERE workspace_id=? AND party_id=?',(wid,party_id)).fetchone()
   if not p:return True
