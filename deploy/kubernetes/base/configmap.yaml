@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mosaic-erp
-  labels: {app.kubernetes.io/name: mosaic-erp}
-data:
-  MOSAIC_HOST: "0.0.0.0"
-  MOSAIC_DB_PATH: "/data/mosaic.db"
-  MOSAIC_RATE_LIMIT_RPM: "120"
