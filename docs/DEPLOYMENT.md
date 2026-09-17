@@ -1,6 +1,6 @@
 # Production deployment
 
-Mosaic supports three distinct paths. The local Python path optimizes for contribution and evaluation. Docker Compose is the single-host production path. Kubernetes/Helm packages the same **single-node SQLite architecture** for clusters. Kubernetes does not make this release highly available.
+Mosaic supports three distinct paths. The local Python path optimizes for contribution and evaluation. Docker Compose is the single-host production path. Kubernetes/Helm packages the same **single-node SQLite evaluation mode architecture** for clusters. Kubernetes does not make this release highly available.
 
 ## 1. Local Python
 
@@ -79,7 +79,7 @@ The chart sets startup/readiness/liveness probes, resource requests/limits, pod/
 
 ### Scaling and disruption
 
-Do not increase `replicaCount` or enable HPA. SQLite and the file-backed rate limiter are shared only inside one database file, while a normal PVC is `ReadWriteOnce`. The chart rejects HPA and multiple replicas. `maxUnavailable: 0` protects the lone pod from voluntary disruption, which can make node drains wait. Schedule maintenance deliberately. Real autoscaling, rolling multi-node availability, and automatic failover require the still-unimplemented PostgreSQL/shared-data adapter.
+Do not increase `replicaCount` or enable HPA. SQLite evaluation mode and the file-backed rate limiter are shared only inside one database file, while a normal PVC is `ReadWriteOnce`. The chart rejects HPA and multiple replicas. `maxUnavailable: 0` protects the lone pod from voluntary disruption, which can make node drains wait. Schedule maintenance deliberately. Real autoscaling, rolling multi-node availability, and automatic failover require the still-unimplemented PostgreSQL/shared-data adapter.
 
 ### Upgrade, rollback, backup, restore
 
@@ -96,3 +96,14 @@ Do not increase `replicaCount` or enable HPA. SQLite and the file-backed rate li
 `.github/workflows/container-release.yml` tests the source, builds `linux/amd64` and `linux/arm64`, generates BuildKit SBOM and max-mode provenance attestations, scans the built image with Trivy, and signs pushed release digests with GitHub Actions keyless OIDC. Publishing is enabled only after the repository gets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets and the workflow's image namespace is set to the exact approved Docker Hub account.
 
 The workflow and Docker/Kubernetes runtime remain source/static validated in the current development environment because Docker, a Kubernetes API server, and registry credentials were unavailable. Helm lint/template and source tests are locally verified. CI must pass on GitHub before a release is described as container-runtime verified.
+
+
+## PostgreSQL production checklist
+
+- External PostgreSQL 16+ primary endpoint with TLS verification; multi-AZ/PITR per business RPO/RTO.
+- Separate schema-owner migration Secret and least-privilege runtime Secret. No chart-generated passwords.
+- Size the per-pod pool against the server limit; add PgBouncer only when connection scale requires it.
+- Run the pre-upgrade migration Job, then a rolling Deployment with readiness gating and PDB.
+- Route ingress through an operator-owned controller/certificate manager. Configure NetworkPolicy database CIDR and ingress namespace labels for the cluster.
+- Export JSON logs and `/metrics`; alert on readiness, 5xx/latency, pool saturation, PostgreSQL connections/locks/lag/storage, backup age, and certificate expiry.
+- Restore into isolation and verify application data/audit checksums on a scheduled drill. Deployment templates cannot prove HA, PITR, capacity, or failover.
