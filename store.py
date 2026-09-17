@@ -12,6 +12,7 @@ Design notes (docs/ARCHITECTURE.md carries the full rationale and sources):
 """
 from __future__ import annotations
 import contextlib, hashlib, hmac, json, os, secrets, shutil, sqlite3, tempfile, threading
+from datetime import timedelta
 from datetime import datetime, timezone
 
 ROLES = ('viewer', 'editor', 'owner')
@@ -64,6 +65,33 @@ MIGRATIONS = [
         response_json TEXT NOT NULL,
         created_at TEXT NOT NULL,
         PRIMARY KEY(key, workspace_id)
+    );
+    """,
+    # 2: named users, revocable sessions, and a process-shared rate limiter
+    """
+    CREATE TABLE users(
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        email TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('viewer','editor','owner')),
+        created_at TEXT NOT NULL,
+        disabled_at TEXT,
+        UNIQUE(workspace_id,email)
+    );
+    CREATE TABLE sessions(
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        revoked_at TEXT
+    );
+    CREATE INDEX idx_sessions_token ON sessions(token_hash);
+    CREATE TABLE rate_buckets(
+        identity TEXT PRIMARY KEY,
+        tokens REAL NOT NULL,
+        updated_at REAL NOT NULL
     );
     """,
 ]
@@ -162,6 +190,87 @@ class Store:
     @staticmethod
     def role_ok(role: str, minimum: str) -> bool:
         return _ROLE_RANK.get(role, -1) >= _ROLE_RANK[minimum]
+
+    @staticmethod
+    def _password_hash(password: str, salt: bytes | None = None) -> str:
+        if len(password) < 12:
+            raise ValueError('password must be at least 12 characters')
+        salt = salt or secrets.token_bytes(16)
+        rounds = 600_000
+        digest = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, rounds)
+        return f'pbkdf2_sha256${rounds}${salt.hex()}${digest.hex()}'
+
+    @staticmethod
+    def _password_ok(password: str, encoded: str) -> bool:
+        try:
+            _, rounds, salt, expected = encoded.split('$')
+            actual = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), int(rounds)).hex()
+            return hmac.compare_digest(actual, expected)
+        except (ValueError, TypeError):
+            return False
+
+    def create_user(self, wid: str, email: str, password: str, role: str, actor_key_id: str):
+        if role not in ROLES:
+            raise ValueError('role must be one of: ' + ', '.join(ROLES))
+        email = (email or '').strip().lower()
+        if '@' not in email or len(email) > 254:
+            raise ValueError('valid email required')
+        uid = 'usr_' + secrets.token_hex(8)
+        encoded = self._password_hash(password)
+        with self.tx():
+            self._db.execute('INSERT INTO users(id,workspace_id,email,password_hash,role,created_at) VALUES(?,?,?,?,?,?)',
+                             (uid, wid, email, encoded, role, utcnow()))
+            self._audit(wid, actor_key_id, 'user.create', {'user_id': uid, 'email': email, 'role': role})
+        return {'user_id': uid, 'email': email, 'role': role}
+
+    def login(self, workspace_id: str, email: str, password: str, ttl_hours: int = 12):
+        # A generic failure prevents account enumeration. Password work is always performed.
+        with self._lock:
+            row = self._db.execute("SELECT * FROM users WHERE workspace_id=? AND email=? AND disabled_at IS NULL",
+                                   (workspace_id, (email or '').strip().lower())).fetchone()
+        encoded = row['password_hash'] if row else self._password_hash('dummy-password-value')
+        ok = self._password_ok(password or '', encoded)
+        if not row or not ok:
+            return None
+        sid, token = 'ses_' + secrets.token_hex(8), 'mss_' + secrets.token_hex(32)
+        now = datetime.now(timezone.utc); expires = now + timedelta(hours=max(1, min(int(ttl_hours), 24)))
+        with self.tx():
+            self._db.execute('INSERT INTO sessions(id,user_id,token_hash,created_at,expires_at) VALUES(?,?,?,?,?)',
+                             (sid, row['id'], sha256(token), now.isoformat(), expires.isoformat()))
+            self._audit(workspace_id, row['id'], 'session.login', {'session_id': sid})
+        return {'session_token': token, 'expires_at': expires.isoformat(), 'workspace_id': workspace_id,
+                'user_id': row['id'], 'role': row['role']}
+
+    def authenticate_session(self, token: str):
+        if not token.startswith('mss_'):
+            return None
+        with self._lock:
+            row = self._db.execute("""SELECT s.id,u.id user_id,u.workspace_id,u.role,s.expires_at
+                FROM sessions s JOIN users u ON u.id=s.user_id
+                WHERE s.token_hash=? AND s.revoked_at IS NULL AND u.disabled_at IS NULL""", (sha256(token),)).fetchone()
+        if not row or datetime.fromisoformat(row['expires_at']) <= datetime.now(timezone.utc):
+            return None
+        return row['workspace_id'], row['user_id'], row['role'], row['id']
+
+    def revoke_session(self, session_id: str, actor_id: str):
+        with self.tx():
+            row = self._db.execute('SELECT u.workspace_id FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=?', (session_id,)).fetchone()
+            if not row: raise NotFound('Session not found')
+            self._db.execute('UPDATE sessions SET revoked_at=? WHERE id=?', (utcnow(), session_id))
+            self._audit(row['workspace_id'], actor_id, 'session.logout', {'session_id': session_id})
+
+    def rate_allow(self, identity: str, rpm: int):
+        import time
+        now = time.time(); rpm = max(int(rpm), 1)
+        with self.tx():
+            identity = f'{rpm}:{identity}'
+            row = self._db.execute('SELECT tokens,updated_at FROM rate_buckets WHERE identity=?', (identity,)).fetchone()
+            tokens, ts = (row['tokens'], row['updated_at']) if row else (float(rpm), now)
+            tokens = min(float(rpm), tokens + max(0.0, now-ts) * rpm / 60.0)
+            allowed = tokens >= 1.0
+            tokens = tokens - 1.0 if allowed else tokens
+            self._db.execute('INSERT INTO rate_buckets(identity,tokens,updated_at) VALUES(?,?,?) ON CONFLICT(identity) DO UPDATE SET tokens=excluded.tokens,updated_at=excluded.updated_at', (identity,tokens,now))
+        return 0.0 if allowed else 60.0 / rpm
 
     def create_key(self, wid: str, role: str, label: str, actor_key_id: str):
         if role not in ROLES:
