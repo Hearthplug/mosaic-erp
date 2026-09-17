@@ -115,3 +115,21 @@ API key - there is no tenant parameter to tamper with.
   screens), visible focus outlines, screen-reader live regions, and automatic
   retry with clear "saved on this device / saved online / save failed"
   states. No technical vocabulary is required to finish setup.
+
+## Production hardening added in v1.1
+
+Implemented and source-tested:
+
+- Browser code and styling are external files. The server CSP is `default-src 'none'` with same-origin scripts/styles and no `unsafe-inline`.
+- Named users have workspace-scoped viewer/editor/owner roles. Passwords use PBKDF2-HMAC-SHA256 with a random 128-bit salt and 600,000 iterations. Session tokens have 256 bits of randomness, only token hashes are stored, sessions expire within 24 hours, and revocation is immediate.
+- Rate-limit buckets persist in the database and are shared by every worker pointed at that database. This removes process-local resets. A multi-node deployment must use the same PostgreSQL-backed implementation or an atomic external limiter; separate SQLite volumes do not share buckets.
+- The container runs as a non-root user, exposes liveness/readiness checks, and the supplied Caddy configuration terminates HTTPS with automatic certificates for a real `MOSAIC_DOMAIN`. Local mode remains `python3 install.py && python3 app.py` on loopback.
+- The OIDC trust boundary and required verification rules are specified in [OIDC.md](OIDC.md). No provider is claimed or enabled.
+
+## Deployment architecture and exact limits
+
+The included build remains SQLite-first and is safe for one application node sharing one persistent volume. SQLite does not support credible active-active multi-node deployment. A true multi-node deployment requires a PostgreSQL storage adapter with transaction semantics equivalent to `Store`, a managed primary with synchronous standby/failover, a connection pooler, and shared migrations run once before traffic. This repository documents that path but does not claim PostgreSQL support until that adapter and its integration suite land.
+
+For production, run at least two stateless app replicas behind an HTTPS load balancer, use PostgreSQL across availability zones, gate traffic on `/health/ready`, drain on failed readiness, and keep rate-limit/session state in PostgreSQL or another atomic shared service. Take encrypted scheduled database backups plus WAL/PITR, copy them off-account, and rehearse restore quarterly. Failover is an operator and infrastructure property: promote through the managed database control plane, fence the former primary, wait for readiness, then restore app traffic. The supplied SQLite CLI backup/restore remains the tested local/single-node recovery path.
+
+Automated tests and `release_check.py` are maintainer-run evidence, not an independent audit. Before sensitive hosted use, commission an independent code review and penetration test. Preserve the report, commit SHA, test commands/results, dependency and secret scans, threat model, and remediation log as the audit evidence pack.
