@@ -7,6 +7,13 @@ from urllib.parse import urlparse
 import secrets, sys, threading, time
 from urllib.parse import parse_qs
 from store import Store, Conflict, NotFound, canon, sha256
+
+def open_store():
+    url=os.environ.get("MOSAIC_DATABASE_URL", "")
+    if url.startswith(("postgresql://", "postgres://")):
+        from postgres_store import PostgresStore
+        return PostgresStore(url, os.environ.get("MOSAIC_DB_POOL_MIN",1), os.environ.get("MOSAIC_DB_POOL_MAX",10), os.environ.get("MOSAIC_AUTO_MIGRATE","true").lower() in ("1","true","yes"))
+    return Store(os.environ.get("MOSAIC_DB_PATH", str(Path(__file__).parent / "mosaic.db")))
 from extra_packs import DATA as EXTRA_DATA, BANDS as EXTRA_BANDS, REG as EXTRA_REG, SUP as EXTRA_SUP, SUB as EXTRA_SUB, make_pack
 ROOT=Path(__file__).parent; MAX_BYTES=256*1024
 TODAY='2026-09-17'
@@ -534,7 +541,7 @@ class AuthError(Exception):
         self.status, self.message = status, message
 
 def create_store():
-    return Store(os.getenv('MOSAIC_DB_PATH', str(ROOT / 'mosaic.db')))
+    return open_store()
 
 STORE = create_store()
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
@@ -550,7 +557,7 @@ def main():
     r.add_argument('--from', dest='src', required=True, help='Backup .db file path')
     r.add_argument('--yes', action='store_true', help='Confirm replacement of the live database file')
     args, _unknown = ap.parse_known_args()
-    db_path = os.getenv('MOSAIC_DB_PATH', str(ROOT / 'mosaic.db'))
+    db_path = os.getenv('MOSAIC_DATABASE_URL') or os.getenv('MOSAIC_DB_PATH', str(ROOT / 'mosaic.db'))
     if args.cmd == 'backup':
         out = create_store().backup(args.out)
         print(f'Backup verified and written to {out}')
