@@ -1,42 +1,24 @@
-replicaCount: 1
-image:
-  repository: mosaic-erp
-  tag: "dev"
-  digest: ""
-  pullPolicy: IfNotPresent
+replicaCount: 2
+image: {repository: mosaic-erp, tag: dev, digest: "", pullPolicy: IfNotPresent}
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-config:
-  rateLimitRpm: 120
-service:
-  type: ClusterIP
-  port: 80
-persistence:
-  enabled: true
-  accessModes: [ReadWriteOnce]
-  size: 1Gi
-  storageClass: ""
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-  hosts:
-    - host: mosaic.example.com
-      paths:
-        - {path: /, pathType: Prefix}
-  tls: []
-resources:
-  requests: {cpu: 100m, memory: 64Mi}
-  limits: {cpu: "1", memory: 512Mi}
-podDisruptionBudget:
-  enabled: true
-  maxUnavailable: 0
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 1
-  targetCPUUtilizationPercentage: 70
+config: {rateLimitRpm: 120, dbPoolMin: 1, dbPoolMax: 10}
+database:
+  # Existing Secret key database-url. Use sslmode=verify-full in production.
+  secretName: ""
+  secretKey: database-url
+  # Separate owner credential used only by the pre-upgrade migration Job.
+  migrationSecretName: ""
+  migrationSecretKey: database-url
+  runMigrationJob: true
+service: {type: ClusterIP, port: 80}
+ingress: {enabled: false, className: "", annotations: {}, hosts: [{host: mosaic.example.com, paths: [{path: /, pathType: Prefix}]}], tls: []}
+resources: {requests: {cpu: 100m, memory: 128Mi}, limits: {cpu: "1", memory: 512Mi}}
+podDisruptionBudget: {enabled: true, maxUnavailable: 1}
+autoscaling: {enabled: false, minReplicas: 2, maxReplicas: 6, targetCPUUtilizationPercentage: 70}
+networkPolicy: {enabled: true, databaseCIDR: "", databasePort: 5432, ingressNamespaceSelector: {}}
+topologySpreadConstraints: [{maxSkew: 1, topologyKey: topology.kubernetes.io/zone, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {}}}]
 podAnnotations: {}
 podLabels: {}
 nodeSelector: {}
