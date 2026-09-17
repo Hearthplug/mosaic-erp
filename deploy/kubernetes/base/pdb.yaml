@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mosaic-erp
+spec:
+  # Protects the single SQLite pod from voluntary eviction; it does not create HA.
+  maxUnavailable: 0
+  selector:
+    matchLabels: {app.kubernetes.io/name: mosaic-erp}
