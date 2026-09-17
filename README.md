@@ -4,21 +4,25 @@ Mosaic ERP is a conversational retail ERP architect. During setup, it interviews
 
 This is not a fixed dashboard with different labels. The configuration engine produces structurally different systems for grocery, fashion, electronics, pharmacy, beauty and wellness, and specialty retail, across 22 tax jurisdictions. Multi-store, omnichannel, credit, batch/expiry, serial/warranty, services/appointments, and team-control capabilities activate only when the operating model calls for them.
 
-## Run
+## Install and run
+
+One command sets everything up - it checks Python, prepares the database, creates your online-save workspace (recovery key stored in a private local file), and loads a sample business:
 
 ```bash
+python3 install.py
 python3 app.py
 ```
 
-Open http://localhost:8000. No packages or API key are required.
+Open http://localhost:8000. No packages, accounts, or API keys are required - Python 3.10+ is the only prerequisite. Re-running `install.py` after an interruption continues safely. To start over, delete `mosaic.db` and `mosaic-workspace.key`.
 
 ## Test
 
 ```bash
-python3 -m unittest test_customization -v
+python3 -m unittest test_customization test_persistence
+python3 release_check.py
 ```
 
-53 tests cover partial live configuration, vertical reshaping, 22 jurisdiction tax packs, full JSON export, and the conversational tax-configuration layer (view, preview, apply, rollback, refusals, multi-turn jurisdiction switches).
+75 tests cover partial live configuration, vertical reshaping, 22 jurisdiction tax packs, full JSON export, the conversational tax-configuration layer (view, preview, apply, rollback, refusals, multi-turn jurisdiction switches), and the persistence/security layer (migrations, tenant isolation, roles, idempotency, versioning, audit, backup/restore, recovery, privacy controls). `release_check.py` runs the full release-readiness gate and exits non-zero if anything fails.
 
 ## Product architecture
 
@@ -30,16 +34,32 @@ python3 -m unittest test_customization -v
 - **Live blueprint:** `/api/preview` accepts partial answers and returns a valid evolving configuration.
 - **Final blueprint:** `/api/configure` validates all required answers and produces a versioned configuration.
 - **JSON export:** `/api/export` and the Export JSON button download the entire configured ERP blueprint, including the tax profile and audit trail.
-- **Production path:** add an LLM for follow-up questions and language, while keeping the rules compiler as the safety and consistency boundary.
+- **Workspace persistence:** the Save online button creates a tenant-isolated workspace. Configurations are versioned with optimistic concurrency, every change lands in an append-only audit trail, mutations are idempotent, and one-click rollback, full data export, and confirmed erasure are built in. API keys carry viewer/editor/owner roles; only their hashes are stored.
+- **Data architecture:** SQLite (WAL) with transactional writes, ordered schema migrations, integrity-verified online backups and atomic restore, rate limiting, structured request logs with request ids, readiness/metrics endpoints, and secure defaults. Decisions, sources, threat model, and honest limits: [ARCHITECTURE.md](ARCHITECTURE.md).
+- **Production path:** add an LLM for follow-up questions and language, while keeping the rules compiler as the safety and consistency boundary. Hosted rollout items (TLS, scheduled offsite backups, SSO, external security review) are listed in the architecture doc.
 
 ## API
 
-- `GET /health`
+Public, stateless (nothing is stored):
+- `GET /health` · `GET /health/ready` (database integrity probe) · `GET /metrics`
 - `GET /api/questions` / `POST /api/questions` with `{"answers": {...}}` for the tailored set
 - `POST /api/preview` with partial JSON answers
 - `POST /api/configure` with complete JSON answers
 - `POST /api/export` with complete or partial answers; returns the full blueprint as a downloadable JSON attachment
 - `POST /api/chat` with `{answers, config, message, pending?, draft?}` for conversational tax configuration
+
+Workspace API (Bearer key, tenant-scoped, rate-limited, idempotency-aware):
+- `POST /api/workspaces` - create a workspace; the owner key is shown once
+- `GET /api/workspace` · `GET /api/workspace/config[?version=N]` · `GET /api/workspace/versions` · `GET /api/workspace/audit`
+- `PUT /api/workspace/config` `{answers, config, base_version, summary?}` - versioned save (editor+), stale bases rejected with 409
+- `POST /api/workspace/rollback` `{version}` - restore an old version as a new one (editor+)
+- `POST /api/workspace/keys` / `DELETE /api/workspace/keys/{id}` - mint and revoke viewer/editor/owner keys (owner)
+- `GET /api/workspace/export` - full tenant data export (editor+)
+- `DELETE /api/workspace` with `X-Confirm-Delete: <workspace_id>` - complete tenant erasure (owner)
+
+Data operations:
+- `python3 app.py backup --out backup.db` - consistent online backup, integrity-verified
+- `python3 app.py restore --from backup.db --yes` - verified, atomic restore (stop the server first)
 
 ## Market framing
 
@@ -52,6 +72,6 @@ Demand evidence and context:
 
 ## Scope
 
-The prototype creates a working, versioned ERP blueprint, not a production financial ledger. Tax profiles are configuration blueprints grounded in the cited authority pages and their effective dates - they are not tax filings, legal or tax advice, or compliance certification. Item-level rates must be confirmed against classification and current notifications, and production rollout needs authentication, tenant isolation, database migrations, backups, audit logs, integration adapters, and review by a local tax professional before reliance.
+Mosaic creates working, versioned ERP blueprints with a hardened, tenant-isolated persistence layer - it is not a financial ledger and does not replace accounting systems. Tax profiles are configuration blueprints grounded in the cited authority pages and their effective dates - they are not tax filings, legal or tax advice, or compliance certification. Item-level rates must be confirmed against classification and current notifications, and reliance needs review by a local tax professional. The build passes a source-verifiable release gate (`release_check.py`); the remaining deployment-dependent steps before any hosted launch (TLS, scheduled offsite backups, SSO, external security review) are listed in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 MIT licensed.
