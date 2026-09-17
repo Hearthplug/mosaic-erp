@@ -1,4 +1,5 @@
-Mosaic ERP is installed as one SQLite-backed pod. This chart deliberately rejects scaling and HPA until a shared PostgreSQL adapter exists.
+Mosaic ERP is installed with {{ .Values.replicaCount }} application replicas and external PostgreSQL.
+The migration Job uses {{ .Values.database.migrationSecretName }}; runtime pods use {{ .Values.database.secretName }}.
 {{- if .Values.ingress.enabled }}
 Open https://{{ (index .Values.ingress.hosts 0).host }}/
 {{- else }}
