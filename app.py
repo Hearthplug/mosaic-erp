@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import secrets, sys, threading, time
 from urllib.parse import parse_qs
 from store import Store, Conflict, NotFound, canon, sha256
+from accounting import Accounting
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -407,6 +408,10 @@ class H(BaseHTTPRequestHandler):
         qs = parse_qs(urlparse(self.path).query)
         if p == '/':
             return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/accounting':
+            return self.out(200, (ROOT / 'accounting.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/accounting.js':
+            return self.out(200, (ROOT / 'accounting.js').read_text(), 'application/javascript; charset=utf-8', rid=rid) or 200
         if p in ('/static.css', '/static.js'):
             kind = 'text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8'
             return self.out(200, (ROOT / p[1:]).read_text(), kind, hdrs={'Cache-Control': 'public, max-age=3600'}, rid=rid) or 200
@@ -438,6 +443,14 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/workspace/audit':
             wid, _, _ = self._auth('viewer')
             return self.out(200, {'events': STORE.audit_trail(wid)}, rid=rid) or 200
+        if p == '/api/accounting/status':
+            wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.status(wid), rid=rid) or 200
+        if p == '/api/accounting/trial-balance':
+            wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.trial_balance(wid, qs.get('as_of',[None])[0]), rid=rid) or 200
+        if p == '/api/accounting/statements':
+            wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.financial_statements(wid,to_date=qs.get('as_of',[None])[0]), rid=rid) or 200
+        if p == '/api/accounting/aging':
+            wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.aging(wid,qs.get('as_of',[TODAY])[0],qs.get('kind',['receivable'])[0]), rid=rid) or 200
         if p == '/api/workspace/export':
             wid, key_id, _ = self._auth('editor')
             data = STORE.export_workspace(wid, key_id)
@@ -482,6 +495,24 @@ class H(BaseHTTPRequestHandler):
                 with STORE.tx():
                     STORE._idem_store(idem, '', 'POST /api/workspaces', req_hash, 201, body)
             return self.out(201, body, rid=rid) or 201
+        if p == '/api/accounting/setup':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,BOOKS.setup(wid,actor,d.get('base_currency','USD'),d.get('fiscal_year_start','01-01')),rid=rid) or 201
+        if p == '/api/accounting/verify':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,BOOKS.verify(wid,actor,d.get('professional',''),d.get('note','')),rid=rid) or 200
+        if p == '/api/accounting/parties':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,BOOKS.create_party(wid,actor,d.get('kind','customer'),d.get('name',''),email=d.get('email'),tax_id=d.get('tax_id'),currency=d.get('currency')),rid=rid) or 201
+        if p == '/api/accounting/periods':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,BOOKS.add_period(wid,actor,d['name'],d['starts_on'],d['ends_on']),rid=rid) or 201
+        if p == '/api/accounting/documents':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,BOOKS.create_document(wid,actor,d['kind'],d['issue_date'],d['lines'],d.get('party_id'),d.get('currency'),d.get('due_date'),d.get('memo'),d.get('source_document_id'),d.get('exchange_rate','1')),rid=rid) or 201
+        if p == '/api/accounting/documents/approve':
+            wid, actor, _ = self._auth('owner'); d=self._body(); BOOKS.approve_document(wid,actor,d['document_id']); return self.out(200,{'approved':True},rid=rid) or 200
+        if p == '/api/accounting/documents/post':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,BOOKS.post_document(wid,actor,d['document_id']),rid=rid) or 200
+        if p == '/api/accounting/payments':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,BOOKS.record_payment(wid,actor,d['target_document_id'],d['amount_minor'],d['paid_on'],d.get('bank_account_id'),d.get('currency'),d.get('exchange_rate','1'),d.get('refund',False)),rid=rid) or 201
+        if p == '/api/accounting/journals/reverse':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,BOOKS.reverse_journal(wid,actor,d['journal_id'],d['effective_date'],d['reason']),rid=rid) or 201
         if p == '/api/workspace/users':
             wid, actor_id, _ = self._auth('owner')
             d = self._body()
@@ -544,6 +575,7 @@ def create_store():
     return open_store()
 
 STORE = create_store()
+BOOKS = Accounting(STORE)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
 
 def main():
