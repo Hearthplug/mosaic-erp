@@ -6,3 +6,5 @@ __pycache__/
 
 mosaic.db
 mosaic-workspace.key
+
+.env.dev
