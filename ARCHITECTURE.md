@@ -133,3 +133,11 @@ The included build remains SQLite-first and is safe for one application node sha
 For production, run at least two stateless app replicas behind an HTTPS load balancer, use PostgreSQL across availability zones, gate traffic on `/health/ready`, drain on failed readiness, and keep rate-limit/session state in PostgreSQL or another atomic shared service. Take encrypted scheduled database backups plus WAL/PITR, copy them off-account, and rehearse restore quarterly. Failover is an operator and infrastructure property: promote through the managed database control plane, fence the former primary, wait for readiness, then restore app traffic. The supplied SQLite CLI backup/restore remains the tested local/single-node recovery path.
 
 Automated tests and `release_check.py` are maintainer-run evidence, not an independent audit. Before sensitive hosted use, commission an independent code review and penetration test. Preserve the report, commit SHA, test commands/results, dependency and secret scans, threat model, and remediation log as the audit evidence pack.
+
+## Container and cluster distribution
+
+The OCI image runs as fixed UID/GID 10001 with a read-only application filesystem, writable `/data` only, health check, no shell entrypoint, and a digest-pinned base. Compose adds capability dropping, `no-new-privileges`, resource bounds, a persistent volume, and Caddy TLS termination.
+
+The Kubernetes manifests and Helm chart package this same SQLite service as exactly one StatefulSet replica with probes, resources, PVC, optional Ingress/TLS, and a disruption budget. The chart rejects multiple replicas and HPA. These controls improve operability on a cluster but do not provide application HA, failover, or horizontal scaling. Those still need a tested PostgreSQL/shared-state adapter and deployed multi-node infrastructure.
+
+The release workflow builds amd64/arm64 OCI manifests, emits SBOM and SLSA-style BuildKit provenance attestations, fails on fixed high/critical vulnerabilities, and keylessly signs release digests through GitHub OIDC. Registry publication and runtime claims begin only after the exact registry namespace is approved, credentials are configured, and CI passes.
