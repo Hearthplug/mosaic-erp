@@ -6,14 +6,41 @@ This is not a fixed dashboard with different labels. The configuration engine pr
 
 ## Install and run
 
-One command sets everything up - it checks Python, prepares the database, creates your online-save workspace (recovery key stored in a private local file), and loads a sample business:
+Mosaic keeps the simple contributor path and also ships source-ready production deployment artifacts.
+
+### Local Python - fastest evaluation and development
 
 ```bash
 python3 install.py
 python3 app.py
 ```
 
-Open http://localhost:8000. No packages, accounts, or API keys are required - Python 3.10+ is the only prerequisite. Re-running `install.py` after an interruption continues safely. To start over, delete `mosaic.db` and `mosaic-workspace.key`.
+Open http://localhost:8000. Python 3.10+ is the only prerequisite. Data is stored in `mosaic.db`; protect the one-time `mosaic-workspace.key` created by the installer.
+
+### Docker Compose - single-host production path
+
+```bash
+cp .env.example .env          # set MOSAIC_DOMAIN to your DNS name
+docker compose build --pull
+docker compose up -d
+curl -fsS https://$MOSAIC_DOMAIN/health/ready
+```
+
+This builds a pinned, non-root image locally, persists SQLite under the `mosaic-data` volume, applies read-only/capability/resource controls, and terminates HTTPS with Caddy. **No Docker Hub image is published yet.** The image and Compose files are source/static validated here; the GitHub CI workflow provides the first real Docker runtime gate.
+
+### Kubernetes / Helm - cluster packaging, still one SQLite pod
+
+```bash
+helm lint deploy/helm/mosaic-erp
+helm upgrade --install mosaic deploy/helm/mosaic-erp \
+  --namespace mosaic --create-namespace \
+  --set image.repository=<docker-hub-namespace>/mosaic-erp \
+  --set image.tag=dev
+```
+
+The chart includes non-root security contexts, startup/readiness/liveness probes, resource requests/limits, a persistent volume, ConfigMap, Service, optional Ingress/TLS, and a disruption budget. It deliberately blocks replicas above one and HPA: Kubernetes packaging is not high availability while Mosaic uses SQLite. Use an immutable `image.digest` for production. The chart is linted and rendered in the release checks; cluster runtime validation remains required.
+
+See [Production deployment](docs/DEPLOYMENT.md) for TLS, persistence, backup/restore, upgrades, rollback, secrets, supply-chain verification, and the plain Kubernetes manifests in `deploy/kubernetes/base`.
 
 ## Test
 
