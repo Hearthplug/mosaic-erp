@@ -22,7 +22,7 @@ python3 -m unittest test_customization test_persistence
 python3 release_check.py
 ```
 
-75 tests cover partial live configuration, vertical reshaping, 22 jurisdiction tax packs, full JSON export, the conversational tax-configuration layer (view, preview, apply, rollback, refusals, multi-turn jurisdiction switches), and the persistence/security layer (migrations, tenant isolation, roles, idempotency, versioning, audit, backup/restore, recovery, privacy controls). `release_check.py` runs the full release-readiness gate and exits non-zero if anything fails.
+79 tests cover partial live configuration, vertical reshaping, 22 jurisdiction tax packs, full JSON export, the conversational tax-configuration layer (view, preview, apply, rollback, refusals, multi-turn jurisdiction switches), and the persistence/security layer (migrations, tenant isolation, roles, idempotency, versioning, audit, backup/restore, recovery, privacy controls). `release_check.py` runs the full release-readiness gate and exits non-zero if anything fails.
 
 ## Product architecture
 
@@ -35,8 +35,8 @@ python3 release_check.py
 - **Final blueprint:** `/api/configure` validates all required answers and produces a versioned configuration.
 - **JSON export:** `/api/export` and the Export JSON button download the entire configured ERP blueprint, including the tax profile and audit trail.
 - **Workspace persistence:** the Save online button creates a tenant-isolated workspace. Configurations are versioned with optimistic concurrency, every change lands in an append-only audit trail, mutations are idempotent, and one-click rollback, full data export, and confirmed erasure are built in. API keys carry viewer/editor/owner roles; only their hashes are stored.
-- **Data architecture:** SQLite (WAL) with transactional writes, ordered schema migrations, integrity-verified online backups and atomic restore, rate limiting, structured request logs with request ids, readiness/metrics endpoints, and secure defaults. Decisions, sources, threat model, and honest limits: [ARCHITECTURE.md](ARCHITECTURE.md).
-- **Production path:** add an LLM for follow-up questions and language, while keeping the rules compiler as the safety and consistency boundary. Hosted rollout items (TLS, scheduled offsite backups, SSO, external security review) are listed in the architecture doc.
+- **Data architecture:** SQLite (WAL) local/single-node storage with transactional writes, ordered schema migrations, integrity-verified online backups and atomic restore, database-shared persistent rate limiting, structured request logs with request ids, readiness/metrics endpoints, and secure defaults. Decisions, sources, threat model, and honest limits: [ARCHITECTURE.md](ARCHITECTURE.md).
+- **Production path:** add an LLM for follow-up questions and language, while keeping the rules compiler as the safety and consistency boundary. Hosted rollout items (managed PostgreSQL adapter, deployed multi-node infrastructure, scheduled offsite backups, configured OIDC provider, external security review) are listed in the architecture doc.
 
 ## API
 
@@ -48,7 +48,9 @@ Public, stateless (nothing is stored):
 - `POST /api/export` with complete or partial answers; returns the full blueprint as a downloadable JSON attachment
 - `POST /api/chat` with `{answers, config, message, pending?, draft?}` for conversational tax configuration
 
-Workspace API (Bearer key, tenant-scoped, rate-limited, idempotency-aware):
+Identity: local named users with PBKDF2 password hashes, expiring/revocable sessions, and viewer/editor/owner roles; see `OIDC.md` for the provider-neutral OIDC boundary.
+
+Workspace API (Bearer key or session, tenant-scoped, persistently rate-limited, idempotency-aware):
 - `POST /api/workspaces` - create a workspace; the owner key is shown once
 - `GET /api/workspace` · `GET /api/workspace/config[?version=N]` · `GET /api/workspace/versions` · `GET /api/workspace/audit`
 - `PUT /api/workspace/config` `{answers, config, base_version, summary?}` - versioned save (editor+), stale bases rejected with 409
@@ -72,6 +74,6 @@ Demand evidence and context:
 
 ## Scope
 
-Mosaic creates working, versioned ERP blueprints with a hardened, tenant-isolated persistence layer - it is not a financial ledger and does not replace accounting systems. Tax profiles are configuration blueprints grounded in the cited authority pages and their effective dates - they are not tax filings, legal or tax advice, or compliance certification. Item-level rates must be confirmed against classification and current notifications, and reliance needs review by a local tax professional. The build passes a source-verifiable release gate (`release_check.py`); the remaining deployment-dependent steps before any hosted launch (TLS, scheduled offsite backups, SSO, external security review) are listed in [ARCHITECTURE.md](ARCHITECTURE.md).
+Mosaic creates working, versioned ERP blueprints with a hardened, tenant-isolated persistence layer - it is not a financial ledger and does not replace accounting systems. Tax profiles are configuration blueprints grounded in the cited authority pages and their effective dates - they are not tax filings, legal or tax advice, or compliance certification. Item-level rates must be confirmed against classification and current notifications, and reliance needs review by a local tax professional. The build passes a source-verifiable automated release gate (`release_check.py`); the remaining deployment-dependent steps before any hosted launch (managed PostgreSQL adapter and HA deployment, scheduled offsite backups, configured OIDC provider, independent security review) are listed in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 MIT licensed.
