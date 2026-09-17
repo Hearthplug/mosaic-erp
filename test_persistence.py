@@ -160,7 +160,7 @@ class IdempotencyTests(ServerCase):
 
 class RateLimitTests(unittest.TestCase):
     def test_burst_is_throttled_with_retry_after(self):
-        limiter = app.RateLimiter(5)
+        limiter = app.RateLimiter(5, Store(tempfile.mktemp(suffix='.db')))
         allowed = sum(1 for _ in range(10) if not limiter.allow('id'))
         self.assertEqual(allowed, 5)
         self.assertGreater(limiter.allow('id'), 0)
@@ -269,6 +269,51 @@ class SurfaceTests(ServerCase):
     def test_oversize_and_bad_json(self):
         s, _, b = self.call('POST', '/api/workspaces', {'name': 'x' * (300 * 1024)})
         self.assertEqual(s, 413, b)
+
+
+class IdentityAndSharedLimitTests(ServerCase):
+    def test_password_session_role_and_revocation(self):
+        wid, owner = self.workspace('People')
+        status, _, user = self.call('POST', '/api/workspace/users',
+            {'email':'reader@example.test','password':'a-long-test-password','role':'viewer'}, self.auth(owner))
+        self.assertEqual(status, 201)
+        status, _, session = self.call('POST', '/api/session',
+            {'workspace_id':wid,'email':'reader@example.test','password':'a-long-test-password'})
+        self.assertEqual(status, 201)
+        bearer = self.auth(session['session_token'])
+        self.assertEqual(self.call('GET','/api/workspace',headers=bearer)[0], 200)
+        self.assertEqual(self.call('PUT','/api/workspace/config',{'answers':{},'config':{},'base_version':0},bearer)[0], 403)
+        app.STORE.revoke_session(app.STORE.authenticate_session(session['session_token'])[3], user['user_id'])
+        self.assertEqual(self.call('GET','/api/workspace',headers=bearer)[0], 401)
+
+    def test_passwords_are_slow_hashes_and_not_plaintext(self):
+        wid, owner = self.workspace('Hashes2')
+        secret = 'another-long-password'
+        self.call('POST','/api/workspace/users',{'email':'owner@example.test','password':secret,'role':'owner'},self.auth(owner))
+        encoded=app.STORE._db.execute('SELECT password_hash FROM users WHERE workspace_id=?',(wid,)).fetchone()[0]
+        self.assertTrue(encoded.startswith('pbkdf2_sha256$600000$'))
+        self.assertNotIn(secret, encoded)
+
+    def test_rate_limit_is_shared_between_limiter_instances(self):
+        path=tempfile.mktemp(suffix='.db'); shared=Store(path)
+        a=app.RateLimiter(2,shared); b=app.RateLimiter(2,shared)
+        self.assertEqual(a.allow('shared'),0)
+        self.assertEqual(b.allow('shared'),0)
+        self.assertGreater(a.allow('shared'),0)
+        shared.close()
+
+    def test_static_assets_and_strict_csp(self):
+        req=urllib.request.Request(f'http://127.0.0.1:{self.port}/')
+        with urllib.request.urlopen(req) as r:
+            status, headers, html_body = r.status, dict(r.headers), r.read().decode()
+        self.assertEqual(status,200)
+        csp=headers.get('Content-Security-Policy','')
+        self.assertNotIn('unsafe-inline',csp)
+        self.assertIn("script-src 'self'",csp)
+        for path in ('/static.css','/static.js'):
+            with urllib.request.urlopen(f'http://127.0.0.1:{self.port}{path}') as r: self.assertEqual(r.status,200)
+        html=(Path(__file__).parent/'static.html').read_text()
+        self.assertNotIn('<style>',html); self.assertNotIn('<script>',html)
 
 if __name__ == '__main__':
     unittest.main()
