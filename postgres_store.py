@@ -107,8 +107,8 @@ class PostgresStore(Store):
     def _check_schema(self):
         with self._pool.connection() as conn:
             row=conn.execute("SELECT to_regclass('public.mosaic_schema_migrations')").fetchone()
-            if not row or not row[0]: raise RuntimeError('PostgreSQL schema is not initialized; run the migration job')
-            version=conn.execute('SELECT COALESCE(MAX(version),0) FROM mosaic_schema_migrations').fetchone()[0]
+            if not row or not next(iter(row.values())): raise RuntimeError('PostgreSQL schema is not initialized; run the migration job')
+            version=next(iter(conn.execute('SELECT COALESCE(MAX(version),0) FROM mosaic_schema_migrations').fetchone().values()))
             if version != len(PG_MIGRATIONS): raise RuntimeError(f'PostgreSQL schema v{version} does not match required v{len(PG_MIGRATIONS)}')
 
     def migrate(self):
