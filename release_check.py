@@ -111,17 +111,17 @@ def main():
     fails = [n for n, ok, _ in RESULTS if not ok]
     print()
     print('OWNER ACTION (deployment-dependent, cannot be verified from source):')
-    for item in ('TLS termination at a reverse proxy (the app speaks plain HTTP on localhost)',
+    for item in ('DNS and a real domain for the supplied Caddy HTTPS termination path',
                  'offsite/scheduled backups and a rehearsed restore (CLI is provided; scheduling is operational)',
-                 'high availability and a managed database if a single node is not enough',
-                 'per-user accounts/SSO for teams (workspace API keys are the current boundary)',
+                 'a PostgreSQL adapter plus deployed multi-node database/load-balancer infrastructure for HA',
+                 'an operator-selected OIDC provider and tested adapter (local named accounts and sessions are implemented)',
                  'independent penetration test before handling real customer financial data'):
         print('  - ' + item)
     print()
     if fails:
         print(f'GATE RESULT: FAIL - {len(fails)} gate(s) failed: {", ".join(fails)}. Do not launch.')
         return 1
-    print(f'GATE RESULT: PASS - all {len(RESULTS)} source-verifiable gates pass. Verdict: hardened single-node build, ready for source-available download; the OWNER ACTION items above remain before any hosted "enterprise service" claim.')
+    print(f'GATE RESULT: PASS - all {len(RESULTS)} source-verifiable gates pass. Verdict: hardened local/single-node build with a containerized HTTPS deployment path, ready for source-available download; the OWNER ACTION items above remain before any hosted "enterprise service" claim.')
     return 0
 
 if __name__ == '__main__':
