@@ -1,0 +1,11 @@
+# Local development only. Create .env.dev from your own generated values.
+services:
+  postgres:
+    image: postgres:17.6-bookworm@sha256:1f04c75442c3327dd421bf48813f4ae0f50bead74bf38647767da4ebd3a9c519
+    env_file: [.env.dev]
+    healthcheck: {test: [CMD-SHELL, "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"], interval: 5s, timeout: 3s, retries: 20}
+    volumes: [postgres-dev:/var/lib/postgresql/data]
+  app:
+    env_file: [.env.dev]
+    depends_on: {postgres: {condition: service_healthy}}
+volumes: {postgres-dev: {}}
