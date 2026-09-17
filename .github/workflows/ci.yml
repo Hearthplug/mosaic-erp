@@ -1,0 +1,28 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  source-and-deployment:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
+        with: {version: v3.18.6}
+      - run: python3 -m unittest test_customization test_persistence
+      - run: python3 release_check.py
+      - run: python3 scripts/validate_deployment.py
+      - run: helm lint deploy/helm/mosaic-erp --strict
+      - run: helm template mosaic deploy/helm/mosaic-erp --set image.repository=example/mosaic-erp --set image.digest=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa > /tmp/mosaic.yaml
+      - run: docker build --pull --tag mosaic-erp:ci .
+      - run: |
+          set -e
+          docker run -d --name mosaic -p 18000:8000 --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev --mount type=volume,source=mosaic-ci-data,target=/data --cap-drop ALL --security-opt no-new-privileges mosaic-erp:ci
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:18000/health/ready && exit 0; sleep 1; done
+          docker logs mosaic
+          exit 1
+      - if: always()
+        run: docker rm -f mosaic || true
