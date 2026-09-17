@@ -1,11 +1,12 @@
 """Persistent operational retail flows for Mosaic ERP's real-product target."""
 from decimal import Decimal, ROUND_HALF_UP
+import threading
 import secrets
 from store import utcnow, Conflict, NotFound
 
 def ident(p): return p+'_'+secrets.token_hex(8)
 class Retail:
- def __init__(self,store,books): self.s,self.books=store,books
+ def __init__(self,store,books): self.s,self.books=store,books;self._operation_lock=threading.RLock()
  def setup_location(self,wid,actor,code,name,kind='store'):
   x=ident('loc')
   with self.s.tx(): self.s._db.execute('INSERT INTO locations(id,workspace_id,code,name,kind) VALUES(?,?,?,?,?)',(x,wid,code,name,kind));self.s._audit(wid,actor,'location.create',{'id':x,'code':code})
@@ -45,6 +46,8 @@ class Retail:
   with self.s.tx():self.s._db.execute('UPDATE purchase_orders SET status=? WHERE id=?',(status,po));self.s._audit(wid,actor,'purchase.receive',{'id':po,'status':status})
   return {'id':po,'status':status}
  def complete_sale(self,wid,actor,location_id,lines,tenders,customer_id=None,currency='USD'):
+  with self._operation_lock:return self._complete_sale(wid,actor,location_id,lines,tenders,customer_id,currency)
+ def _complete_sale(self,wid,actor,location_id,lines,tenders,customer_id=None,currency='USD'):
   sale=ident('sale'); number=self.books._next(wid,'sales_invoice'); computed=[]; sub=tax=0
   for x in lines:
    p=self.s._db.execute('SELECT * FROM retail_products WHERE id=? AND workspace_id=?',(x['product_id'],wid)).fetchone()
