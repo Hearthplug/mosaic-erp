@@ -4,9 +4,9 @@ BASE={'name':'Asha','vertical':'Grocery','country':'India','locations':'One stor
 def full(country,**over):
  a={k:v for k,v in BASE.items() if k not in ('turnover','registration','supply','buyers')}
  a|={'country':country}|over
- bands={'UAE':'Above AED 375,000','Singapore':'Above S$1 million','China':'Above RMB 5 million','Vietnam':'Any turnover','Malaysia':'Above RM500,000','United Kingdom':'Above £90,000','United States':'$100,000 – $1 million','Canada':'Above CA$30,000','European Union':'Above €10,000 cross-border sales'}
- regs={'UAE':'VAT registered','Singapore':'GST registered','China':'General VAT taxpayer','Vietnam':'Deduction method','Malaysia':'SST registered - goods','United Kingdom':'VAT registered','United States':'Collecting sales tax','Canada':'GST/HST registered','European Union':'OSS registered'}
- sup={'UAE':'Within the UAE','Singapore':'Within Singapore','China':'Within China','Vietnam':'Within Vietnam','Malaysia':'Within Malaysia','United Kingdom':'Within the UK','United States':'Within my state','Canada':'Within my province','European Union':'Within my member state'}
+ bands={'UAE':'Above AED 375,000','Singapore':'Above S$1 million','China':'Above RMB 5 million','Vietnam':'Any turnover','Malaysia':'Above RM500,000','United Kingdom':'Above £90,000','United States':'$100,000 – $1 million','Canada':'Above CA$30,000','European Union':'Above €10,000 cross-border sales',**__import__('extra_packs').BANDS}
+ regs={'UAE':'VAT registered','Singapore':'GST registered','China':'General VAT taxpayer','Vietnam':'Deduction method','Malaysia':'SST registered - goods','United Kingdom':'VAT registered','United States':'Collecting sales tax','Canada':'GST/HST registered','European Union':'OSS registered',**{k:v[0] for k,v in __import__('extra_packs').REG.items()}}
+ sup={'UAE':'Within the UAE','Singapore':'Within Singapore','China':'Within China','Vietnam':'Within Vietnam','Malaysia':'Within Malaysia','United Kingdom':'Within the UK','United States':'Within my state','Canada':'Within my province','European Union':'Within my member state',**{k:v[0] for k,v in __import__('extra_packs').SUP.items()}}
  if country in bands:
   for k,v in {'turnover':bands[country],'registration':regs[country],'supply':sup[country],'buyers':'Both'}.items():a.setdefault(k,v)
  return a
@@ -118,3 +118,25 @@ class ChatTests(unittest.TestCase):
  def test_rollback_without_history_refused(self):
   self.assertEqual(chat(BASE,self.cfg,'rollback')['intent'],'refuse')
 if __name__=='__main__':unittest.main()
+
+class ExtendedJurisdictionPackTests(unittest.TestCase):
+ def tax(self,c,sub=None):
+  a=full(c)
+  if sub:a['subdivision']=sub
+  return configure(a)['tax']
+ def test_all_twelve_have_sources_effective_and_safe_workflow(self):
+  countries=['Australia','New Zealand','Japan','South Korea','Saudi Arabia','South Africa','Brazil','Mexico','Indonesia','Philippines','Thailand','Switzerland']
+  subs={'Brazil':'São Paulo','Mexico':'General region','Switzerland':'Swiss-established'}
+  for c in countries:
+   t=self.tax(c,subs.get(c));self.assertEqual(t['jurisdiction'],c);self.assertGreaterEqual(len(t['sources']),2);self.assertTrue(all(s['url'].startswith('http') for s in t['sources']));self.assertTrue(t['effective']);self.assertTrue(t['warnings']);self.assertIn('classify',t['workflows'][0])
+ def test_representative_rates(self):
+  expected={'Australia':10,'New Zealand':15,'Japan':10,'South Korea':10,'Saudi Arabia':15,'South Africa':15,'Mexico':16,'Indonesia':12,'Philippines':12,'Thailand':7,'Switzerland':8.1}
+  subs={'Mexico':'General region','Switzerland':'Swiss-established'}
+  for c,rate in expected.items():self.assertTrue(any(s['rate']==rate for s in self.tax(c,subs.get(c))['rates']['slabs']))
+ def test_unsafe_jurisdictions_collect_required_fact(self):
+  for c in ('Brazil','Mexico','Switzerland'):
+   a=full(c);self.assertIsNone(partial(a)['tax']);self.assertTrue(any(q['key']=='subdivision' for q in questions_for(a)))
+ def test_cross_pack_chat_preview_confirm_export_audit_rollback(self):
+  cfg=configure(BASE);r=chat(BASE,cfg,'switch country to australia');self.assertEqual(r['intent'],'preview');self.assertEqual(r['preview']['answers']['country'],'Australia');a=r['preview']['answers'];ap=chat(BASE,cfg,'apply',pending=r['preview']);self.assertEqual(ap['config']['tax']['jurisdiction'],'Australia');self.assertEqual(len(ap['config']['history']),1);ex=chat(a,ap['config'],'export configuration');self.assertEqual(ex['export']['tax']['jurisdiction'],'Australia');rb=chat(a,ap['config'],'rollback');self.assertEqual(rb['config']['tax']['jurisdiction'],'India')
+ def test_brazil_multi_turn_regional_collection(self):
+  cfg=configure(BASE);r=chat(BASE,cfg,'switch country to brazil');self.assertEqual(r['intent'],'collect');r2=chat(BASE,cfg,'São Paulo',draft=r['draft']);self.assertEqual(r2['intent'],'preview');self.assertTrue(any('transition' in w.lower() for w in r2['preview']['warnings']))
