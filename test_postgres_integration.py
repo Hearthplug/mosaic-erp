@@ -1,14 +1,31 @@
-import os,threading,unittest
-try: from postgres_store import PostgresStore
-except ImportError: PostgresStore=None
+import os,secrets,threading,unittest
+try:
+ from psycopg.conninfo import conninfo_to_dict, make_conninfo
+ from postgres_store import PostgresStore
+except ImportError:
+ PostgresStore=None
 class PostgreSQLIntegration(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
   url=os.getenv('MOSAIC_TEST_POSTGRES_URL')
   if not url: raise unittest.SkipTest('MOSAIC_TEST_POSTGRES_URL not set')
-  cls.s=PostgresStore(url,min_size=1,max_size=8)
+  cls.owner=PostgresStore(url,min_size=1,max_size=4)
+  cls.role='mosaic_ci_runtime'; runtime_secret=secrets.token_urlsafe(24)
+  with cls.owner._pool.connection() as conn:
+   conn.execute(f'DROP ROLE IF EXISTS {cls.role}')
+   conn.execute(f"CREATE ROLE {cls.role} LOGIN PASSWORD '{runtime_secret}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS")
+   conn.execute(f'GRANT CONNECT ON DATABASE {conn.info.dbname} TO {cls.role}')
+   conn.execute(f'GRANT USAGE ON SCHEMA public TO {cls.role}')
+   conn.execute(f'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO {cls.role}')
+   conn.execute(f'GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO {cls.role}')
+   conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO {cls.role}')
+  parts=conninfo_to_dict(url);parts.update(user=cls.role,password=runtime_secret)
+  cls.s=PostgresStore(make_conninfo(**parts),min_size=1,max_size=8,auto_migrate=False)
  @classmethod
- def tearDownClass(cls): cls.s.close()
+ def tearDownClass(cls):
+  cls.s.close()
+  with cls.owner._pool.connection() as conn: conn.execute(f'DROP ROLE IF EXISTS {cls.role}')
+  cls.owner.close()
  def test_crud_idempotency_audit_and_isolation(self):
   a,ka=self.s.create_workspace('A');b,kb=self.s.create_workspace('B')
   aa=self.s.authenticate(ka);bb=self.s.authenticate(kb);self.assertEqual(aa[0],a);self.assertEqual(bb[0],b)
