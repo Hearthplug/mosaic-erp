@@ -411,6 +411,10 @@ class H(BaseHTTPRequestHandler):
         qs = parse_qs(urlparse(self.path).query)
         if p == '/':
             return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/interview':
+            return self.out(200, (ROOT / 'interview.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/interview.js':
+            return self.out(200, (ROOT / 'interview.js').read_text(), 'application/javascript; charset=utf-8', rid=rid) or 200
         if p == '/retail':
             return self.out(200, (ROOT / 'retail.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/accounting':
