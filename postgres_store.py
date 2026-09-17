@@ -11,6 +11,7 @@ from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from store import Store, MIGRATIONS, Conflict, NotFound
+from postgres_erp_schema import POSTGRES_ERP_MIGRATION, ALL_ERP_TABLES
 
 SCHEMA_VERSION = 1
 PG_MIGRATIONS = [r'''
@@ -23,7 +24,7 @@ CREATE TABLE idempotency_keys(key text NOT NULL,workspace_id text NOT NULL REFER
 CREATE TABLE users(id text PRIMARY KEY,workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,email text NOT NULL,password_hash text NOT NULL,role text NOT NULL CHECK(role IN ('viewer','editor','owner')),created_at text NOT NULL,disabled_at text,UNIQUE(workspace_id,email));
 CREATE TABLE sessions(id text PRIMARY KEY,user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,token_hash text NOT NULL UNIQUE,created_at text NOT NULL,expires_at text NOT NULL,revoked_at text);
 CREATE TABLE rate_buckets(identity text PRIMARY KEY,tokens double precision NOT NULL,updated_at double precision NOT NULL);
-''']
+''', POSTGRES_ERP_MIGRATION]
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
 RLS_SQL=r'''
@@ -145,6 +146,8 @@ class PostgresStore(Store):
             self._db.execute("SELECT set_config('mosaic.workspace_id',%s,true)",(wid,))
             self._db.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",('mosaic-config:'+wid,))
             return super().rollback(*args,**kwargs)
+    def accounting_lock(self,wid,scope):
+        self._db.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",('mosaic:'+scope+':'+wid,))
     def backup(self,out_path): raise RuntimeError('PostgreSQL backup is operator-managed; use pgBackRest/WAL-G or your managed service')
     @staticmethod
     def restore(from_path,db_path): raise RuntimeError('PostgreSQL restore is operator-managed; see docs/POSTGRESQL.md')
