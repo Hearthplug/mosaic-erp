@@ -281,20 +281,11 @@ def propose(a,na,cfg,field,value):
  p={'field':field,'from':oldv,'to':value,'summary':f"Change {field} from {oldv} to {value}",'affects':affects,'warnings':t.get('warnings',[]),'sources':t.get('sources',[]),'effective':t.get('effective','-'),'answers':na,'token':token(na)}
  return {'intent':'preview','reply':f"Preview: set {field} to {value} (was {oldv}). Affects: {('; '.join(affects)) or 'no structural change'}. Source: {t.get('sources',[{}])[0].get('title','-')}, effective {t.get('effective','-')}. "+(f"Warnings: {'; '.join(t['warnings'])}. " if t.get('warnings') else '')+'Say "apply" to confirm or "cancel" to discard.','preview':p}
 class RateLimiter:
-    """Per-identity token bucket. In-memory by design: a single-node guard
-    against accidental floods and naive abuse, not a multi-node WAF."""
-    def __init__(self, rpm):
-        self.rpm = max(int(rpm), 1); self._buckets = {}; self._lock = threading.Lock()
+    """Persistent token bucket shared by all workers using the same database."""
+    def __init__(self, rpm, store=None):
+        self.rpm = max(int(rpm), 1); self.store = store
     def allow(self, identity):
-        now = time.monotonic()
-        with self._lock:
-            tokens, ts = self._buckets.get(identity, (self.rpm, now))
-            tokens = min(self.rpm, tokens + (now - ts) * self.rpm / 60.0)
-            if tokens < 1.0:
-                self._buckets[identity] = (tokens, now)
-                return 60.0 / self.rpm
-            self._buckets[identity] = (tokens - 1.0, now)
-            return 0.0
+        return (self.store or STORE).rate_allow(identity, self.rpm)
 
 class Metrics:
     def __init__(self):
@@ -323,10 +314,12 @@ class H(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(x)))
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Referrer-Policy', 'no-referrer')
+        self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+        self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
         if k == 'application/json':
             self.send_header('Cache-Control', 'no-store')
         else:
-            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'")
         if rid:
             self.send_header('X-Request-ID', rid)
         for h, v in (hdrs or {}).items():
@@ -375,7 +368,11 @@ class H(BaseHTTPRequestHandler):
         return sha256(auth[7:])[:16] if auth.startswith('Bearer ') else (self.client_address[0] if self.client_address else 'unknown')
     def _auth(self, minimum='viewer'):
         auth = self.headers.get('Authorization', '')
-        ident = STORE.authenticate(auth[7:].strip()) if auth.startswith('Bearer ') else None
+        token = auth[7:].strip() if auth.startswith('Bearer ') else ''
+        ident = STORE.authenticate(token)
+        if not ident:
+            session = STORE.authenticate_session(token)
+            ident = session[:3] if session else None
         if not ident:
             raise AuthError(401, 'Missing or invalid Bearer API key')
         wid, key_id, role = ident
@@ -403,6 +400,9 @@ class H(BaseHTTPRequestHandler):
         qs = parse_qs(urlparse(self.path).query)
         if p == '/':
             return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p in ('/static.css', '/static.js'):
+            kind = 'text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8'
+            return self.out(200, (ROOT / p[1:]).read_text(), kind, hdrs={'Cache-Control': 'public, max-age=3600'}, rid=rid) or 200
         if p == '/api/questions':
             return self.out(200, {'questions': questions_for({})}, rid=rid) or 200
         if p == '/health':
@@ -453,6 +453,12 @@ class H(BaseHTTPRequestHandler):
                 return self.out(200, configure(d) if p.endswith('configure') else partial(d), rid=rid) or 200
             except Exception as e:
                 return self.out(400, {'error': str(e), 'request_id': rid}, rid=rid) or 400
+        if p == '/api/session':
+            d = self._body()
+            result = STORE.login(d.get('workspace_id',''), d.get('email',''), d.get('password',''))
+            if not result:
+                raise AuthError(401, 'Invalid workspace, email, or password')
+            return self.out(201, result, hdrs={'Cache-Control':'no-store'}, rid=rid) or 201
         if p == '/api/workspaces':
             d = self._body()
             idem = self.headers.get('Idempotency-Key')
@@ -469,6 +475,11 @@ class H(BaseHTTPRequestHandler):
                 with STORE.tx():
                     STORE._idem_store(idem, '', 'POST /api/workspaces', req_hash, 201, body)
             return self.out(201, body, rid=rid) or 201
+        if p == '/api/workspace/users':
+            wid, actor_id, _ = self._auth('owner')
+            d = self._body()
+            result = STORE.create_user(wid, d.get('email',''), d.get('password',''), d.get('role','viewer'), actor_id)
+            return self.out(201, result, rid=rid) or 201
         if p == '/api/workspace/rollback':
             wid, key_id, _ = self._auth('editor')
             d = self._body()
@@ -526,7 +537,7 @@ def create_store():
     return Store(os.getenv('MOSAIC_DB_PATH', str(ROOT / 'mosaic.db')))
 
 STORE = create_store()
-LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'))
+LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
 
 def main():
     import argparse
