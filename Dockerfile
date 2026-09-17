@@ -1,10 +1,31 @@
-FROM python:3.12-slim
-RUN useradd --create-home --uid 10001 mosaic
+# Pinned multi-architecture base. Dependabot updates the digest through reviewed PRs.
+FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
+
+ARG SOURCE_DATE_EPOCH=0
+ARG VCS_REF=unknown
+ARG VERSION=dev
+LABEL org.opencontainers.image.title="Mosaic ERP" \
+      org.opencontainers.image.description="Conversational retail ERP architect" \
+      org.opencontainers.image.source="https://github.com/Hearthplug/mosaic-erp" \
+      org.opencontainers.image.revision="$VCS_REF" \
+      org.opencontainers.image.version="$VERSION" \
+      org.opencontainers.image.licenses="MIT"
+
+ENV MOSAIC_HOST=0.0.0.0 \
+    PORT=8000 \
+    MOSAIC_DB_PATH=/data/mosaic.db \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN groupadd --gid 10001 mosaic \
+ && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin mosaic \
+ && install -d -o mosaic -g mosaic -m 0700 /data
 WORKDIR /app
-COPY --chown=mosaic:mosaic . /app
-USER mosaic
-ENV MOSAIC_HOST=0.0.0.0 PORT=8000 MOSAIC_DB_PATH=/data/mosaic.db
+COPY --chown=10001:10001 app.py store.py identity.py extra_packs.py static.html static.css static.js LICENSE ./
+USER 10001:10001
 VOLUME ["/data"]
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready',timeout=2)"
-CMD ["python", "app.py", "serve"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+ENTRYPOINT ["python", "app.py"]
+CMD ["serve"]
