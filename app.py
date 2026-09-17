@@ -8,6 +8,8 @@ import secrets, sys, threading, time
 from urllib.parse import parse_qs
 from store import Store, Conflict, NotFound, canon, sha256
 from accounting import Accounting
+from retail import Retail
+from operational_profile import Profiles
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -408,6 +410,8 @@ class H(BaseHTTPRequestHandler):
         qs = parse_qs(urlparse(self.path).query)
         if p == '/':
             return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/retail':
+            return self.out(200, (ROOT / 'retail.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/accounting':
             return self.out(200, (ROOT / 'accounting.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/accounting.js':
@@ -443,6 +447,12 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/workspace/audit':
             wid, _, _ = self._auth('viewer')
             return self.out(200, {'events': STORE.audit_trail(wid)}, rid=rid) or 200
+        if p == '/api/retail/stock':
+            wid, _, _ = self._auth('viewer'); product=qs.get('product_id',[None])[0]; location=qs.get('location_id',[None])[0]; return self.out(200,{'quantity':str(RETAIL.stock(wid,product,location))},rid=rid) or 200
+        if p == '/api/retail/reorder':
+            wid, _, _ = self._auth('viewer'); return self.out(200,{'items':RETAIL.reorder(wid,qs.get('location_id',[None])[0],int(qs.get('minimum',['5'])[0]))},rid=rid) or 200
+        if p == '/api/retail/export':
+            wid, _, _ = self._auth('editor'); return self.out(200,RETAIL.export_all(wid),hdrs={'Content-Disposition':'attachment; filename="mosaic-retail-export.json"'},rid=rid) or 200
         if p == '/api/accounting/status':
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.status(wid), rid=rid) or 200
         if p == '/api/accounting/trial-balance':
@@ -495,6 +505,33 @@ class H(BaseHTTPRequestHandler):
                 with STORE.tx():
                     STORE._idem_store(idem, '', 'POST /api/workspaces', req_hash, 201, body)
             return self.out(201, body, rid=rid) or 201
+        if p == '/api/retail/profile':
+            wid, actor, _ = self._auth('owner'); return self.out(200,PROFILES.apply(wid,actor,self._body()),rid=rid) or 200
+        if p == '/api/retail/locations':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,RETAIL.setup_location(wid,actor,d['code'],d['name'],d.get('kind','store')),rid=rid) or 201
+        if p == '/api/retail/products':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.product(wid,actor,d['sku'],d['name'],d['selling_price_minor'],d['cost_minor'],**{k:v for k,v in d.items() if k not in ('sku','name','selling_price_minor','cost_minor')}),rid=rid) or 201
+        if p == '/api/retail/purchases':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.purchase_order(wid,actor,d['vendor_id'],d['location_id'],d['ordered_on'],d['lines'],d.get('currency','USD')),rid=rid) or 201
+        if p == '/api/retail/purchases/approve':
+            wid, actor, _ = self._auth('owner'); d=self._body(); RETAIL.approve_purchase(wid,actor,d['purchase_order_id']); return self.out(200,{'approved':True},rid=rid) or 200
+        if p == '/api/retail/purchases/receive':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,RETAIL.receive_purchase(wid,actor,d['purchase_order_id'],d['received']),rid=rid) or 200
+        if p == '/api/retail/sales':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.complete_sale(wid,actor,d['location_id'],d['lines'],d['tenders'],d.get('customer_id'),d.get('currency','USD')),rid=rid) or 201
+        if p == '/api/retail/returns':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.return_sale(wid,actor,d['sale_id'],d['lines'],d['reason'],d['approved_by'],d.get('refund_kind','cash')),rid=rid) or 201
+        if p == '/api/retail/cash/open':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.open_cash(wid,actor,d['location_id'],d['opening_minor']),rid=rid) or 201
+        if p == '/api/retail/cash/close':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,RETAIL.close_cash(wid,actor,d['session_id'],d['actual_minor']),rid=rid) or 200
+        if p == '/api/retail/chat':
+            wid, actor, role = self._auth('viewer'); d=self._body(); msg=(d.get('message') or '').strip().lower()
+            if msg in ('show low stock','what should i reorder'):
+                return self.out(200,{'action':'reorder','result':RETAIL.reorder(wid,d['location_id'],d.get('minimum',5))},rid=rid) or 200
+            if msg in ('show my books','trial balance'):
+                return self.out(200,{'action':'trial_balance','result':BOOKS.trial_balance(wid)},rid=rid) or 200
+            raise AuthError(400,'Chat can only run a recognized, role-checked operation')
         if p == '/api/accounting/setup':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,BOOKS.setup(wid,actor,d.get('base_currency','USD'),d.get('fiscal_year_start','01-01')),rid=rid) or 201
         if p == '/api/accounting/verify':
@@ -576,6 +613,8 @@ def create_store():
 
 STORE = create_store()
 BOOKS = Accounting(STORE)
+RETAIL = Retail(STORE,BOOKS)
+PROFILES = Profiles(STORE)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
 
 def main():
