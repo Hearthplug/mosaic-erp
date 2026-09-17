@@ -1,2 +1,4 @@
-{{- if ne (int .Values.replicaCount) 1 }}{{ fail "replicaCount must remain 1 while Mosaic uses SQLite" }}{{- end }}
-{{- if .Values.autoscaling.enabled }}{{ fail "autoscaling cannot be enabled while Mosaic uses SQLite; deploy the future shared-database adapter first" }}{{- end }}
+{{- if lt (int .Values.replicaCount) 2 }}{{ fail "production replicaCount must be at least 2; use local Python/Compose for single-node evaluation" }}{{- end }}
+{{- if not .Values.database.secretName }}{{ fail "database.secretName is required" }}{{- end }}
+{{- if and .Values.database.runMigrationJob (not .Values.database.migrationSecretName) }}{{ fail "database.migrationSecretName is required when migration Job is enabled" }}{{- end }}
+{{- if and .Values.networkPolicy.enabled (not .Values.networkPolicy.databaseCIDR) }}{{ fail "set networkPolicy.databaseCIDR or explicitly disable NetworkPolicy after reviewing cluster egress controls" }}{{- end }}
