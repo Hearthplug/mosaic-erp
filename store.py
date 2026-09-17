@@ -20,6 +20,7 @@ _ROLE_RANK = {r: i for i, r in enumerate(ROLES)}
 
 from accounting_schema import ACCOUNTING_SQLITE_SCHEMA
 from retail_schema import RETAIL_SQLITE_SCHEMA
+from onboarding_schema import ONBOARDING_SQLITE_SCHEMA
 
 MIGRATIONS = [
     # 1: core workspace schema
@@ -99,6 +100,7 @@ MIGRATIONS = [
     """,
     ACCOUNTING_SQLITE_SCHEMA,
     RETAIL_SQLITE_SCHEMA,
+    ONBOARDING_SQLITE_SCHEMA,
 ]
 
 def utcnow() -> str:
