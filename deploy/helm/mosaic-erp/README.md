@@ -1,16 +1,21 @@
 # Mosaic ERP Helm chart
 
-This chart deploys the current SQLite build as one non-root `StatefulSet` with a persistent volume. It intentionally rejects replicas other than one and HPA. A `ReadWriteOnce` PVC is persistence, not high availability.
+Production chart for a stateless, multi-replica Mosaic deployment backed by an external PostgreSQL 16+ service. The chart never creates database users, passwords, TLS certificates, object-storage buckets, or a PostgreSQL cluster.
+
+Create two Secrets outside Helm: `database.secretName` for the least-privilege runtime URL and `database.migrationSecretName` for the schema owner used only by the pre-install/pre-upgrade Job. Use `sslmode=verify-full`. Set `networkPolicy.databaseCIDR` to the database endpoint range or explicitly disable the policy only after reviewing cluster egress controls.
 
 ```bash
-helm lint deploy/helm/mosaic-erp
-helm template mosaic deploy/helm/mosaic-erp \
-  --set image.repository=<namespace>/mosaic-erp \
-  --set image.tag=dev > mosaic.yaml
+helm lint deploy/helm/mosaic-erp --strict \
+  --set database.secretName=mosaic-db \
+  --set database.migrationSecretName=mosaic-db-owner \
+  --set networkPolicy.databaseCIDR=10.20.0.0/24
 helm upgrade --install mosaic deploy/helm/mosaic-erp \
   --namespace mosaic --create-namespace \
-  --set image.repository=<namespace>/mosaic-erp \
-  --set image.tag=dev
+  --set image.repository=hearthplug/mosaic-erp \
+  --set image.digest=sha256:REPLACE \
+  --set database.secretName=mosaic-db \
+  --set database.migrationSecretName=mosaic-db-owner \
+  --set networkPolicy.databaseCIDR=10.20.0.0/24
 ```
 
-For production, set `image.digest=sha256:...`, configure `persistence.storageClass`, and enable ingress with your installed ingress controller and TLS certificate manager. The chart never creates a TLS certificate, registry credential, or application secret for you.
+HPA is optional and requires Metrics Server plus database capacity for `maxReplicas * dbPoolMax`. See `docs/POSTGRESQL.md` for role separation, migration, backup/PITR, HA, and recovery drills.
