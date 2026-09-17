@@ -6,7 +6,7 @@ engine, so the general ledger remains the single source for all reports.
 """
 from __future__ import annotations
 from decimal import Decimal, ROUND_HALF_UP
-import csv, io, json, secrets
+import csv, io, json, secrets, threading
 from store import Conflict, NotFound, utcnow, canon, sha256
 
 SQLITE_SCHEMA = r'''
@@ -38,7 +38,7 @@ def minor(value):
 def ident(prefix): return prefix+'_'+secrets.token_hex(8)
 
 class Accounting:
-    def __init__(self, store): self.s=store
+    def __init__(self, store): self.s=store; self._sequence_lock=threading.RLock()
     def setup(self,wid,actor,base_currency='USD',fiscal_year_start='01-01'):
         currency=(base_currency or '').upper()
         if len(currency)!=3: raise ValueError('base_currency must be a 3-letter code')
@@ -70,10 +70,11 @@ class Accounting:
             self.s._audit(wid,actor,'accounting.material_change',{'changes':changes,'verification_invalidated':True})
         return self.status(wid)
     def _next(self,wid,kind):
-        row=self.s._db.execute('SELECT prefix,next_number FROM document_sequences WHERE workspace_id=? AND kind=?',(wid,kind)).fetchone()
-        if not row: raise Conflict('document sequence is not configured')
-        self.s._db.execute('UPDATE document_sequences SET next_number=next_number+1 WHERE workspace_id=? AND kind=?',(wid,kind))
-        return f"{row['prefix']}{int(row['next_number']):06d}"
+        with self._sequence_lock:
+            row=self.s._db.execute('SELECT prefix,next_number FROM document_sequences WHERE workspace_id=? AND kind=?',(wid,kind)).fetchone()
+            if not row: raise Conflict('document sequence is not configured')
+            self.s._db.execute('UPDATE document_sequences SET next_number=next_number+1 WHERE workspace_id=? AND kind=?',(wid,kind))
+            return f"{row['prefix']}{int(row['next_number']):06d}"
     def create_account(self,wid,actor,code,name,typ,system_key=None):
         if typ not in ('asset','liability','equity','income','expense'): raise ValueError('invalid account type')
         aid=ident('acc')
