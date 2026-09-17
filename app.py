@@ -4,6 +4,9 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
+import secrets, sys, threading, time
+from urllib.parse import parse_qs
+from store import Store, Conflict, NotFound, canon, sha256
 from extra_packs import DATA as EXTRA_DATA, BANDS as EXTRA_BANDS, REG as EXTRA_REG, SUP as EXTRA_SUP, SUB as EXTRA_SUB, make_pack
 ROOT=Path(__file__).parent; MAX_BYTES=256*1024
 TODAY='2026-09-17'
@@ -208,7 +211,7 @@ def chat(a,cfg,message,pending=None,draft=None):
   if not h:return {'intent':'refuse','reply':'Nothing to roll back yet - no applied changes are on record.'}
   last=h[-1];na=last['answers'];nc=configure(na);nc['history']=h[:-1];nc['version']=cfg.get('version',2)+1
   return {'intent':'rollback','reply':f"Rolled back the last change ({last.get('change','')}). Settings are back to version {last['version']}.",'config':nc}
- if 'export' in ml:
+ if ml.startswith('export') or ml.startswith('download'):
   e=export_config(a);return {'intent':'export','reply':'Full configuration export is ready as JSON, including the tax profile and audit trail.','export':e}
  if ml.startswith('apply') or ml in ('confirm','yes','yes apply'):
   if not pending:return {'intent':'refuse','reply':'There is no pending change to apply. Ask for a change first and review its preview.'}
@@ -277,28 +280,280 @@ def propose(a,na,cfg,field,value):
  affects=diff(cfg,newc)
  p={'field':field,'from':oldv,'to':value,'summary':f"Change {field} from {oldv} to {value}",'affects':affects,'warnings':t.get('warnings',[]),'sources':t.get('sources',[]),'effective':t.get('effective','-'),'answers':na,'token':token(na)}
  return {'intent':'preview','reply':f"Preview: set {field} to {value} (was {oldv}). Affects: {('; '.join(affects)) or 'no structural change'}. Source: {t.get('sources',[{}])[0].get('title','-')}, effective {t.get('effective','-')}. "+(f"Warnings: {'; '.join(t['warnings'])}. " if t.get('warnings') else '')+'Say "apply" to confirm or "cancel" to discard.','preview':p}
+class RateLimiter:
+    """Per-identity token bucket. In-memory by design: a single-node guard
+    against accidental floods and naive abuse, not a multi-node WAF."""
+    def __init__(self, rpm):
+        self.rpm = max(int(rpm), 1); self._buckets = {}; self._lock = threading.Lock()
+    def allow(self, identity):
+        now = time.monotonic()
+        with self._lock:
+            tokens, ts = self._buckets.get(identity, (self.rpm, now))
+            tokens = min(self.rpm, tokens + (now - ts) * self.rpm / 60.0)
+            if tokens < 1.0:
+                self._buckets[identity] = (tokens, now)
+                return 60.0 / self.rpm
+            self._buckets[identity] = (tokens - 1.0, now)
+            return 0.0
+
+class Metrics:
+    def __init__(self):
+        self._lock = threading.Lock(); self.requests = {}; self.latency = {}
+    def record(self, route, status, ms):
+        with self._lock:
+            k = f'{route}|{status}'
+            self.requests[k] = self.requests.get(k, 0) + 1
+            s, n = self.latency.get(route, (0.0, 0))
+            self.latency[route] = (s + ms, n + 1)
+    def snapshot(self):
+        with self._lock:
+            return {'requests': dict(self.requests),
+                    'latency_ms_avg': {r: round(t / n, 2) for r, (t, n) in self.latency.items()}}
+
+METRICS = Metrics()
+def log_event(**kv):
+    sys.stderr.write(json.dumps({'ts': datetime.now(timezone.utc).isoformat(), **kv}, ensure_ascii=False) + '\n')
+
 class H(BaseHTTPRequestHandler):
- def out(self,s,b,k='application/json',hdrs=None):
-  x=json.dumps(b,ensure_ascii=False).encode() if k=='application/json' else b.encode();self.send_response(s);self.send_header('Content-Type',k);self.send_header('Content-Length',str(len(x)))
-  for h,v in (hdrs or {}).items():self.send_header(h,v)
-  self.end_headers();self.wfile.write(x)
- def do_GET(self):
-  p=urlparse(self.path).path
-  if p=='/':return self.out(200,(ROOT/'static.html').read_text(),'text/html; charset=utf-8')
-  if p=='/api/questions':return self.out(200,{'questions':questions_for({})})
-  if p=='/health':return self.out(200,{'status':'ok'})
-  self.out(404,{'error':'Not found'})
- def do_POST(self):
-  if self.path not in ('/api/questions','/api/preview','/api/configure','/api/export','/api/chat'):return self.out(404,{'error':'Not found'})
-  n=int(self.headers.get('Content-Length','0'))
-  if n<=0 or n>MAX_BYTES:return self.out(413,{'error':'Invalid request size'})
-  try:
-   d=json.loads(self.rfile.read(n))
-   if self.path.endswith('questions'):return self.out(200,{'questions':questions_for(d.get('answers',d))})
-   if self.path.endswith('export'):return self.out(200,export_config(d),hdrs={'Content-Disposition':'attachment; filename="mosaic-erp-config.json"'})
-   if self.path.endswith('chat'):return self.out(200,chat(d.get('answers',{}),d.get('config',{}),d.get('message',''),d.get('pending'),d.get('draft')))
-   self.out(200,configure(d) if self.path.endswith('configure') else partial(d))
-  except Exception as e:self.out(400,{'error':str(e)})
- def log_message(self,*a):pass
-if __name__=='__main__':
- port=int(os.getenv('PORT','8000'));print(f'Mosaic ERP at http://localhost:{port}');ThreadingHTTPServer(('0.0.0.0',port),H).serve_forever()
+    server_version = 'MosaicERP/2'
+    def out(self, s, b, k='application/json', hdrs=None, rid=None):
+        x = json.dumps(b, ensure_ascii=False).encode() if k == 'application/json' else b.encode()
+        self.send_response(s)
+        self.send_header('Content-Type', k)
+        self.send_header('Content-Length', str(len(x)))
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Referrer-Policy', 'no-referrer')
+        if k == 'application/json':
+            self.send_header('Cache-Control', 'no-store')
+        else:
+            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'")
+        if rid:
+            self.send_header('X-Request-ID', rid)
+        for h, v in (hdrs or {}).items():
+            self.send_header(h, v)
+        self.end_headers()
+        if self.command != 'HEAD':
+            self.wfile.write(x)
+    def _route(self, fn):
+        """Shared envelope: request id, rate limit, metrics, structured logs."""
+        rid = self.headers.get('X-Request-ID') or 'req_' + secrets.token_hex(8)
+        start = time.monotonic(); status = 500; route = self.command + ' ' + urlparse(self.path).path
+        try:
+            retry = LIMITER.allow(self._identity())
+            if retry:
+                status = 429
+                return self.out(429, {'error': 'Rate limit exceeded; slow down and retry', 'request_id': rid},
+                                hdrs={'Retry-After': str(max(int(retry), 1))}, rid=rid)
+            status = fn(rid) or status
+        except BrokenPipeError:
+            status = 499
+        except AuthError as e:
+            status = e.status
+            try:
+                self.out(e.status, {'error': e.message, 'request_id': rid}, rid=rid)
+            except Exception:
+                pass
+        except (Conflict, NotFound) as e:
+            status = 409 if isinstance(e, Conflict) else 404
+            try:
+                self.out(status, {'error': str(e), 'request_id': rid}, rid=rid)
+            except Exception:
+                pass
+        except Exception as e:
+            status = 500
+            log_event(request_id=rid, route=route, error=repr(e))
+            try:
+                self.out(500, {'error': 'Internal error; the request id is in the server log', 'request_id': rid}, rid=rid)
+            except Exception:
+                pass
+        finally:
+            ms = round((time.monotonic() - start) * 1000, 2)
+            METRICS.record(route if status < 500 else route + ' (error)', status, ms)
+            log_event(request_id=rid, route=route, status=status, ms=ms, identity=self._identity()[:12])
+    def _identity(self):
+        auth = self.headers.get('Authorization', '')
+        return sha256(auth[7:])[:16] if auth.startswith('Bearer ') else (self.client_address[0] if self.client_address else 'unknown')
+    def _auth(self, minimum='viewer'):
+        auth = self.headers.get('Authorization', '')
+        ident = STORE.authenticate(auth[7:].strip()) if auth.startswith('Bearer ') else None
+        if not ident:
+            raise AuthError(401, 'Missing or invalid Bearer API key')
+        wid, key_id, role = ident
+        if not Store.role_ok(role, minimum):
+            raise AuthError(403, f'This key has role {role}; {minimum} or higher is required')
+        return wid, key_id, role
+    def _body(self):
+        n = int(self.headers.get('Content-Length', '0'))
+        if n <= 0 or n > MAX_BYTES:
+            raise AuthError(413, 'Invalid request size')
+        try:
+            return json.loads(self.rfile.read(n))
+        except json.JSONDecodeError:
+            raise AuthError(400, 'Request body is not valid JSON')
+    def do_GET(self):
+        self._route(self._get)
+    def do_POST(self):
+        self._route(self._post)
+    def do_PUT(self):
+        self._route(self._put)
+    def do_DELETE(self):
+        self._route(self._delete)
+    def _get(self, rid):
+        p = urlparse(self.path).path
+        qs = parse_qs(urlparse(self.path).query)
+        if p == '/':
+            return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/api/questions':
+            return self.out(200, {'questions': questions_for({})}, rid=rid) or 200
+        if p == '/health':
+            return self.out(200, {'status': 'ok', 'schema_version': 1}, rid=rid) or 200
+        if p == '/health/ready':
+            try:
+                ok = STORE.integrity_check()
+            except Exception:
+                ok = False
+            return self.out(200 if ok else 503, {'status': 'ready' if ok else 'not-ready', 'database': ok}, rid=rid) or (200 if ok else 503)
+        if p == '/metrics':
+            return self.out(200, METRICS.snapshot(), rid=rid) or 200
+        if p == '/api/workspace':
+            wid, _, _ = self._auth('viewer')
+            ws = STORE.get_workspace(wid)
+            ws['versions'] = STORE.list_versions(wid)
+            return self.out(200, ws, rid=rid) or 200
+        if p == '/api/workspace/config':
+            wid, _, _ = self._auth('viewer')
+            v = qs.get('version', [None])[0]
+            data = STORE.get_config(wid, int(v) if v else None)
+            return self.out(200, data, rid=rid) or 200
+        if p == '/api/workspace/versions':
+            wid, _, _ = self._auth('viewer')
+            return self.out(200, {'versions': STORE.list_versions(wid)}, rid=rid) or 200
+        if p == '/api/workspace/audit':
+            wid, _, _ = self._auth('viewer')
+            return self.out(200, {'events': STORE.audit_trail(wid)}, rid=rid) or 200
+        if p == '/api/workspace/export':
+            wid, key_id, _ = self._auth('editor')
+            data = STORE.export_workspace(wid, key_id)
+            return self.out(200, data, hdrs={'Content-Disposition': 'attachment; filename="mosaic-erp-workspace-export.json"'}, rid=rid) or 200
+        return self.out(404, {'error': 'Not found', 'request_id': rid}, rid=rid) or 404
+    def _post(self, rid):
+        p = urlparse(self.path).path
+        if p in ('/api/questions', '/api/preview', '/api/configure', '/api/export', '/api/chat'):
+            n = int(self.headers.get('Content-Length', '0'))
+            if n <= 0 or n > MAX_BYTES:
+                return self.out(413, {'error': 'Invalid request size', 'request_id': rid}, rid=rid) or 413
+            try:
+                d = json.loads(self.rfile.read(n))
+                if p.endswith('questions'):
+                    return self.out(200, {'questions': questions_for(d.get('answers', d))}, rid=rid) or 200
+                if p.endswith('export'):
+                    return self.out(200, export_config(d), hdrs={'Content-Disposition': 'attachment; filename="mosaic-erp-config.json"'}, rid=rid) or 200
+                if p.endswith('chat'):
+                    return self.out(200, chat(d.get('answers', {}), d.get('config', {}), d.get('message', ''), d.get('pending'), d.get('draft')), rid=rid) or 200
+                return self.out(200, configure(d) if p.endswith('configure') else partial(d), rid=rid) or 200
+            except Exception as e:
+                return self.out(400, {'error': str(e), 'request_id': rid}, rid=rid) or 400
+        if p == '/api/workspaces':
+            d = self._body()
+            idem = self.headers.get('Idempotency-Key')
+            req_hash = sha256(canon(d))
+            if idem:
+                hit = STORE._idem_lookup(idem, '', 'POST /api/workspaces', req_hash)
+                if hit:
+                    return self.out(hit['status'], hit['body'] | {'idempotent_replay': True},
+                                    hdrs={'Idempotency-Replayed': 'true'}, rid=rid) or hit['status']
+            wid, key = STORE.create_workspace(d.get('name', 'Workspace'))
+            body = {'workspace_id': wid, 'api_key': key, 'role': 'owner',
+                    'note': 'Store this key now; it is shown once and only its hash is kept.'}
+            if idem:
+                with STORE.tx():
+                    STORE._idem_store(idem, '', 'POST /api/workspaces', req_hash, 201, body)
+            return self.out(201, body, rid=rid) or 201
+        if p == '/api/workspace/rollback':
+            wid, key_id, _ = self._auth('editor')
+            d = self._body()
+            target = d.get('version')
+            if not isinstance(target, int):
+                raise AuthError(400, 'Body must include integer "version" to restore')
+            idem = self.headers.get('Idempotency-Key')
+            result, replayed = STORE.rollback(wid, target, key_id, idem_key=idem,
+                                              request_hash=sha256(canon(d)))
+            hdrs = {'Idempotency-Replayed': 'true'} if replayed else None
+            return self.out(200, result, hdrs=hdrs, rid=rid) or 200
+        if p == '/api/workspace/keys':
+            wid, key_id, _ = self._auth('owner')
+            d = self._body()
+            new_id, new_key = STORE.create_key(wid, d.get('role', 'viewer'), d.get('label', ''), key_id)
+            return self.out(201, {'key_id': new_id, 'api_key': new_key, 'role': d.get('role', 'viewer'),
+                                  'note': 'Store this key now; it is shown once and only its hash is kept.'}, rid=rid) or 201
+        return self.out(404, {'error': 'Not found', 'request_id': rid}, rid=rid) or 404
+    def _put(self, rid):
+        p = urlparse(self.path).path
+        if p == '/api/workspace/config':
+            wid, key_id, _ = self._auth('editor')
+            d = self._body()
+            for field in ('answers', 'config'):
+                if not isinstance(d.get(field), dict):
+                    raise AuthError(400, f'Body must include object "{field}"')
+            idem = self.headers.get('Idempotency-Key')
+            result, replayed = STORE.save_config(wid, d['answers'], d['config'], int(d.get('base_version', 0)),
+                                                 d.get('summary', ''), key_id, idem_key=idem,
+                                                 request_hash=sha256(canon(d)))
+            hdrs = {'Idempotency-Replayed': 'true'} if replayed else None
+            return self.out(200, result, hdrs=hdrs, rid=rid) or 200
+        return self.out(404, {'error': 'Not found', 'request_id': rid}, rid=rid) or 404
+    def _delete(self, rid):
+        p = urlparse(self.path).path
+        if p.startswith('/api/workspace/keys/'):
+            wid, key_id, _ = self._auth('owner')
+            STORE.revoke_key(wid, p.rsplit('/', 1)[1], key_id)
+            return self.out(200, {'revoked': True}, rid=rid) or 200
+        if p == '/api/workspace':
+            wid, key_id, _ = self._auth('owner')
+            if self.headers.get('X-Confirm-Delete') != wid:
+                raise AuthError(409, f'Destruction requires header X-Confirm-Delete: {wid}')
+            STORE.delete_workspace(wid, key_id)
+            return self.out(200, {'deleted': True, 'workspace_id': wid}, rid=rid) or 200
+        return self.out(404, {'error': 'Not found', 'request_id': rid}, rid=rid) or 404
+    def log_message(self, *a):
+        pass
+
+class AuthError(Exception):
+    def __init__(self, status, message):
+        self.status, self.message = status, message
+
+def create_store():
+    return Store(os.getenv('MOSAIC_DB_PATH', str(ROOT / 'mosaic.db')))
+
+STORE = create_store()
+LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'))
+
+def main():
+    import argparse
+    ap = argparse.ArgumentParser(description='Mosaic ERP server and data operations')
+    sub = ap.add_subparsers(dest='cmd')
+    sub.add_parser('serve', help='Run the HTTP server (default)')
+    b = sub.add_parser('backup', help='Consistent online backup of the workspace database')
+    b.add_argument('--out', required=True, help='Destination .db file path')
+    r = sub.add_parser('restore', help='Restore the database from a backup (stop the server first)')
+    r.add_argument('--from', dest='src', required=True, help='Backup .db file path')
+    r.add_argument('--yes', action='store_true', help='Confirm replacement of the live database file')
+    args, _unknown = ap.parse_known_args()
+    db_path = os.getenv('MOSAIC_DB_PATH', str(ROOT / 'mosaic.db'))
+    if args.cmd == 'backup':
+        out = create_store().backup(args.out)
+        print(f'Backup verified and written to {out}')
+        return
+    if args.cmd == 'restore':
+        if not args.yes:
+            raise SystemExit('Restore replaces the live database; re-run with --yes to confirm')
+        Store.restore(args.src, db_path)
+        print(f'Restored {args.src} -> {db_path}; integrity and schema verified before replacement')
+        return
+    host = os.getenv('MOSAIC_HOST', '127.0.0.1')
+    port = int(os.getenv('PORT', '8000'))
+    print(f'Mosaic ERP at http://{host}:{port} (database: {db_path})')
+    ThreadingHTTPServer((host, port), H).serve_forever()
+
+if __name__ == '__main__':
+    main()
