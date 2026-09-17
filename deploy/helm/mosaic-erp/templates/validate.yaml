@@ -1,0 +1,2 @@
+{{- if ne (int .Values.replicaCount) 1 }}{{ fail "replicaCount must remain 1 while Mosaic uses SQLite" }}{{- end }}
+{{- if .Values.autoscaling.enabled }}{{ fail "autoscaling cannot be enabled while Mosaic uses SQLite; deploy the future shared-database adapter first" }}{{- end }}
