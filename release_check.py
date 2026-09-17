@@ -88,16 +88,16 @@ def main():
 
     # Dependency scan: third-party imports must be zero
     deps = set()
-    for f in ('app.py', 'store.py', 'install.py', 'extra_packs.py', 'test_customization.py', 'test_persistence.py'):
+    for f in ('app.py', 'store.py', 'postgres_store.py', 'install.py', 'extra_packs.py', 'test_customization.py', 'test_persistence.py', 'test_postgres_contract.py'):
         tree = ast.parse((ROOT / f).read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 deps.update(a.name.split('.')[0] for a in node.names)
             elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 deps.add(node.module.split('.')[0])
-    stdlib = set(sys.stdlib_module_names) | {'app', 'store', 'extra_packs'}
+    stdlib = set(sys.stdlib_module_names) | {'app', 'store', 'postgres_store', 'extra_packs'}
     third = deps - stdlib
-    gate('Dependency scan', not third, f'zero third-party packages ({len(deps)} imports, all Python standard library)' if not third else f'third-party: {third}')
+    gate('Dependency scan', third <= {'psycopg','psycopg_pool'}, f'pinned PostgreSQL dependencies only: {third}' if third <= {'psycopg','psycopg_pool'} else f'unexpected third-party: {third}')
 
     # Secret scan: no private keys, tokens, or passwords in tracked files
     pat = re.compile(r'(-----BEGIN [A-Z ]*PRIVATE KEY|msk_[0-9a-f]{40}|ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|password\s*=\s*[\'"][^\'"]+)', re.I)
@@ -112,8 +112,8 @@ def main():
     print()
     print('OWNER ACTION (deployment-dependent, cannot be verified from source):')
     for item in ('DNS and a real domain for the supplied Caddy HTTPS termination path',
-                 'offsite/scheduled backups and a rehearsed restore (CLI is provided; scheduling is operational)',
-                 'a PostgreSQL adapter plus deployed multi-node database/load-balancer infrastructure for HA',
+                 'offsite PostgreSQL WAL/PITR retention and a rehearsed isolated restore',
+                 'managed PostgreSQL HA/PITR and deployed load-balancer failover evidence (adapter and templates are source-tested only)',
                  'an operator-selected OIDC provider and tested adapter (local named accounts and sessions are implemented)',
                  'independent penetration test before handling real customer financial data'):
         print('  - ' + item)
