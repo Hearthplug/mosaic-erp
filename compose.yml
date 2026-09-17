@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      MOSAIC_HOST: 0.0.0.0
+      MOSAIC_DB_PATH: /data/mosaic.db
+    volumes: [mosaic-data:/data]
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready',timeout=2)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      app: {condition: service_healthy}
+    environment:
+      MOSAIC_DOMAIN: ${MOSAIC_DOMAIN:-localhost}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  mosaic-data:
+  caddy-data:
+  caddy-config:
