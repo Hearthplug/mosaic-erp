@@ -24,7 +24,9 @@ class PostgreSQLIntegration(unittest.TestCase):
  @classmethod
  def tearDownClass(cls):
   cls.s.close()
-  with cls.owner._pool.connection() as conn: conn.execute(f'DROP ROLE IF EXISTS {cls.role}')
+  with cls.owner._pool.connection() as conn:
+   conn.execute(f'DROP OWNED BY {cls.role}')
+   conn.execute(f'DROP ROLE IF EXISTS {cls.role}')
   cls.owner.close()
  def test_crud_idempotency_audit_and_isolation(self):
   a,ka=self.s.create_workspace('A');b,kb=self.s.create_workspace('B')
@@ -45,5 +47,5 @@ class PostgreSQLIntegration(unittest.TestCase):
   a,_=self.s.create_workspace('RLS-A');b,_=self.s.create_workspace('RLS-B')
   with self.s.tx():
    self.s._db.execute("SELECT set_config('mosaic.workspace_id',%s,true)",(a,))
-   self.assertIsNone(self.s._db.execute('SELECT id FROM workspaces WHERE id=?',(b,)).fetchone())
+   self.assertIsNone(self.s._current().execute('SELECT id FROM workspaces WHERE id=%s',(b,)).fetchone())
 if __name__=='__main__':unittest.main()
