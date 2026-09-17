@@ -1,5 +1,8 @@
 """Operational retail ERP migration. Country packs configure it; they are not the product."""
 RETAIL_SQLITE_SCHEMA=r'''
+ALTER TABLE workspaces ADD COLUMN operational_profile_json TEXT;
+ALTER TABLE workspaces ADD COLUMN operational_profile_hash TEXT;
+ALTER TABLE workspaces ADD COLUMN operational_profile_at TEXT;
 CREATE TABLE locations(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,code TEXT NOT NULL,name TEXT NOT NULL,kind TEXT NOT NULL DEFAULT 'store',active INTEGER NOT NULL DEFAULT 1,UNIQUE(workspace_id,code));
 CREATE TABLE retail_products(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,sku TEXT NOT NULL,name TEXT NOT NULL,barcode TEXT,unit TEXT NOT NULL DEFAULT 'each',selling_price_minor INTEGER NOT NULL,cost_minor INTEGER NOT NULL,tax_code_id TEXT REFERENCES tax_codes(id),inventory_account_id TEXT REFERENCES accounts(id),cogs_account_id TEXT REFERENCES accounts(id),income_account_id TEXT REFERENCES accounts(id),active INTEGER NOT NULL DEFAULT 1,UNIQUE(workspace_id,sku),UNIQUE(workspace_id,barcode));
 CREATE TABLE stock_ledger(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,product_id TEXT NOT NULL REFERENCES retail_products(id),location_id TEXT NOT NULL REFERENCES locations(id),effective_at TEXT NOT NULL,quantity_delta TEXT NOT NULL,unit_cost_minor INTEGER NOT NULL,kind TEXT NOT NULL,source_type TEXT NOT NULL,source_id TEXT NOT NULL,actor_id TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(workspace_id,source_type,source_id,product_id,location_id,kind));
