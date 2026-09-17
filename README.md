@@ -104,3 +104,36 @@ Demand evidence and context:
 Mosaic creates working, versioned ERP blueprints with a hardened, tenant-isolated persistence layer - it is not a financial ledger and does not replace accounting systems. Tax profiles are configuration blueprints grounded in the cited authority pages and their effective dates - they are not tax filings, legal or tax advice, or compliance certification. Item-level rates must be confirmed against classification and current notifications, and reliance needs review by a local tax professional. The build passes a source-verifiable automated release gate (`release_check.py`); the remaining deployment-dependent steps before any hosted launch (managed PostgreSQL adapter and HA deployment, scheduled offsite backups, configured OIDC provider, independent security review) are listed in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 MIT licensed.
+
+## Run and deploy
+
+### Zero-setup evaluation: SQLite
+
+```bash
+python3 install.py
+python3 app.py
+```
+
+This path is intentionally simple and single-node. SQLite is not the production multi-replica backend.
+
+### Production Compose: external PostgreSQL
+
+Set a secret `MOSAIC_DATABASE_URL` with TLS verification, then run `docker compose up -d`. The default Compose file does not bundle a database or credentials. `compose.dev.yml` is an explicitly non-production PostgreSQL profile with known local credentials.
+
+```bash
+export MOSAIC_DATABASE_URL='postgresql://mosaic_app:...@db.example.com:5432/mosaic?sslmode=verify-full'
+docker compose up -d --build
+# development only:
+docker compose -f compose.yml -f compose.dev.yml up -d --build
+```
+
+### Production Kubernetes: Helm + external PostgreSQL
+
+```bash
+helm upgrade --install mosaic deploy/helm/mosaic-erp --namespace mosaic --create-namespace \
+  --set image.repository=YOUR_NAMESPACE/mosaic-erp --set image.digest=sha256:... \
+  --set database.secretName=mosaic-db --set database.migrationSecretName=mosaic-db-owner \
+  --set networkPolicy.databaseCIDR=10.20.0.0/24
+```
+
+The chart uses a two-replica rolling Deployment, separate migration credential/Job, probes, resource bounds, PDB, optional HPA, topology spread, pod security, and default-deny application NetworkPolicy. It expects operator-owned TLS ingress, Secret management, and managed PostgreSQL with backups/PITR/HA. See [PostgreSQL operations](docs/POSTGRESQL.md) and [deployment operations](docs/DEPLOYMENT.md). Source validation is not evidence of cluster failover, PITR, or load capacity.
