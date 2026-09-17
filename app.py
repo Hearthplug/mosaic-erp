@@ -4,12 +4,13 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
+from extra_packs import DATA as EXTRA_DATA, BANDS as EXTRA_BANDS, REG as EXTRA_REG, SUP as EXTRA_SUP, SUB as EXTRA_SUB, make_pack
 ROOT=Path(__file__).parent; MAX_BYTES=256*1024
 TODAY='2026-09-17'
 BASE_QUESTIONS=[
  {'key':'name','text':'First, what should we call your business?','type':'text','placeholder':'e.g. Asha Pharmacy'},
  {'key':'vertical','text':'What do you sell? I’ll adapt the language and workflows.','type':'choice','options':['Grocery','Fashion','Electronics','Pharmacy','Beauty & wellness','Home & specialty']},
- {'key':'country','text':'Which tax jurisdiction is home base? Onboarding, invoices, and compliance adapt to it.','type':'choice','options':['India','UAE','Singapore','China','Vietnam','Malaysia','United Kingdom','United States','Canada','European Union']},
+ {'key':'country','text':'Which tax jurisdiction is home base? Onboarding, invoices, and compliance adapt to it.','type':'choice','options':['India','UAE','Singapore','China','Vietnam','Malaysia','United Kingdom','United States','Canada','European Union']+list(EXTRA_DATA)},
  {'key':'locations','text':'What does your store network look like?','type':'choice','options':['One store','2–5 stores','6–20 stores','20+ stores']},
  {'key':'channels','text':'Where do customers buy from you?','type':'multi','options':['In store','Own website','Marketplaces','WhatsApp / social']},
  {'key':'inventory','text':'Which inventory problem costs you the most?','type':'choice','options':['Stockouts','Overstock','Transfers','Batch / expiry','Variants / serials']},
@@ -27,6 +28,8 @@ def jq(a):
  if c=='United States':out.append({'key':'subdivision','text':'Which US state? State and local sales tax rules differ.','type':'choice','options':sorted(US_STATE)})
  elif c=='Canada':out.append({'key':'subdivision','text':'Which province or territory? GST, HST, PST, and QST differ by province.','type':'choice','options':list(CA_PROV)})
  elif c=='European Union':out.append({'key':'subdivision','text':'Which EU member state sets your VAT?','type':'choice','options':sorted(EU_VAT)+['Other member state']})
+ if c in EXTRA_SUB:
+  text,opts=EXTRA_SUB[c];out.append({'key':'subdivision','text':text,'type':'choice','options':opts})
  bands={'India':['Up to ₹40 lakh','₹40 lakh – ₹1.5 crore','₹1.5 – 5 crore','Above ₹5 crore'],'UAE':['Up to AED 187,500','AED 187,500 – 375,000','Above AED 375,000'],'Singapore':['Up to S$1 million','Above S$1 million'],'China':['Up to RMB 5 million','Above RMB 5 million'],'Vietnam':['Any turnover'],'Malaysia':['Up to RM500,000','Above RM500,000'],'United Kingdom':['Up to £90,000','Above £90,000'],'United States':['Under $100,000','$100,000 – $1 million','Above $1 million'],'Canada':['Up to CA$30,000','Above CA$30,000'],'European Union':['Up to €10,000 cross-border sales','Above €10,000 cross-border sales']}
  regs={'India':['Regular','Composition','Not registered yet'],'UAE':['VAT registered','Voluntary registration','Not registered'],'Singapore':['GST registered','Not registered'],'China':['General VAT taxpayer','Small-scale taxpayer'],'Vietnam':['Deduction method','Direct method'],'Malaysia':['SST registered - goods','SST registered - services','Not registered'],'United Kingdom':['VAT registered','Flat rate scheme','Not registered'],'United States':['Collecting sales tax','Not collecting yet'],'Canada':['GST/HST registered','Not registered (small supplier)'],'European Union':['VAT registered','OSS registered','Not registered']}
  supply={'India':['Within my state','Across India','India + exports'],'UAE':['Within the UAE','Across the GCC','UAE + exports outside GCC'],'Singapore':['Within Singapore','Singapore + exports'],'China':['Within China','China + exports'],'Vietnam':['Within Vietnam','Vietnam + exports'],'Malaysia':['Within Malaysia','Malaysia + exports'],'United Kingdom':['Within the UK','UK + EU sales','UK + worldwide exports'],'United States':['Within my state','Across states'],'Canada':['Within my province','Across provinces','Canada + exports'],'European Union':['Within my member state','Across the EU','EU + exports outside the EU']}
@@ -140,11 +143,11 @@ def eu(a):
  rules=[(f'Domestic {ms} supply → {rate}% standard VAT' if rate is not None else f'Domestic {ms} supply → confirm the member-state standard rate') if ms and registered else 'No VAT charged until registered']+rules_extra
  if a.get('supply')=='EU + exports outside the EU':rules.append('Exports outside the EU → zero-rated with customs evidence')
  return {'jurisdiction':'European Union','subdivision':ms,'tax_name':'VAT','authority':('National tax authority of '+ms if ms else 'National tax authorities')+' under the EU VAT Directive','currency':{'code':'EUR','symbol':'€'},'registration':{'type':reg or 'Undecided','registered':registered,'label':('VAT identification number' + (' + OSS scheme' if reg=='OSS registered' else '')) if registered else 'Register in your member state','threshold':'National thresholds; €10,000 EU-wide for cross-border B2C distance sales'},'rates':{'structure':'VAT Directive: standard rate at least 15%; member states set their own','slabs':([{'band':ms+' standard','rate':rate}] if rate is not None else []),'note':'Confirm member-state rates and reduced-rate categories'},'rules':rules,'invoice':['VAT invoice with VAT ID, rate, and reverse-charge note where applicable' if registered else 'Commercial invoice until registered'],'credits':'Input VAT deductible with valid invoices' if registered else 'No deductions until registered','returns':['National VAT returns per member state']+(['Quarterly OSS return for EU B2C distance sales'] if reg=='OSS registered' else []),'validations':[{'check':'VIES','status':'Validate customer VAT numbers for intra-EU B2B zero-rating'},{'check':'OSS threshold','status':'Above €10,000 cross-border B2C - charge destination VAT' if a.get('turnover')=='Above €10,000 cross-border sales' else 'Below €10,000 cross-border threshold'}],'warnings':warns,'reverse_charge':'B2B intra-EU acquisitions are reverse-charged to the customer','workflows':([f'Sale → charge {ms} VAT at {rate}%'] if ms and registered and rate is not None else [])+(['EU B2B sale → validate VAT number in VIES → zero-rate'] if a.get('supply')=='Across the EU' and registered else [])+(['B2C EU sale above threshold → destination VAT via OSS'] if a.get('supply')=='Across the EU' and reg=='OSS registered' else []),'kpi':'VAT payable' if registered else 'Threshold watch','sources':[{'title':'European Commission: VAT rates under the VAT Directive','url':'https://taxation-customs.ec.europa.eu/taxation/vat/vat-directive/vat-rates_en'},{'title':'European Commission: VAT One Stop Shop','url':'https://vat-one-stop-shop.ec.europa.eu/one-stop-shop_en'}],'effective':TODAY}
-PACKS={'India':india,'UAE':uae,'Singapore':singapore,'China':china,'Vietnam':vietnam,'Malaysia':malaysia,'United Kingdom':uk,'United States':usa,'Canada':canada,'European Union':eu}
+PACKS={'India':india,'UAE':uae,'Singapore':singapore,'China':china,'Vietnam':vietnam,'Malaysia':malaysia,'United Kingdom':uk,'United States':usa,'Canada':canada,'European Union':eu,**{c:(lambda a,_c=c:make_pack(a,TODAY)) for c in EXTRA_DATA}}
 def tax_profile(a):
  c=a.get('country')
  if not c or c not in PACKS:return None
- if c in ('United States','Canada','European Union') and not a.get('subdivision'):return None
+ if c in ('United States','Canada','European Union',*EXTRA_SUB) and not a.get('subdivision'):return None
  p=PACKS[c]
  need=[q['key'] for q in jq(a)]
  if not any(a.get(k) for k in ('turnover','registration','supply','buyers')):return None
@@ -227,7 +230,7 @@ def chat(a,cfg,message,pending=None,draft=None):
   hit=[c for c in COUNTRIES if c.lower() in ml or any(x in ml for x in c.lower().split())]
   hit=[c for c in COUNTRIES if c.lower() in ml]
   if not hit:
-   alias={'uae':'UAE','dubai':'UAE','britain':'United Kingdom','uk':'United Kingdom','usa':'United States','america':'United States','eu':'European Union','europe':'European Union','sg':'Singapore','ksa':'UAE'}
+   alias={'uae':'UAE','dubai':'UAE','britain':'United Kingdom','uk':'United Kingdom','usa':'United States','america':'United States','eu':'European Union','europe':'European Union','sg':'Singapore','ksa':'Saudi Arabia','saudi':'Saudi Arabia','korea':'South Korea'}
    hit=[v for k,v in alias.items() if k in ml]
   if len(hit)!=1:return {'intent':'refuse','reply':'Which country? Options: '+', '.join(COUNTRIES)+'.'}
   na=dict(base);na['country']=hit[0];na.pop('subdivision',None)
@@ -242,7 +245,7 @@ def chat(a,cfg,message,pending=None,draft=None):
   return propose(a,na,cfg,'country',hit[0])
  if field=='subdivision':
   c=base.get('country')
-  opts={'United States':sorted(US_STATE),'Canada':list(CA_PROV),'European Union':sorted(EU_VAT)+['Other member state']}.get(c)
+  opts={'United States':sorted(US_STATE),'Canada':list(CA_PROV),'European Union':sorted(EU_VAT)+['Other member state'],**{k:v[1] for k,v in EXTRA_SUB.items()}}.get(c)
   if not opts:return {'intent':'refuse','reply':f"{c or 'This country'} has no sub-jurisdiction to set."}
   hit=[o for o in opts if o.lower() in ml]
   if len(hit)!=1:return {'intent':'refuse','reply':'Which one? Options: '+', '.join(opts)+'.'}
@@ -256,8 +259,8 @@ def chat(a,cfg,message,pending=None,draft=None):
   if not hit:return {'intent':'refuse','reply':f"Valid {field} options: "+', '.join(q['options'])+'.'}
   na=dict(base);na[field]=hit[0]
   return propose(a,na,cfg,field,hit[0])
- if base.get('country') in ('United States','Canada','European Union') and not base.get('subdivision'):
-  opts={'United States':sorted(US_STATE),'Canada':list(CA_PROV),'European Union':sorted(EU_VAT)+['Other member state']}[base['country']]
+ if base.get('country') in ('United States','Canada','European Union',*EXTRA_SUB) and not base.get('subdivision'):
+  opts={'United States':sorted(US_STATE),'Canada':list(CA_PROV),'European Union':sorted(EU_VAT)+['Other member state'],**{k:v[1] for k,v in EXTRA_SUB.items()}}[base['country']]
   hit=[o for o in opts if o.lower() in ml]
   if len(hit)==1:
    na=dict(base);na['subdivision']=hit[0]
