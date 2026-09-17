@@ -1,0 +1,10 @@
+apiVersion: v2
+name: mosaic-erp
+description: Single-node production deployment for Mosaic ERP
+version: 0.1.0
+appVersion: "dev"
+type: application
+home: https://github.com/Hearthplug/mosaic-erp
+sources: [https://github.com/Hearthplug/mosaic-erp]
+maintainers:
+  - {name: Hearthplug}
