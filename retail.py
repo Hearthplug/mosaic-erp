@@ -59,6 +59,68 @@ class Retail:
    self.s._db.execute('INSERT INTO sales(id,workspace_id,number,location_id,customer_id,sold_at,status,currency,subtotal_minor,tax_minor,total_minor,paid_minor,created_by) VALUES(?,?,?,?,?,?,\'completed\',?,?,?,?,?,?)',(sale,wid,number,location_id,customer_id,utcnow(),currency,sub,tax,total,paid,actor))
    for p,q,net,t in computed:self.s._db.execute('INSERT INTO sale_lines(id,sale_id,product_id,quantity,unit_price_minor,discount_minor,tax_minor,total_minor,cost_minor) VALUES(?,?,?,?,?,?,?,?,?)',(ident('sln'),sale,p['id'],str(q),p['selling_price_minor'],0,t,net+t,p['cost_minor']))
    for x in tenders:self.s._db.execute('INSERT INTO tender_entries(id,workspace_id,sale_id,kind,amount_minor,reference,received_at,actor_id) VALUES(?,?,?,?,?,?,?,?)',(ident('ten'),wid,sale,x['kind'],int(x['amount_minor']),x.get('reference'),utcnow(),actor))
+  cogs=sum(int((q*p['cost_minor']).quantize(Decimal('1'))) for p,q,net,t in computed)
   for p,q,net,t in computed:self.move_stock(wid,actor,p['id'],location_id,-q,p['cost_minor'],'sale','sale',sale)
-  self.s._audit(wid,actor,'sale.complete',{'id':sale,'number':number,'total_minor':total})
-  return {'id':sale,'number':number,'total_minor':total,'paid_minor':paid}
+  cash_lines=[]
+  for tnd in tenders: cash_lines.append({'account_id':self.books._system(wid,'cash' if tnd['kind']=='cash' else 'bank'),'debit_minor':int(tnd['amount_minor'])})
+  cash_lines.append({'account_id':self.books._system(wid,'sales'),'credit_minor':sub})
+  if tax:cash_lines.append({'account_id':self.books._system(wid,'sales_tax'),'credit_minor':tax})
+  if cogs:cash_lines.extend([{'account_id':self.books._system(wid,'cogs'),'debit_minor':cogs},{'account_id':self.books._system(wid,'inventory'),'credit_minor':cogs}])
+  journal=self.books.post_journal(wid,actor,utcnow()[:10],'POS sale '+number,cash_lines,'sale',sale,number,currency)
+  self.s._audit(wid,actor,'sale.complete',{'id':sale,'number':number,'total_minor':total,'journal_id':journal['id'],'cogs_minor':cogs})
+  return {'id':sale,'number':number,'total_minor':total,'paid_minor':paid,'journal_id':journal['id'],'cogs_minor':cogs}
+
+ def set_credit(self,wid,actor,party_id,limit_minor,terms_days=0,blocked=False):
+  with self.s.tx():
+   self.s._db.execute('INSERT OR REPLACE INTO credit_policies(workspace_id,party_id,limit_minor,terms_days,blocked) VALUES(?,?,?,?,?)',(wid,party_id,int(limit_minor),int(terms_days),int(blocked)));self.s._audit(wid,actor,'credit.policy',{'party_id':party_id,'limit_minor':int(limit_minor),'blocked':blocked})
+ def check_credit(self,wid,party_id,new_amount_minor):
+  p=self.s._db.execute('SELECT * FROM credit_policies WHERE workspace_id=? AND party_id=?',(wid,party_id)).fetchone()
+  if not p:return True
+  outstanding=self.s._db.execute("SELECT COALESCE(SUM(balance_minor),0) n FROM documents WHERE workspace_id=? AND party_id=? AND kind IN ('sales_invoice','debit_note') AND status='posted'",(wid,party_id)).fetchone()['n']
+  if p['blocked'] or outstanding+int(new_amount_minor)>p['limit_minor']:raise Conflict('customer credit limit exceeded or account blocked')
+  return True
+ def open_cash(self,wid,actor,location_id,opening_minor):
+  if self.s._db.execute("SELECT 1 FROM cash_sessions WHERE workspace_id=? AND location_id=? AND status='open'",(wid,location_id)).fetchone():raise Conflict('cash session already open')
+  x=ident('cash');
+  with self.s.tx():self.s._db.execute("INSERT INTO cash_sessions(id,workspace_id,location_id,opened_by,opened_at,opening_minor,status) VALUES(?,?,?,?,?,?,'open')",(x,wid,location_id,actor,utcnow(),int(opening_minor)));self.s._audit(wid,actor,'cash.open',{'id':x,'opening_minor':int(opening_minor)})
+  return {'id':x,'status':'open'}
+ def close_cash(self,wid,actor,session_id,actual_minor):
+  x=self.s._db.execute("SELECT * FROM cash_sessions WHERE id=? AND workspace_id=? AND status='open'",(session_id,wid)).fetchone()
+  if not x:raise Conflict('open cash session required')
+  tenders=self.s._db.execute("SELECT COALESCE(SUM(t.amount_minor),0) n FROM tender_entries t JOIN sales s ON s.id=t.sale_id WHERE t.workspace_id=? AND s.location_id=? AND t.kind IN ('cash','refund_cash') AND t.received_at>=?",(wid,x['location_id'],x['opened_at'])).fetchone()['n']; expected=x['opening_minor']+tenders;variance=int(actual_minor)-expected
+  with self.s.tx():self.s._db.execute("UPDATE cash_sessions SET status='closed',closed_by=?,closed_at=?,expected_minor=?,actual_minor=?,variance_minor=? WHERE id=?",(actor,utcnow(),expected,int(actual_minor),variance,session_id));self.s._audit(wid,actor,'cash.close',{'id':session_id,'expected_minor':expected,'actual_minor':int(actual_minor),'variance_minor':variance})
+  return {'id':session_id,'expected_minor':expected,'actual_minor':int(actual_minor),'variance_minor':variance}
+ def transfer(self,wid,actor,product_id,from_location,to_location,quantity):
+  p=self.s._db.execute('SELECT cost_minor FROM retail_products WHERE id=? AND workspace_id=?',(product_id,wid)).fetchone();x=ident('xfer');self.move_stock(wid,actor,product_id,from_location,-Decimal(str(quantity)),p['cost_minor'],'transfer_out','transfer',x);self.move_stock(wid,actor,product_id,to_location,quantity,p['cost_minor'],'transfer_in','transfer',x);return {'id':x}
+ def reorder(self,wid,location_id,minimum=5):
+  rows=self.s._db.execute('SELECT id,sku,name FROM retail_products WHERE workspace_id=? AND active=1',(wid,)).fetchall();return [{'product_id':r['id'],'sku':r['sku'],'name':r['name'],'on_hand':str(self.stock(wid,r['id'],location_id)),'suggested':str(max(Decimal(str(minimum))-self.stock(wid,r['id'],location_id),0))} for r in rows if self.stock(wid,r['id'],location_id)<Decimal(str(minimum))]
+ def count_stock(self,wid,actor,location_id,counts,approved_by):
+  cid=ident('cnt')
+  with self.s.tx():self.s._db.execute("INSERT INTO stock_counts(id,workspace_id,location_id,status,created_by,approved_by,created_at) VALUES(?,?,?,'approved',?,?,?)",(cid,wid,location_id,actor,approved_by,utcnow()))
+  for product_id,counted in counts.items():
+   expected=self.stock(wid,product_id,location_id);self.s._db.execute('INSERT INTO stock_count_lines(id,stock_count_id,product_id,expected_quantity,counted_quantity) VALUES(?,?,?,?,?)',(ident('cln'),cid,product_id,str(expected),str(counted)));delta=Decimal(str(counted))-expected
+   if delta:self.move_stock(wid,approved_by,product_id,location_id,delta,0,'count_adjustment','stock_count',cid+'-'+product_id)
+  with self.s.tx():self.s._db.execute("UPDATE stock_counts SET status='posted' WHERE id=?",(cid,));self.s._audit(wid,approved_by,'stock.count.post',{'id':cid})
+  return {'id':cid,'status':'posted'}
+ def return_sale(self,wid,actor,sale_id,lines,reason,approved_by,refund_kind='cash'):
+  sale=self.s._db.execute('SELECT * FROM sales WHERE id=? AND workspace_id=?',(sale_id,wid)).fetchone();rid=ident('ret');refund=0; moves=[]; cogs=0
+  if not sale:raise NotFound('sale not found')
+  with self.s.tx():
+   self.s._db.execute("INSERT INTO retail_returns(id,workspace_id,number,sale_id,location_id,returned_at,reason,status,refund_minor,created_by,approved_by) VALUES(?,?,?,?,?,?,?,'approved',0,?,?)",(rid,wid,'RET-'+sale['number'],sale_id,sale['location_id'],utcnow(),reason,actor,approved_by))
+   for line_id,qty in lines.items():
+    l=self.s._db.execute('SELECT * FROM sale_lines WHERE id=? AND sale_id=?',(line_id,sale_id)).fetchone();q=Decimal(str(qty));amount=int((q*Decimal(l['total_minor'])/Decimal(l['quantity'])).quantize(Decimal('1')));refund+=amount;cogs+=int((q*l['cost_minor']).quantize(Decimal('1')));moves.append((l,q,line_id));self.s._db.execute('INSERT INTO retail_return_lines(id,return_id,sale_line_id,quantity,restock) VALUES(?,?,?,?,1)',(ident('rln'),rid,line_id,str(q)))
+   self.s._db.execute("UPDATE retail_returns SET status='completed',refund_minor=? WHERE id=?",(refund,rid));self.s._db.execute('INSERT INTO tender_entries(id,workspace_id,sale_id,kind,amount_minor,reference,received_at,actor_id) VALUES(?,?,?,?,?,?,?,?)',(ident('ten'),wid,sale_id,'refund_'+refund_kind,-refund,rid,utcnow(),approved_by))
+  for l,q,line_id in moves:self.move_stock(wid,approved_by,l['product_id'],sale['location_id'],q,l['cost_minor'],'return','return',rid+'-'+line_id)
+  tax=sum(int((Decimal(str(qty))*Decimal(self.s._db.execute('SELECT tax_minor,quantity FROM sale_lines WHERE id=?',(line_id,)).fetchone()['tax_minor'])/Decimal(self.s._db.execute('SELECT quantity FROM sale_lines WHERE id=?',(line_id,)).fetchone()['quantity'])).quantize(Decimal('1'))) for line_id,qty in lines.items());net=refund-tax
+  acc=[{'account_id':self.books._system(wid,'sales_returns'),'debit_minor':net},{'account_id':self.books._system(wid,'cash' if refund_kind=='cash' else 'bank'),'credit_minor':refund}]
+  if tax:acc.append({'account_id':self.books._system(wid,'sales_tax'),'debit_minor':tax})
+  if cogs:acc.extend([{'account_id':self.books._system(wid,'inventory'),'debit_minor':cogs},{'account_id':self.books._system(wid,'cogs'),'credit_minor':cogs}])
+  journal=self.books.post_journal(wid,approved_by,utcnow()[:10],'Return '+sale['number'],acc,'retail_return',rid,'RET-'+sale['number'],sale['currency'])
+  self.s._audit(wid,approved_by,'sale.return',{'id':rid,'refund_minor':refund,'journal_id':journal['id']})
+  return {'id':rid,'refund_minor':refund,'status':'completed','journal_id':journal['id']}
+ def three_way_match(self,wid,actor,po,bill):
+  ordered=self.s._db.execute('SELECT COALESCE(SUM(CAST(quantity AS REAL)*unit_cost_minor),0) v,COALESCE(SUM(CAST(quantity AS REAL)-CAST(received_quantity AS REAL)),0) q FROM purchase_order_lines WHERE purchase_order_id=?',(po,)).fetchone();b=self.s._db.execute('SELECT total_minor FROM documents WHERE id=? AND workspace_id=?',(bill,wid)).fetchone();variance=int(b['total_minor'])-int(ordered['v']);status='matched' if not ordered['q'] and not variance else 'variance';x=ident('match')
+  with self.s.tx():self.s._db.execute('INSERT INTO three_way_matches(id,workspace_id,purchase_order_id,purchase_bill_id,status,quantity_variance,value_variance_minor,checked_by,checked_at) VALUES(?,?,?,?,?,?,?,?,?)',(x,wid,po,bill,status,str(ordered['q']),variance,actor,utcnow()));self.s._audit(wid,actor,'purchase.match',{'id':x,'status':status})
+  return {'id':x,'status':status,'quantity_variance':str(ordered['q']),'value_variance_minor':variance}
+ def export_all(self,wid):
+  names=('locations','retail_products','stock_ledger','purchase_orders','purchase_order_lines','sales','sale_lines','tender_entries','retail_returns','retail_return_lines','cash_sessions','credit_policies');return {n:[dict(x) for x in self.s._db.execute(f'SELECT * FROM {n} WHERE workspace_id=?',(wid,)).fetchall()] if n not in ('purchase_order_lines','sale_lines','retail_return_lines') else [dict(x) for x in self.s._db.execute(f'SELECT * FROM {n}').fetchall()] for n in names}
