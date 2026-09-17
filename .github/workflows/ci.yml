@@ -42,4 +42,4 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - run: pip install --requirement requirements.txt
-      - run: python3 -m unittest test_postgres_integration
+      - run: python3 -m unittest test_postgres_integration test_postgres_erp_live
