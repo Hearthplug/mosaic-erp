@@ -10,6 +10,7 @@ from store import Store, Conflict, NotFound, canon, sha256
 from accounting import Accounting
 from retail import Retail
 from operational_profile import Profiles
+from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -447,6 +448,10 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/workspace/audit':
             wid, _, _ = self._auth('viewer')
             return self.out(200, {'events': STORE.audit_trail(wid)}, rid=rid) or 200
+        if p == '/api/onboarding/schema':
+            return self.out(200,{'version':SCHEMA_VERSION,'questions':QUESTIONS},rid=rid) or 200
+        if p == '/api/onboarding/session':
+            wid, _, _ = self._auth('viewer'); return self.out(200,ONBOARDING.get(wid,qs.get('id',[''])[0]),rid=rid) or 200
         if p == '/api/retail/stock':
             wid, _, _ = self._auth('viewer'); product=qs.get('product_id',[None])[0]; location=qs.get('location_id',[None])[0]; return self.out(200,{'quantity':str(RETAIL.stock(wid,product,location))},rid=rid) or 200
         if p == '/api/retail/reorder':
@@ -505,6 +510,12 @@ class H(BaseHTTPRequestHandler):
                 with STORE.tx():
                     STORE._idem_store(idem, '', 'POST /api/workspaces', req_hash, 201, body)
             return self.out(201, body, rid=rid) or 201
+        if p == '/api/onboarding/start':
+            wid, actor, _ = self._auth('owner'); return self.out(201,ONBOARDING.start(wid,actor),rid=rid) or 201
+        if p == '/api/onboarding/answer':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.answer(wid,actor,d['id'],d['key'],d['value']),rid=rid) or 200
+        if p == '/api/onboarding/apply':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.apply(wid,actor,d['id']),rid=rid) or 200
         if p == '/api/retail/profile':
             wid, actor, _ = self._auth('owner'); return self.out(200,PROFILES.apply(wid,actor,self._body()),rid=rid) or 200
         if p == '/api/retail/locations':
@@ -615,6 +626,7 @@ STORE = create_store()
 BOOKS = Accounting(STORE)
 RETAIL = Retail(STORE,BOOKS)
 PROFILES = Profiles(STORE)
+ONBOARDING = Onboarding(STORE,PROFILES)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
 
 def main():
