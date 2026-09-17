@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata: {name: mosaic-erp-migrate}
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      containers:
+        - name: migrate
+          image: YOUR_DOCKERHUB_NAMESPACE/mosaic-erp@sha256:REPLACE_WITH_RELEASE_DIGEST
+          command: [python, -c, "from postgres_store import PostgresStore; import os; s=PostgresStore(os.environ['MOSAIC_DATABASE_URL']); s.close()"]
+          env:
+            - name: MOSAIC_DATABASE_URL
+              valueFrom: {secretKeyRef: {name: mosaic-db-owner, key: database-url}}
