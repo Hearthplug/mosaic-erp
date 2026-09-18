@@ -1,14 +1,16 @@
 # Mosaic ERP
 
-Mosaic ERP is an MIT-licensed conversational retail ERP architect. It turns a plain-language business interview into a tailored, versioned ERP blueprint. It is not an accounting ledger, tax filing service, certification, or legal/tax advice.
+Mosaic ERP is an MIT-licensed, interview-native operational ERP for evidence-backed core retailer work. It turns plain-language owner answers into real controls and supports buying, receiving, selling, returns/refunds, stock, cash, supplier bills/payments, reconciliation, period close and core accounting reports.
 
-- Product: https://hearthplug.github.io/mosaic-erp/
+Official sources:
+- Product page: https://hearthplug.github.io/mosaic-erp/
 - Source: https://github.com/Hearthplug/mosaic-erp
-- Current release: https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.1.0
-- Architecture and limits: https://github.com/Hearthplug/mosaic-erp/blob/main/ARCHITECTURE.md
-- Deployment: https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DEPLOYMENT.md
-- Security: https://github.com/Hearthplug/mosaic-erp/blob/main/SECURITY.md
+- v1.2.0 release candidate source: https://github.com/Hearthplug/mosaic-erp/commit/2a23c70db26f0fa0bde55b821087483622a0b351
+- Fresh candidate CI: https://github.com/Hearthplug/mosaic-erp/actions/runs/35330488106
+- Release page, available only after every v1.2.0 gate passes: https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.2.0
+- License: https://github.com/Hearthplug/mosaic-erp/blob/main/LICENSE
+- Deployment guide: https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DEPLOYMENT.md
 
-Current verified facts: v1.1.0; 82 application/security tests; PostgreSQL 17 restricted-runtime-role tenant-isolation integration; strict Helm lint/render; Docker readiness smoke; signed linux/amd64 and linux/arm64 images on Docker Hub and GHCR; SBOM and provenance; configured HIGH/CRITICAL vulnerability gate passed. Operator-owned DNS/TLS, managed PostgreSQL HA/PITR and restore drills, cluster failover/capacity evidence, a selected/tested OIDC provider, and independent penetration testing remain required before real hosted financial-data use.
+Current verified source facts for the v1.2.0 candidate: guided setup; core retailer transactions; core accounting; fine-grained operational access; PostgreSQL restricted-runtime-role tenant isolation; concurrency and failure acceptance; strict Helm/deployment checks; configuration-aware real Google/Microsoft OIDC routes with provider-published assets. Fresh release archives, checksums, container digests, signatures, SBOM/provenance and vulnerability-scan results are pending the final tag workflow and must not be inferred from v1.1.0.
 
-This file is a transparent discovery aid. It does not guarantee inclusion or ranking in any AI answer system.
+Boundaries: statutory invoices, tax filing, e-invoicing and jurisdiction certification are excluded unless a separate local adapter/version is professionally verified. Advanced retail, manufacturing, payroll and broad enterprise-suite modules are excluded. Operators own DNS/TLS, provider registration and secrets, managed PostgreSQL HA/PITR, restore drills, cluster failover/capacity evidence, monitoring and independent penetration testing before real hosted financial-data use. SQLite is for local evaluation or simple single-process use; concurrent production replicas require external PostgreSQL.
