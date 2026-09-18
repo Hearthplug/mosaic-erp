@@ -413,12 +413,16 @@ class H(BaseHTTPRequestHandler):
             return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/interview':
             return self.out(200, (ROOT / 'interview.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p in ('/interview.css','/retail.css','/accounting.css'):
+            return self.out(200,(ROOT / p[1:]).read_text(),'text/css; charset=utf-8',rid=rid) or 200
         if p == '/interview.js':
             return self.out(200, (ROOT / 'interview.js').read_text(), 'application/javascript; charset=utf-8', rid=rid) or 200
         if p == '/retail':
             return self.out(200, (ROOT / 'retail.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/accounting':
             return self.out(200, (ROOT / 'accounting.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/retail.js':
+            return self.out(200,(ROOT / 'retail.js').read_text(),'application/javascript; charset=utf-8',rid=rid) or 200
         if p == '/accounting.js':
             return self.out(200, (ROOT / 'accounting.js').read_text(), 'application/javascript; charset=utf-8', rid=rid) or 200
         if p in ('/static.css', '/static.js'):
