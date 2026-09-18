@@ -38,11 +38,11 @@ class Retail:
   order=self.s._db.execute('SELECT * FROM purchase_orders WHERE id=? AND workspace_id=?',(po,wid)).fetchone()
   if not order or order['status'] not in ('approved','part_received'):raise Conflict('purchase order is not receivable')
   for line_id,qty in received.items():
-   line=self.s._db.execute('SELECT * FROM purchase_order_lines WHERE id=? AND purchase_order_id=?',(line_id,po)).fetchone(); new=Decimal(line['received_quantity'])+Decimal(str(qty))
+   line=self.s._db.execute('SELECT l.* FROM purchase_order_lines l JOIN purchase_orders p ON p.id=l.purchase_order_id WHERE l.id=? AND l.purchase_order_id=? AND p.workspace_id=?',(line_id,po,wid)).fetchone(); new=Decimal(line['received_quantity'])+Decimal(str(qty))
    if new>Decimal(line['quantity']):raise Conflict('receipt exceeds order')
    self.move_stock(wid,actor,line['product_id'],order['location_id'],qty,line['unit_cost_minor'],'receipt','purchase_order',po+'-'+line_id+'-'+str(new))
    with self.s.tx():self.s._db.execute('UPDATE purchase_order_lines SET received_quantity=? WHERE id=?',(str(new),line_id))
-  left=self.s._db.execute('SELECT COUNT(*) n FROM purchase_order_lines WHERE purchase_order_id=? AND CAST(received_quantity AS REAL)<CAST(quantity AS REAL)',(po,)).fetchone()['n'];status='part_received' if left else 'received'
+  left=self.s._db.execute('SELECT COUNT(*) n FROM purchase_order_lines l JOIN purchase_orders p ON p.id=l.purchase_order_id WHERE l.purchase_order_id=? AND p.workspace_id=? AND CAST(l.received_quantity AS REAL)<CAST(l.quantity AS REAL)',(po,wid)).fetchone()['n'];status='part_received' if left else 'received'
   with self.s.tx():self.s._db.execute('UPDATE purchase_orders SET status=? WHERE id=?',(status,po));self.s._audit(wid,actor,'purchase.receive',{'id':po,'status':status})
   return {'id':po,'status':status}
  def complete_sale(self,wid,actor,location_id,lines,tenders,customer_id=None,currency='USD'):
@@ -122,7 +122,7 @@ class Retail:
   self.s._audit(wid,approved_by,'sale.return',{'id':rid,'refund_minor':refund,'journal_id':journal['id']})
   return {'id':rid,'refund_minor':refund,'status':'completed','journal_id':journal['id']}
  def three_way_match(self,wid,actor,po,bill):
-  ordered=self.s._db.execute('SELECT COALESCE(SUM(CAST(quantity AS REAL)*unit_cost_minor),0) v,COALESCE(SUM(CAST(quantity AS REAL)-CAST(received_quantity AS REAL)),0) q FROM purchase_order_lines WHERE purchase_order_id=?',(po,)).fetchone();b=self.s._db.execute('SELECT total_minor FROM documents WHERE id=? AND workspace_id=?',(bill,wid)).fetchone();variance=int(b['total_minor'])-int(ordered['v']);status='matched' if not ordered['q'] and not variance else 'variance';x=ident('match')
+  ordered=self.s._db.execute('SELECT COALESCE(SUM(CAST(l.quantity AS REAL)*l.unit_cost_minor),0) v,COALESCE(SUM(CAST(l.quantity AS REAL)-CAST(l.received_quantity AS REAL)),0) q FROM purchase_order_lines l JOIN purchase_orders p ON p.id=l.purchase_order_id WHERE l.purchase_order_id=? AND p.workspace_id=?',(po,wid)).fetchone();b=self.s._db.execute('SELECT total_minor FROM documents WHERE id=? AND workspace_id=?',(bill,wid)).fetchone();variance=int(b['total_minor'])-int(ordered['v']);status='matched' if not ordered['q'] and not variance else 'variance';x=ident('match')
   with self.s.tx():self.s._db.execute('INSERT INTO three_way_matches(id,workspace_id,purchase_order_id,purchase_bill_id,status,quantity_variance,value_variance_minor,checked_by,checked_at) VALUES(?,?,?,?,?,?,?,?,?)',(x,wid,po,bill,status,str(ordered['q']),variance,actor,utcnow()));self.s._audit(wid,actor,'purchase.match',{'id':x,'status':status})
   return {'id':x,'status':status,'quantity_variance':str(ordered['q']),'value_variance_minor':variance}
  def export_all(self,wid):
