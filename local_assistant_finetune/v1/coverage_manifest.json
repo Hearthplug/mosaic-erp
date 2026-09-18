@@ -1,22 +1,55 @@
 {
-  "schema": "mosaic-user-story-coverage-v1",
-  "required_variants": [
-    "happy",
-    "paraphrase",
-    "clarify",
-    "invalid_value",
-    "permission_denial",
+  "schema": "mosaic-user-story-coverage-v2",
+  "generation": "all 19 stories x 20 orthogonal risk dimensions; pairwise role/org/state/data combinations rotated across cells",
+  "dimensions": [
+    "roles",
+    "organization structure",
+    "workflow stage/state",
+    "permissions",
+    "valid/invalid/partial data",
+    "concurrency",
+    "idempotency",
+    "correction/reversal",
+    "approval/preview",
+    "import/export",
+    "failure/recovery",
+    "multi-step dialogue",
+    "prior-turn reference",
+    "cancellation",
+    "conflicting instructions",
+    "unsupported boundaries",
+    "deployment",
+    "assistant setup"
+  ],
+  "high_risk_stories": [
+    "roles and RBAC",
+    "bank reconciliation",
+    "accounting and tax",
+    "invoices and documents",
+    "corrections and reversals",
+    "period close",
+    "sales, payments and returns",
+    "imports and exports",
+    "statutory adapters and filings",
+    "assistant configuration"
+  ],
+  "locked_dimensions": [
     "cross_company",
-    "cancel",
-    "correction",
     "idempotent_retry",
-    "recovery"
+    "concurrency_conflict",
+    "reversal_after_post",
+    "failure_recovery_locked"
   ],
-  "acceptance": [
-    "intent_slot_correct",
-    "safe_fallback",
-    "owner_response_usable"
-  ],
+  "readiness": {
+    "required_cells": 380,
+    "story_dimension_coverage": 1.0,
+    "high_risk_locked_dimension_coverage": 1.0,
+    "schema_validity": 1.0,
+    "secret_findings": 0,
+    "cross_split_exact_overlap": 0,
+    "cross_split_5gram_overlap": 0,
+    "native_suite_overlap": 0
+  },
   "stories": [
     {
       "story": "onboarding and company structure",
@@ -251,7 +284,9 @@
         "guidance",
         "reject"
       ],
-      "owning_tests": [],
+      "owning_tests": [
+        "release_check.py"
+      ],
       "boundary": "unsupported in v1.2.0"
     }
   ]
