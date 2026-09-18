@@ -16,6 +16,11 @@ class OAuthTests(unittest.TestCase):
   self.assertEqual(q['code_challenge_method'],['S256']);self.assertIn('nonce',q);self.assertIn('state',q);self.assertEqual(q['redirect_uri'],['https://erp.example/oauth/google/callback'])
   row=self.s.oauth_challenge_consume(q['state'][0],'google');self.assertEqual(row['next_path'],'/')
   self.assertIsNone(self.s.oauth_challenge_consume(q['state'][0],'google'))
+ def test_callback_rejects_wrong_nonce_before_any_account_or_session(self):
+  url=self.o.start('google');state=parse_qs(urlparse(url).query)['state'][0]
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'sub-x','iss':'https://accounts.google.com','nonce':'wrong','email':'person@example.test','email_verified':True}):
+   with self.assertRaises(OAuthError):self.o.callback('google','code',state)
+  self.assertEqual(self.s._db.execute('SELECT count(*) n FROM oauth_identities').fetchone()['n'],0);self.assertEqual(self.s._db.execute('SELECT count(*) n FROM sessions').fetchone()['n'],0)
  def test_known_identity_uses_stable_issuer_subject_not_email(self):
   w,u=self.user();self.s._db.execute('INSERT INTO oauth_identities VALUES(?,?,?,?,?,?)',('google','https://accounts.google.com','sub-1',u['user_id'],w,'now'))
   code,_=self.s.oauth_grant_create('google','https://accounts.google.com','sub-1','changed@example.test',True,'/operations','signin');x=self.s.oauth_complete(code)
@@ -33,4 +38,43 @@ class OAuthTests(unittest.TestCase):
   owner,_=self.user('owner@example.test');inv=self.s.create_invitation(owner,'invite@example.test','editor',None,'owner')['invite_token']
   self.s.accept_invitation_federated(inv,'google','https://accounts.google.com','invited-sub')
   self.assertEqual(len(self.s.oauth_identity_users('google','https://accounts.google.com','invited-sub')),1)
+class OAuthBrowserContract(unittest.TestCase):
+ def setUp(self):
+  import app,tempfile
+  from store import Store
+  from oauth import OAuth
+  self.app=app;self.old=(app.STORE,app.OAUTH,app.LIMITER);app.STORE=Store(tempfile.mktemp());app.OAUTH=OAuth(app.STORE);app.LIMITER=app.RateLimiter(1000,app.STORE)
+  from http.server import ThreadingHTTPServer
+  import threading
+  self.s=ThreadingHTTPServer(('127.0.0.1',0),app.H);self.p=self.s.server_address[1];threading.Thread(target=self.s.serve_forever,daemon=True).start()
+ def tearDown(self):
+  self.s.shutdown();self.s.server_close();self.app.STORE.close();self.app.STORE,self.app.OAUTH,self.app.LIMITER=self.old
+ def get(self,path,follow=False):
+  import urllib.request,urllib.error
+  class NoRedirect(urllib.request.HTTPRedirectHandler):
+   def redirect_request(self,*a,**k):return None
+  opener=urllib.request.build_opener() if follow else urllib.request.build_opener(NoRedirect)
+  try:r=opener.open(f'http://127.0.0.1:{self.p}{path}');return r.status,dict(r.headers),r.read()
+  except urllib.error.HTTPError as e:return e.code,dict(e.headers),e.read()
+ def test_official_assets_are_served_and_present(self):
+  page=self.get('/signin')[2].decode();self.assertIn('data-provider="google" disabled',page);self.assertIn('data-provider="microsoft" disabled',page);self.assertIn('/google-signin.png',page);self.assertIn('/microsoft-signin.svg',page);script=self.get('/signin.js')[2].decode();self.assertIn('b.disabled=!enabled.has(b.dataset.provider)',script);self.assertIn('if(b.disabled)return',script);self.assertNotIn('dummy',script.lower())
+  import hashlib
+  google=self.get('/google-signin.png')[2];microsoft=self.get('/microsoft-signin.svg')[2]
+  self.assertEqual(hashlib.sha256(google).hexdigest(),'892062091f35e69dd838ba4a4f238d37a0562d52ecda6406eb343a1127251409');self.assertEqual(hashlib.sha256(microsoft).hexdigest(),'e06fb6b9c489d5719260945b5b9108f12fedd77e61206229f5fdd77a060e77a8')
+ def test_unconfigured_is_disabled_and_route_fails_closed(self):
+  import os,json
+  with patch.dict(os.environ,{'MOSAIC_PUBLIC_ORIGIN':'','MOSAIC_GOOGLE_CLIENT_ID':'','MOSAIC_GOOGLE_CLIENT_SECRET':''}):
+   self.assertEqual(json.loads(self.get('/api/oauth/providers')[2]),{'providers':[]});self.assertEqual(self.get('/oauth/google/start')[0],400)
+ def test_configured_button_route_is_real_google_authorization(self):
+  import os
+  with patch.dict(os.environ,{'MOSAIC_PUBLIC_ORIGIN':f'http://127.0.0.1:{self.p}','MOSAIC_GOOGLE_CLIENT_ID':'test-id','MOSAIC_GOOGLE_CLIENT_SECRET':'test-secret','MOSAIC_MICROSOFT_CLIENT_ID':'test-ms-id','MOSAIC_MICROSOFT_CLIENT_SECRET':'test-ms-secret'}):
+   status,h,_=self.get('/oauth/google/start?next=%2Foperations');self.assertEqual(status,302);self.assertTrue(h['Location'].startswith('https://accounts.google.com/o/oauth2/v2/auth?'));self.assertIn('code_challenge_method=S256',h['Location'])
+   status,h,_=self.get('/oauth/microsoft/start');self.assertEqual(status,302);self.assertTrue(h['Location'].startswith('https://login.microsoftonline.com/common/oauth2/v2.0/authorize?'))
+ def test_invalid_state_and_code_have_no_success_path(self):
+  import os
+  with patch.dict(os.environ,{'MOSAIC_PUBLIC_ORIGIN':f'http://127.0.0.1:{self.p}','MOSAIC_GOOGLE_CLIENT_ID':'test-id','MOSAIC_GOOGLE_CLIENT_SECRET':'test-secret'}):
+   self.assertEqual(self.get('/oauth/google/callback?state=invalid&code=invalid')[0],400)
+   _,h,_=self.get('/oauth/google/start');state=parse_qs(urlparse(h['Location']).query)['state'][0]
+   self.assertEqual(self.get('/oauth/google/callback?state='+state+'&code=invalid')[0],400)
+
 if __name__=='__main__':unittest.main()
