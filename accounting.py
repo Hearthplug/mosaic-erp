@@ -249,7 +249,8 @@ class Accounting:
         d=self.s._db.execute('SELECT * FROM documents WHERE id=? AND workspace_id=?',(target_document_id,wid)).fetchone()
         if not d or d['status']!='posted': raise Conflict('payment target must be posted')
         amount=int(amount_minor)
-        if amount<=0 or amount>d['balance_minor']: raise ValueError('payment exceeds positive outstanding balance')
+        if amount<=0: raise ValueError('payment must be positive')
+        if amount>d['balance_minor']: raise Conflict('payment exceeds outstanding balance')
         cash=bank_account_id or self._system(wid,'bank'); control=self._system(wid,'payable' if d['kind']=='purchase_bill' else 'receivable')
         incoming=d['kind'] in ('sales_invoice','debit_note')
         lines=[{'account_id':cash,('credit_minor' if refund or not incoming else 'debit_minor'):amount},{'account_id':control,'party_id':d['party_id'],('debit_minor' if refund or not incoming else 'credit_minor'):amount}]
