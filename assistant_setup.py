@@ -37,7 +37,7 @@ class AssistantSetup:
   d=dict(r);d['pending']=json.loads(d.pop('pending_json'));d['secret_configured']=bool(d.pop('secret_ref'));d['local_model']=LOCAL_MODEL;return d
  def chat(self,wid,actor,message):
   text=' '.join((message or '').strip().split());low=text.lower();cur=self.get(wid)
-  if not text:return {'reply':'Choose deterministic chat, a private local assistant, or your OpenAI-compatible provider. You can also ask for status, test, disable, remove, or rollback.','settings':cur}
+  if not text:return {'reply':'Choose simple built-in chat or connect your own AI service. The private local assistant is unavailable while it is being tested. You can also ask for status, test, disable, remove, or rollback.','settings':cur}
   if 'status' in low:return {'reply':f"Assistant mode: {cur['mode']}. Status: {cur['status']}. Model: {cur.get('model') or 'none'}.",'settings':cur}
   if any(x in low for x in ('no ai','deterministic','disable assistant')):
    return self._preview(cur,{'mode':'deterministic','endpoint':'','model':'','secret_ref':'','status':'ready'},'Use deterministic chat. No model or external endpoint will be called.')
@@ -61,7 +61,7 @@ class AssistantSetup:
    with self.s.tx():self.s._db.execute("UPDATE assistant_settings SET secret_ref=?,status='ready',updated_by=?,updated_at=? WHERE workspace_id=? AND mode='remote'",('file:'+path,actor,utcnow(),wid));self.s._audit(wid,actor,'assistant.secret.reference',{'secret_ref_hash':hashlib.sha256(path.encode()).hexdigest(),'stored':'operator-mounted'})
    return {'intent':'applied','reply':'The operator-mounted secret is connected. Ask me to test the provider.'}
   if 'test' in low:return self.test(wid)
-  return {'intent':'collect','reply':'I can set deterministic mode, guide a local assistant, configure an OpenAI-compatible endpoint, show status, test, disable, remove, or rollback.'}
+  return {'intent':'collect','reply':'I can keep simple built-in chat, connect your own AI service, show status, test, disable, remove, or rollback. The private local assistant is not available yet.'}
  def _preview(self,cur,candidate,reply):
   return {'intent':'preview','reply':reply+' Say confirm to apply or cancel to discard.','preview':candidate,'current':cur,'requires_confirmation':True}
  def stage(self,wid,actor,candidate):
