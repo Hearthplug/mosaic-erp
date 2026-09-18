@@ -539,7 +539,9 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/invitations/accept':
             d=self._body(); u=STORE.accept_invitation(d.get('token',''),d.get('password',''));
             if u.get('operational_role'): PROVISIONER.rbac.bind_role(u['workspace_id'],u['user_id'],u['user_id'],u['operational_role'])
-            result=STORE.login(u['workspace_id'],u['email'],d.get('password',''));result['workspace_name']=STORE.get_workspace(u['workspace_id'])['name'];return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
+            result=STORE.login(u['workspace_id'],u['email'],d.get('password',''));result['workspace_name']=STORE.get_workspace(u['workspace_id'])['name'];result['landing']='/accounting' if u.get('operational_role')=='Accountant' else '/operations';return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
+        if p == '/api/signup':
+            d=self._body();wid,key=STORE.create_workspace(d.get('company_name','My company'));user=STORE.create_user(wid,d.get('email',''),d.get('password',''),'owner','signup');result=STORE.login(wid,d.get('email',''),d.get('password',''));result['workspace_name']=d.get('company_name','My company');result['landing']='/interview';return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
         if p == '/api/session/options':
             d=self._body(); return self.out(200,{'workspaces':STORE.login_options(d.get('email',''),d.get('password',''))},hdrs={'Cache-Control':'no-store'},rid=rid) or 200
         if p == '/api/session':
@@ -547,7 +549,7 @@ class H(BaseHTTPRequestHandler):
             result = STORE.login(d.get('workspace_id',''), d.get('email',''), d.get('password',''))
             if not result:
                 raise AuthError(401, 'Invalid workspace, email, or password')
-            result['workspace_name']=STORE.get_workspace(result['workspace_id'])['name']
+            result['workspace_name']=STORE.get_workspace(result['workspace_id'])['name']; assignment=STORE._db.execute('SELECT permissions_json FROM role_assignments WHERE workspace_id=? AND user_id=? AND effective_to IS NULL ORDER BY effective_from DESC LIMIT 1',(result['workspace_id'],result['user_id'])).fetchone();perms=set(json.loads(assignment['permissions_json'])) if assignment else set();result['landing']='/accounting' if {'report.read','journal.read'}&perms and 'sale.create' not in perms else '/operations' if perms else '/interview' if result['role']=='owner' else '/operations'
             return self.out(201, result, hdrs={'Cache-Control':'no-store'}, rid=rid) or 201
         if p == '/api/workspaces':
             d = self._body()
