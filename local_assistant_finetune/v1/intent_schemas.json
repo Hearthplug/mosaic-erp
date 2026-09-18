@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mosaic.typed-intent.v1",
+  "title": "Mosaic non-executing typed intent",
+  "type": "object",
+  "required": ["kind", "slots", "confidence"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {"type": "string", "minLength": 1},
+    "slots": {"type": "object"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+  }
+}

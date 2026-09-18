@@ -1,0 +1,116 @@
+{
+  "schema": "mosaic-coverage-report-v2",
+  "records": 380,
+  "stories": 19,
+  "dimensions": 20,
+  "story_dimension_cells": 380,
+  "splits": {
+    "train": 190,
+    "validation": 95,
+    "test": 95
+  },
+  "risk": {
+    "standard": 180,
+    "critical": 120,
+    "high": 80
+  },
+  "owning_tests": [
+    ".github/workflows/assistant-validation.yml",
+    "release_check.py",
+    "test_accounting.py",
+    "test_artifact_builder.py",
+    "test_assistant_setup.py",
+    "test_auth_experience.py",
+    "test_concurrency_erp.py",
+    "test_customization.py",
+    "test_interview_api.py",
+    "test_migration_api.py",
+    "test_migration_packs.py",
+    "test_onboarding.py",
+    "test_operational_rbac_api.py",
+    "test_persistence.py",
+    "test_postgres_erp_contract.py",
+    "test_postgres_erp_live.py",
+    "test_provisioning.py",
+    "test_rbac.py",
+    "test_recovery_retail.py",
+    "test_representative_retailer.py",
+    "test_retail.py",
+    "test_retail_api.py",
+    "test_tax_all_packs.py",
+    "test_tax_engine.py",
+    "test_tax_verification.py"
+  ],
+  "locked_high_risk": {
+    "roles and RBAC": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ],
+    "bank reconciliation": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ],
+    "accounting and tax": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ],
+    "invoices and documents": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ],
+    "corrections and reversals": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ],
+    "period close": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ],
+    "sales, payments and returns": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ],
+    "imports and exports": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ],
+    "statutory adapters and filings": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ],
+    "assistant configuration": [
+      "concurrency_conflict",
+      "cross_company",
+      "failure_recovery_locked",
+      "idempotent_retry",
+      "reversal_after_post"
+    ]
+  }
+}

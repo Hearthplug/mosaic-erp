@@ -22,4 +22,4 @@ Every dataset record must carry `story`, `variant`, `schema`, and `owning_tests`
 | Kubernetes deployment guidance | `guidance.kubernetes` | Helm lint/template in `.github/workflows/assistant-validation.yml` | qualified professional required |
 | assistant configuration | `assistant.configure/status/test/cancel/rollback`, `reject_secret` | `test_assistant_setup.py` | local unavailable; masked secrets only |
 | statutory adapters and filings | `guidance`, `reject` | `test_tax_verification.py`, `test_tax_all_packs.py` | unavailable until exact adapter/version verified |
-| advanced manufacturing, payroll, managed hosting | `guidance`, `reject` | release-boundary assertions/docs | unsupported in v1.2.0 |
+| advanced manufacturing, payroll, managed hosting | `guidance`, `reject` | `release_check.py` | unsupported in v1.2.0 |

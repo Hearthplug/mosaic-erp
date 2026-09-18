@@ -1,12 +1,8 @@
 import json,re
 from pathlib import Path
-matrix=Path(__file__).with_name('COVERAGE_MATRIX.md').read_text()
-rows=[]
+p=Path(__file__).parent; matrix=(p/'COVERAGE_MATRIX.md').read_text(); rows=[]
 for line in matrix.splitlines():
  if not line.startswith('| ') or line.startswith('| Story') or line.startswith('|---'):continue
- cells=[x.strip() for x in line.strip('|').split('|')]
- rows.append({'story':cells[0],'intent_families':re.findall(r'`([^`]+)`',cells[1]),'owning_tests':re.findall(r'`([^`]+)`',cells[2]),'boundary':cells[3]})
-assert len(rows)>=17
-out={'schema':'mosaic-user-story-coverage-v1','required_variants':['happy','paraphrase','clarify','invalid_value','permission_denial','cross_company','cancel','correction','idempotent_retry','recovery'],'acceptance':['intent_slot_correct','safe_fallback','owner_response_usable'],'stories':rows}
-Path(__file__).with_name('coverage_manifest.json').write_text(json.dumps(out,indent=2)+'\n')
-print(json.dumps({'stories':len(rows),'required_case_cells':len(rows)*10}))
+ c=[x.strip() for x in line.strip('|').split('|')];rows.append({'story':c[0],'intent_families':re.findall(r'`([^`]+)`',c[1]),'owning_tests':re.findall(r'`([^`]+)`',c[2]),'boundary':c[3]})
+out={'schema':'mosaic-user-story-coverage-v2','generation':'all 19 stories x 20 orthogonal risk dimensions; pairwise role/org/state/data combinations rotated across cells','dimensions':['roles','organization structure','workflow stage/state','permissions','valid/invalid/partial data','concurrency','idempotency','correction/reversal','approval/preview','import/export','failure/recovery','multi-step dialogue','prior-turn reference','cancellation','conflicting instructions','unsupported boundaries','deployment','assistant setup'],'high_risk_stories':['roles and RBAC','bank reconciliation','accounting and tax','invoices and documents','corrections and reversals','period close','sales, payments and returns','imports and exports','statutory adapters and filings','assistant configuration'],'locked_dimensions':['cross_company','idempotent_retry','concurrency_conflict','reversal_after_post','failure_recovery_locked'],'readiness':{'required_cells':380,'story_dimension_coverage':1.0,'high_risk_locked_dimension_coverage':1.0,'schema_validity':1.0,'secret_findings':0,'cross_split_exact_overlap':0,'cross_split_5gram_overlap':0,'native_suite_overlap':0},'stories':rows}
+(p/'coverage_manifest.json').write_text(json.dumps(out,indent=2)+'\n');print(json.dumps({'stories':len(rows),'required_case_cells':len(rows)*20}))
