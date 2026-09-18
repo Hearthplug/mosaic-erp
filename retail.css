@@ -1,0 +1,1 @@
+.daily{max-width:1080px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.tile{background:white;border:1px solid #ddd;border-radius:16px;padding:20px}.tile h2{margin-top:0}.daily input{width:100%;padding:11px;margin:5px 0}
