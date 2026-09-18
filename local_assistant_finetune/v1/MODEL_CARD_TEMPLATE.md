@@ -12,3 +12,5 @@
 - Owner usability: one-turn completion, unnecessary/missing clarification, slot-edit and fallback rates: FILL
 - Native amd64/arm64 latency/RSS/disk results and artifact URLs: FILL
 - Promotion: unavailable unless every frozen threshold passes on both architectures.
+- Dataset readiness gate: 380/380 story-dimension cells; 50/50 high-risk locked cells; validator pass; zero secret/contamination/native-suite overlap.
+- Dataset split: 190 train / 95 validation / 95 locked test. Locked test is evaluated once after checkpoint selection.
