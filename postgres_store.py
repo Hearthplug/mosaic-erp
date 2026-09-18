@@ -119,7 +119,9 @@ class PostgresStore(Store):
             rows=conn.execute('SELECT version FROM mosaic_schema_migrations ORDER BY version').fetchall();current=len(rows)
             if current>len(PG_MIGRATIONS): raise RuntimeError('PostgreSQL schema is newer than this build')
             for i in range(current,len(PG_MIGRATIONS)):
-                conn.execute(PG_MIGRATIONS[i]);conn.execute(RLS_SQL);conn.execute('INSERT INTO mosaic_schema_migrations(version) VALUES(%s)',(i+1,))
+                conn.execute(PG_MIGRATIONS[i]);
+                if i == 0: conn.execute(RLS_SQL)
+                conn.execute('INSERT INTO mosaic_schema_migrations(version) VALUES(%s)',(i+1,))
     def create_workspace(self,name,label='Owner key'):
         # Set the newly generated tenant before FORCE RLS checks the inserts.
         import secrets
