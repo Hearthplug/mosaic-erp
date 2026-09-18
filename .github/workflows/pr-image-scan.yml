@@ -2,6 +2,7 @@ name: PR image scan
 
 on:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
