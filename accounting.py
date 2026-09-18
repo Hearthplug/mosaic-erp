@@ -191,7 +191,7 @@ class Accounting:
         where='l.workspace_id=?'; args=[wid]
         if as_of: where+=' AND j.effective_date<=?'; args.append(as_of)
         rows=self.s._db.execute(f'''SELECT a.code,a.name,a.type,SUM(l.base_debit_minor) debit_minor,SUM(l.base_credit_minor) credit_minor FROM journal_lines l JOIN journals j ON j.id=l.journal_id JOIN accounts a ON a.id=l.account_id WHERE {where} GROUP BY a.id,a.code,a.name,a.type ORDER BY a.code''',tuple(args)).fetchall()
-        result=[dict(r) for r in rows]; return {'accounts':result,'total_debit_minor':sum(r['debit_minor'] for r in result),'total_credit_minor':sum(r['credit_minor'] for r in result)}
+        result=[dict(r)|{'debit_minor':int(r['debit_minor'] or 0),'credit_minor':int(r['credit_minor'] or 0)} for r in rows]; return {'accounts':result,'total_debit_minor':sum(r['debit_minor'] for r in result),'total_credit_minor':sum(r['credit_minor'] for r in result)}
     def general_ledger(self,wid,account_id,from_date=None,to_date=None):
         q='''SELECT j.number,j.effective_date,j.description,j.reference,l.debit_minor,l.credit_minor,l.base_debit_minor,l.base_credit_minor,l.party_id,l.memo FROM journal_lines l JOIN journals j ON j.id=l.journal_id WHERE l.workspace_id=? AND l.account_id=?'''; args=[wid,account_id]
         if from_date:q+=' AND j.effective_date>=?';args.append(from_date)
@@ -291,7 +291,7 @@ class Accounting:
     def inventory_valuation(self,wid,as_of=None):
         q='SELECT item_id,warehouse,SUM(CAST(quantity AS REAL)) quantity,SUM(total_cost_minor) value_minor FROM inventory_movements WHERE workspace_id=?';args=[wid]
         if as_of:q+=' AND effective_date<=?';args.append(as_of)
-        q+=' GROUP BY item_id,warehouse'; rows=[dict(r) for r in self.s._db.execute(q,tuple(args)).fetchall()]
+        q+=' GROUP BY item_id,warehouse'; rows=[dict(r)|{'quantity':str(r['quantity'] or 0),'value_minor':int(r['value_minor'] or 0)} for r in self.s._db.execute(q,tuple(args)).fetchall()]
         return {'method':'movement-cost totals; costing policy must be verified','as_of':as_of,'positions':rows,'total_value_minor':sum(r['value_minor'] for r in rows)}
 
     def configure_statutory_adapter(self,wid,actor,jurisdiction,capability,rules_version,verified_by=None,notes=''):
