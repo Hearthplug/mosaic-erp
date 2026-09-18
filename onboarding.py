@@ -50,7 +50,7 @@ def infer(a):
  return p|{'explanations':explanations,'professional_verification':accountant,'owner_summary':{'business':a.get('business_name'),'first_goal':a.get('goal'),'daily_numbers':a.get('money_view',[])}}
 
 class Onboarding:
- def __init__(self,s,profiles):self.s,self.profiles=s,profiles
+ def __init__(self,s,profiles,provisioner=None):self.s,self.profiles,self.provisioner=s,profiles,provisioner
  def start(self,wid,actor):
   x='onb_'+secrets.token_hex(8);now=utcnow()
   with self.s.tx():self.s._db.execute('INSERT INTO onboarding_sessions(id,workspace_id,schema_version,status,current_question,created_by,created_at,updated_at) VALUES(?,?,?,\'in_progress\',?,?,?,?)',(x,wid,SCHEMA_VERSION,QUESTIONS[0]['key'],actor,now,now));self.s._audit(wid,actor,'onboarding.start',{'id':x,'schema_version':SCHEMA_VERSION})
@@ -69,4 +69,5 @@ class Onboarding:
   if d['status']!='ready':raise Conflict('finish and review the interview before applying it')
   profile=self.profiles.apply(wid,actor,d['answers'])
   with self.s.tx():self.s._db.execute("UPDATE onboarding_sessions SET status='applied',updated_at=? WHERE id=?",(utcnow(),x));self.s._audit(wid,actor,'onboarding.apply',{'id':x})
-  return {'profile':profile,'review':d['inference']}
+  provisioned=self.provisioner.apply(wid,actor,x,d['answers']) if self.provisioner else None
+  return {'profile':profile,'review':d['inference'],'provisioned':provisioned}
