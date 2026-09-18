@@ -27,6 +27,8 @@ env:
 jobs:
   validate:
     runs-on: ubuntu-24.04
+    outputs:
+      dockerhub_enabled: ${{ steps.registry-mode.outputs.dockerhub_enabled }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with: {ref: '${{ env.RELEASE_SHA }}', fetch-depth: 0}
@@ -46,6 +48,17 @@ jobs:
       - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
         with: {version: v3.18.6}
       - run: helm lint deploy/helm/mosaic-erp --strict
+      - id: registry-mode
+        name: Record whether Docker Hub is enabled
+        env: {DOCKERHUB_IMAGE: '${{ vars.DOCKERHUB_IMAGE }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$DOCKERHUB_IMAGE" ]]; then
+            echo "dockerhub_enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dockerhub_enabled=false" >> "$GITHUB_OUTPUT"
+          fi
 
   ghcr-stage:
     needs: validate
@@ -59,6 +72,11 @@ jobs:
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with: {registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}'}
+      - name: Refuse an existing GHCR staging reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! docker buildx imagetools inspect "$IMAGE_NAME:$STAGING_TAG" >/dev/null 2>&1
       - id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
@@ -78,7 +96,7 @@ jobs:
         run: cosign sign --yes "${IMAGE_NAME}@${DIGEST}"
 
   dockerhub-stage:
-    if: ${{ vars.DOCKERHUB_IMAGE != '' }}
+    if: ${{ needs.validate.outputs.dockerhub_enabled == 'true' }}
     needs: validate
     runs-on: ubuntu-24.04
     outputs:
@@ -90,6 +108,13 @@ jobs:
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with: {username: '${{ secrets.DOCKERHUB_USERNAME }}', password: '${{ secrets.DOCKERHUB_TOKEN }}'}
+      - name: Refuse an existing Docker Hub staging reference
+        env: {DOCKERHUB_IMAGE: '${{ vars.DOCKERHUB_IMAGE }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DOCKERHUB_IMAGE"
+          ! docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$STAGING_TAG" >/dev/null 2>&1
       - id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
@@ -109,13 +134,14 @@ jobs:
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
   finalize-receipt:
-    if: ${{ always() && needs.ghcr-stage.result == 'success' && (needs.dockerhub-stage.result == 'success' || needs.dockerhub-stage.result == 'skipped') }}
-    needs: [ghcr-stage, dockerhub-stage]
+    if: ${{ always() && needs.validate.result == 'success' && needs.ghcr-stage.result == 'success' && ((needs.validate.outputs.dockerhub_enabled == 'true' && needs.dockerhub-stage.result == 'success') || (needs.validate.outputs.dockerhub_enabled == 'false' && needs.dockerhub-stage.result == 'skipped')) }}
+    needs: [validate, ghcr-stage, dockerhub-stage]
     runs-on: ubuntu-24.04
     env:
       GHCR_DIGEST: ${{ needs.ghcr-stage.outputs.digest }}
       DOCKERHUB_DIGEST: ${{ needs.dockerhub-stage.outputs.digest }}
       DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+      DOCKERHUB_ENABLED: ${{ needs.validate.outputs.dockerhub_enabled }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with: {ref: '${{ env.RELEASE_SHA }}', fetch-depth: 0}
@@ -132,19 +158,25 @@ jobs:
             ! docker buildx imagetools inspect "$ref" >/dev/null 2>&1
           done
           test "$(docker buildx imagetools inspect "$IMAGE_NAME:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$GHCR_DIGEST"
-          if [[ -n "$DOCKERHUB_IMAGE" ]]; then
+          if [[ "$DOCKERHUB_ENABLED" == "true" ]]; then
+            test -n "$DOCKERHUB_IMAGE"
+            test -n "$DOCKERHUB_DIGEST"
             for ref in "$DOCKERHUB_IMAGE:$VERSION" "$DOCKERHUB_IMAGE:$MINOR"; do
               ! docker buildx imagetools inspect "$ref" >/dev/null 2>&1
             done
             test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
+          else
+            test "$DOCKERHUB_ENABLED" = "false"
+            test -z "$DOCKERHUB_IMAGE"
+            test -z "$DOCKERHUB_DIGEST"
           fi
       - uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409
       - name: Create and verify signed release receipt
         shell: bash
         run: |
           set -euo pipefail
-          printf '{"schema":"mosaic-release-receipt-v1","state":"prepared-not-published","version":"%s","source_sha":"%s","ghcr_image":"%s","ghcr_digest":"%s","dockerhub_image":"%s","dockerhub_digest":"%s","staging_tag":"%s","workflow_run":"%s"}\n' \
-            "$RELEASE_VERSION" "$RELEASE_SHA" "$IMAGE_NAME" "$GHCR_DIGEST" "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$STAGING_TAG" "$GITHUB_RUN_ID" > RELEASE_RECEIPT.json
+          printf '{"schema":"mosaic-release-receipt-v1","state":"prepared-not-published","version":"%s","source_sha":"%s","ghcr_image":"%s","ghcr_digest":"%s","dockerhub_enabled":%s,"dockerhub_image":"%s","dockerhub_digest":"%s","staging_tag":"%s","workflow_run":"%s","workflow_attempt":"%s"}\n' \
+            "$RELEASE_VERSION" "$RELEASE_SHA" "$IMAGE_NAME" "$GHCR_DIGEST" "$DOCKERHUB_ENABLED" "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$STAGING_TAG" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > RELEASE_RECEIPT.json
           cosign sign-blob --yes --bundle RELEASE_RECEIPT.sigstore.json RELEASE_RECEIPT.json
           cosign verify-blob --bundle RELEASE_RECEIPT.sigstore.json \
             --certificate-identity-regexp '^https://github.com/Hearthplug/mosaic-erp/.github/workflows/container-release.yml@refs/heads/main$' \
