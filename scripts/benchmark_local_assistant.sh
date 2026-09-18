@@ -25,9 +25,8 @@ for i in $(seq 1 60); do
 done
 test "$ready" = 1
 startup_s=$(python3 -c 'import sys; print(float(sys.argv[1])-float(sys.argv[2]))' "$(date +%s.%N)" "$started")
-set +e
 python3 scripts/evaluate_local_assistant.py "$arch" resource-samples.txt "$startup_s" > "benchmark-${arch}.json"
-status=$?
-set -e
+test -s "benchmark-${arch}.json"
+python3 -m json.tool "benchmark-${arch}.json" >/dev/null
+sha256sum "benchmark-${arch}.json" > "benchmark-${arch}.json.sha256"
 cat "benchmark-${arch}.json"
-exit "$status"

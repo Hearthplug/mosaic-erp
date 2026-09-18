@@ -51,4 +51,20 @@ jobs:
       - run: bash scripts/benchmark_local_assistant.sh '${{ matrix.arch }}'
       - if: always()
         uses: actions/upload-artifact@e454baaac2be505c9450e11b8f3215c6fc023ce8
-        with: {name: 'local-assistant-${{ matrix.arch }}', path: 'benchmark-${{ matrix.arch }}.json', if-no-files-found: error}
+        with: {name: 'local-assistant-${{ matrix.arch }}', path: 'benchmark-${{ matrix.arch }}.json*', if-no-files-found: error, retention-days: 30}
+  local-assistant-availability:
+    if: always()
+    needs: local-model-benchmark
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {pattern: 'local-assistant-*', merge-multiple: true, path: verdicts}
+      - run: |
+          set -euo pipefail
+          (cd verdicts && sha256sum -c benchmark-amd64.json.sha256 && sha256sum -c benchmark-arm64.json.sha256)
+          python3 scripts/check_local_assistant_availability.py verdicts/benchmark-amd64.json verdicts/benchmark-arm64.json
+      - if: always()
+        uses: actions/upload-artifact@e454baaac2be505c9450e11b8f3215c6fc023ce8
+        with: {name: local-assistant-availability, path: local-assistant-availability.json, if-no-files-found: error, retention-days: 30}
