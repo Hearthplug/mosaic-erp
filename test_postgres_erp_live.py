@@ -51,4 +51,55 @@ class LivePG(unittest.TestCase):
   reopened=PostgresStore(self.s.path,1,2,False)
   try:self.assertEqual(Retail(reopened,Accounting(reopened)).stock(w,p,loc),8);self.assertEqual(Accounting(reopened).trial_balance(w)['total_debit_minor'],before['total_debit_minor'])
   finally:reopened.close()
+ def _retailer(self,name):
+  from accounting import Accounting
+  from retail import Retail
+  w,_=self.s.create_workspace(name);a=Accounting(self.s);a.setup(w,'owner');r=Retail(self.s,a);loc=r.setup_location(w,'owner','MAIN','Main')['id'];vendor=a.create_party(w,'owner','vendor','Supplier')['id'];product=r.product(w,'owner','A','Apple',500,300)['id'];return w,a,r,loc,vendor,product
+ def test_competing_commands_prevent_oversell_overreceipt_and_double_settlement(self):
+  from retail import Retail
+  from accounting import Accounting
+  from store import Conflict
+  w,a,r,loc,vendor,p=self._retailer('Concurrent retailer');r.move_stock(w,'owner',p,loc,1,300,'opening','opening','one')
+  def race(call):
+   barrier=threading.Barrier(2);out=[]
+   def go():
+    try:barrier.wait();call();out.append('ok')
+    except Conflict:out.append('denied')
+   ts=[threading.Thread(target=go) for _ in range(2)];[t.start() for t in ts];[t.join(10) for t in ts];self.assertFalse(any(t.is_alive() for t in ts));self.assertEqual(sorted(out),['denied','ok'])
+  race(lambda:Retail(self.s,Accounting(self.s)).complete_sale(w,'cashier',loc,[{'product_id':p,'quantity':'1'}],[{'kind':'cash','amount_minor':500}]))
+  self.assertEqual(r.stock(w,p,loc),0);self.assertEqual(self.s._db.execute('SELECT COUNT(*) n FROM sales WHERE workspace_id=?',(w,)).fetchone()['n'],1)
+  po=r.purchase_order(w,'buyer',vendor,loc,'2026-09-18',[{'product_id':p,'quantity':'10','unit_cost_minor':300}]);r.approve_purchase(w,'owner',po['id']);line=self.s._db.execute('SELECT id FROM purchase_order_lines WHERE purchase_order_id=?',(po['id'],)).fetchone()['id']
+  race(lambda:Retail(self.s,Accounting(self.s)).receive_purchase(w,'receiver',po['id'],{line:'10'}))
+  self.assertEqual(r.stock(w,p,loc),10);self.assertEqual(str(self.s._db.execute('SELECT received_quantity FROM purchase_order_lines WHERE id=? AND purchase_order_id=?',(line,po['id'])).fetchone()['received_quantity']),'10')
+  bill=a.create_document(w,'buyer','purchase_bill','2026-09-18',[{'description':'Stock','quantity':'10','unit_price_minor':300}],vendor);a.approve_document(w,'owner',bill['id']);a.post_document(w,'owner',bill['id'])
+  race(lambda:Accounting(self.s).record_payment(w,'accountant',bill['id'],3000,'2026-09-18'))
+  self.assertEqual(self.s._db.execute('SELECT balance_minor FROM documents WHERE id=? AND workspace_id=?',(bill['id'],w)).fetchone()['balance_minor'],0);self.assertEqual(self.s._db.execute('SELECT COUNT(*) n FROM settlements WHERE workspace_id=? AND target_document_id=?',(w,bill['id'])).fetchone()['n'],1)
+ def test_period_lock_wins_before_waiting_post(self):
+  from accounting import Accounting
+  from store import Conflict
+  w,a,r,loc,vendor,p=self._retailer('Period race');period=a.add_period(w,'owner','September','2026-09-01','2026-09-30');cash=a._system(w,'cash');sales=a._system(w,'sales');out=[]
+  with self.s.tx():
+   self.s.accounting_lock(w,'period')
+   def post():
+    try:Accounting(self.s).post_journal(w,'owner','2026-09-18','racing',[{'account_id':cash,'debit_minor':1},{'account_id':sales,'credit_minor':1}]);out.append('posted')
+    except Conflict:out.append('denied')
+   t=threading.Thread(target=post);t.start();a.lock_period(w,'owner',period['id'])
+  t.join(10);self.assertFalse(t.is_alive());self.assertEqual(out,['denied']);self.assertEqual(self.s._db.execute("SELECT COUNT(*) n FROM journals WHERE workspace_id=? AND description='racing'",(w,)).fetchone()['n'],0)
+ def test_mid_command_failures_roll_back_receipt_sale_and_payment(self):
+  from store import Conflict
+  w,a,r,loc,vendor,p=self._retailer('Failure retailer');original=self.s._audit
+  def fail(action):
+   def injected(wid,actor,actual,detail):
+    if actual==action:raise RuntimeError('injected '+action)
+    return original(wid,actor,actual,detail)
+   return injected
+  po=r.purchase_order(w,'buyer',vendor,loc,'2026-09-18',[{'product_id':p,'quantity':'2','unit_cost_minor':300}]);r.approve_purchase(w,'owner',po['id']);line=self.s._db.execute('SELECT id FROM purchase_order_lines WHERE purchase_order_id=?',(po['id'],)).fetchone()['id'];self.s._audit=fail('purchase.receive')
+  with self.assertRaises(RuntimeError):r.receive_purchase(w,'receiver',po['id'],{line:'2'})
+  self.s._audit=original;self.assertEqual(r.stock(w,p,loc),0);self.assertEqual(str(self.s._db.execute('SELECT received_quantity FROM purchase_order_lines WHERE id=? AND purchase_order_id=?',(line,po['id'])).fetchone()['received_quantity']),'0')
+  r.move_stock(w,'owner',p,loc,1,300,'opening','opening','seed');self.s._audit=fail('sale.complete')
+  with self.assertRaises(RuntimeError):r.complete_sale(w,'cashier',loc,[{'product_id':p,'quantity':'1'}],[{'kind':'cash','amount_minor':500}])
+  self.s._audit=original;self.assertEqual(r.stock(w,p,loc),1);self.assertEqual(self.s._db.execute('SELECT COUNT(*) n FROM sales WHERE workspace_id=?',(w,)).fetchone()['n'],0)
+  bill=a.create_document(w,'buyer','purchase_bill','2026-09-18',[{'description':'Stock','quantity':'1','unit_price_minor':300}],vendor);a.approve_document(w,'owner',bill['id']);a.post_document(w,'owner',bill['id']);before=self.s._db.execute('SELECT COUNT(*) n FROM documents WHERE workspace_id=?',(w,)).fetchone()['n'];self.s._audit=fail('settlement.create')
+  with self.assertRaises(RuntimeError):a.record_payment(w,'accountant',bill['id'],300,'2026-09-18')
+  self.s._audit=original;self.assertEqual(self.s._db.execute('SELECT balance_minor FROM documents WHERE id=? AND workspace_id=?',(bill['id'],w)).fetchone()['balance_minor'],300);self.assertEqual(self.s._db.execute('SELECT COUNT(*) n FROM documents WHERE workspace_id=?',(w,)).fetchone()['n'],before);self.assertEqual(self.s._db.execute('SELECT COUNT(*) n FROM settlements WHERE workspace_id=?',(w,)).fetchone()['n'],0)
 if __name__=='__main__':unittest.main()
