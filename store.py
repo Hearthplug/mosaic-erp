@@ -253,6 +253,13 @@ class Store:
             self._audit(wid, actor_key_id, 'user.create', {'user_id': uid, 'email': email, 'role': role})
         return {'user_id': uid, 'email': email, 'role': role}
 
+    def login_options(self, email: str, password: str):
+        email=(email or '').strip().lower()
+        rows=self._db.execute("SELECT u.workspace_id,u.password_hash,u.role,w.name FROM users u JOIN workspaces w ON w.id=u.workspace_id WHERE u.email=? AND u.disabled_at IS NULL AND w.status='active'",(email,)).fetchall()
+        valid=[{'workspace_id':r['workspace_id'],'name':r['name'],'role':r['role']} for r in rows if self._password_ok(password or '',r['password_hash'])]
+        if not valid:self._password_ok(password or '',self._password_hash('dummy-password-value'))
+        return valid
+
     def login(self, workspace_id: str, email: str, password: str, ttl_hours: int = 12):
         # A generic failure prevents account enumeration. Password work is always performed.
         with self._lock:
@@ -301,6 +308,25 @@ class Store:
             tokens = tokens - 1.0 if allowed else tokens
             self._db.execute('INSERT INTO rate_buckets(identity,tokens,updated_at) VALUES(?,?,?) ON CONFLICT(identity) DO UPDATE SET tokens=excluded.tokens,updated_at=excluded.updated_at', (identity,tokens,now))
         return 0.0 if allowed else 60.0 / rpm
+
+    def create_invitation(self,wid,email,role,operational_role,actor,ttl_hours=72):
+        if role not in ROLES:raise ValueError('invalid role')
+        iid,token='inv_'+secrets.token_hex(8),'miv_'+secrets.token_urlsafe(32);now=datetime.now(timezone.utc);expires=now+timedelta(hours=max(1,min(int(ttl_hours),168)))
+        with self.tx():
+            self._db.execute('INSERT INTO workspace_invitations(id,workspace_id,email,role,operational_role,token_hash,expires_at,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(iid,wid,(email or '').strip().lower(),role,operational_role,sha256(token),expires.isoformat(),actor,now.isoformat()))
+            self._audit(wid,actor,'invitation.create',{'invitation_id':iid,'email':(email or '').strip().lower(),'role':role,'operational_role':operational_role})
+        return {'invitation_id':iid,'invite_token':token,'expires_at':expires.isoformat()}
+    def invitation(self,token):
+        r=self._db.execute('SELECT id,workspace_id,email,role,operational_role,expires_at,accepted_at,revoked_at FROM workspace_invitations WHERE token_hash=?',(sha256(token or ''),)).fetchone()
+        if not r or r['accepted_at'] or r['revoked_at'] or datetime.fromisoformat(r['expires_at'])<=datetime.now(timezone.utc):return None
+        return dict(r)
+    def accept_invitation(self,token,password):
+        invite=self.invitation(token)
+        if not invite:raise Conflict('invitation is invalid or expired')
+        user=self.create_user(invite['workspace_id'],invite['email'],password,invite['role'],invite['id'])
+        with self.tx():
+            if self._db.execute('UPDATE workspace_invitations SET accepted_at=? WHERE id=? AND workspace_id=? AND accepted_at IS NULL',(utcnow(),invite['id'],invite['workspace_id'])).rowcount!=1:raise Conflict('invitation was already used')
+        return user|{'workspace_id':invite['workspace_id'],'operational_role':invite['operational_role']}
 
     def create_key(self, wid: str, role: str, label: str, actor_key_id: str):
         if role not in ROLES:
