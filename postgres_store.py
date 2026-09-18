@@ -42,6 +42,8 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY; ALTER TABLE users FORCE ROW LEVEL S
 CREATE POLICY users_tenant ON users USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));
 CREATE OR REPLACE FUNCTION mosaic_auth_session(p_hash text) RETURNS TABLE(id text,user_id text,workspace_id text,role text,expires_at text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT s.id,u.id,u.workspace_id,u.role,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=p_hash AND s.revoked_at IS NULL AND u.disabled_at IS NULL $$;
 REVOKE ALL ON FUNCTION mosaic_auth_session(text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO CURRENT_USER;
+CREATE OR REPLACE FUNCTION mosaic_parent_workspace(p_table text,p_id text) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$ DECLARE w text; BEGIN IF p_table NOT IN ('purchase_orders','sales','retail_returns','stock_counts','documents') THEN RAISE EXCEPTION 'unsupported parent'; END IF; EXECUTE format('SELECT workspace_id FROM %I WHERE id=$1',p_table) INTO w USING p_id; RETURN w; END $$;
+REVOKE ALL ON FUNCTION mosaic_parent_workspace(text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_parent_workspace(text,text) TO CURRENT_USER;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY; ALTER TABLE sessions FORCE ROW LEVEL SECURITY;
 CREATE POLICY sessions_tenant ON sessions USING (EXISTS (SELECT 1 FROM users u WHERE u.id=sessions.user_id AND u.workspace_id=current_setting('mosaic.workspace_id',true)) OR token_hash=current_setting('mosaic.auth_session_hash',true)) WITH CHECK (EXISTS (SELECT 1 FROM users u WHERE u.id=sessions.user_id AND u.workspace_id=current_setting('mosaic.workspace_id',true)));
 '''
@@ -54,6 +56,14 @@ def _context(sql_text, params):
     wid=next((x for x in vals if x.startswith('wsp_')),None)
     if 'api_keys WHERE key_hash=' in sql_text and vals: return ('mosaic.auth_key_hash',vals[0])
     if 'sessions s JOIN users' in sql_text and vals: return ('mosaic.auth_session_hash',vals[0])
+    if not wid:
+        # Child-table queries often carry only a parent id. Recover the tenant
+        # from the parent while the connection is still outside tenant scope.
+        child_parents={'purchase_order_lines':('purchase_orders','purchase_order_id'),'sale_lines':('sales','sale_id'),'retail_return_lines':('retail_returns','return_id'),'stock_count_lines':('stock_counts','stock_count_id'),'document_lines':('documents','document_id')}
+        low=sql_text.lower()
+        for child,(parent,fk) in child_parents.items():
+            if child in low and vals:
+                return ('mosaic.parent_context',parent+'|'+str(vals[0]))
     return ('mosaic.workspace_id',wid) if wid else (None,None)
 
 class _Cursor:
@@ -78,7 +88,13 @@ class _Proxy:
             cm=self.owner._pool.connection();conn=cm.__enter__()
             release=lambda: cm.__exit__(None,None,None)
         key,val=_context(query,params)
-        if key and val: conn.execute('SELECT set_config(%s,%s,true)',(key,val))
+        if key=='mosaic.parent_context':
+            parent,parent_id=val.split('|',1)
+            # Parent tables are RLS-protected too, so resolve with a narrowly
+            # scoped SECURITY DEFINER helper created by the schema migration.
+            row=conn.execute('SELECT mosaic_parent_workspace(%s,%s)',(parent,parent_id)).fetchone();wid=next(iter(row.values())) if row else None
+            if wid:conn.execute('SELECT set_config(%s,%s,true)',('mosaic.workspace_id',wid))
+        elif key and val: conn.execute('SELECT set_config(%s,%s,true)',(key,val))
         cur=conn.execute(_q(query),params)
         if cur.description is None and release: release();release=None
         return _Cursor(cur,release)
