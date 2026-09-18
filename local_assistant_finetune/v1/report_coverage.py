@@ -1,0 +1,4 @@
+import json
+from collections import Counter
+from pathlib import Path
+D=Path(__file__).parent;r=[json.loads(x) for x in (D/'dataset.jsonl').read_text().splitlines()];m=json.loads((D/'coverage_manifest.json').read_text());tests=sorted({t for x in r for t in x['owning_tests']});report={'schema':'mosaic-coverage-report-v2','records':len(r),'stories':len({x['story'] for x in r}),'dimensions':len({x['variant'] for x in r}),'story_dimension_cells':len({(x['story'],x['variant']) for x in r}),'splits':dict(Counter(x['split'] for x in r)),'risk':dict(Counter(x['risk'] for x in r)),'owning_tests':tests,'locked_high_risk':{s:sorted(x['variant'] for x in r if x['story']==s and x['split']=='test') for s in m['high_risk_stories']}};(D/'coverage_report.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report))
