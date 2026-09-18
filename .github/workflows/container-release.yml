@@ -1,114 +1,185 @@
 name: Container release
+run-name: Prepare and tag ${{ inputs.version }} from ${{ inputs.release_sha }}
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*']
+    inputs:
+      version:
+        description: Exact SemVer tag to prepare, for example v1.2.0
+        required: true
+        type: string
+      release_sha:
+        description: Exact 40-character main commit SHA to prepare
+        required: true
+        type: string
 permissions:
-  contents: read
+  contents: write
   packages: write
   id-token: write
   attestations: write
+concurrency:
+  group: container-release-${{ inputs.version }}
+  cancel-in-progress: false
 env:
-  # Replace only after the Docker Hub namespace is confirmed by its owner.
   IMAGE_NAME: ghcr.io/hearthplug/mosaic-erp
+  RELEASE_VERSION: ${{ inputs.version }}
+  RELEASE_SHA: ${{ inputs.release_sha }}
+  STAGING_TAG: ${{ inputs.version }}-candidate.${{ github.run_id }}.${{ github.run_attempt }}
 jobs:
   validate:
     runs-on: ubuntu-24.04
+    outputs:
+      dockerhub_enabled: ${{ steps.registry-mode.outputs.dockerhub_enabled }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: '${{ env.RELEASE_SHA }}', fetch-depth: 0}
+      - name: Verify exact unpublished main release candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
+          ! git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_VERSION"
       - run: python3 -m unittest test_customization test_persistence test_auth_experience test_oauth
       - run: python3 release_check.py
       - run: python3 scripts/validate_deployment.py
       - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
         with: {version: v3.18.6}
       - run: helm lint deploy/helm/mosaic-erp --strict
-  build-scan-publish:
+      - id: registry-mode
+        name: Record whether Docker Hub is enabled
+        env: {DOCKERHUB_IMAGE: '${{ vars.DOCKERHUB_IMAGE }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$DOCKERHUB_IMAGE" ]]; then
+            echo "dockerhub_enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dockerhub_enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  ghcr-stage:
     needs: validate
     runs-on: ubuntu-24.04
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: '${{ env.RELEASE_SHA }}'}
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
-        id: build
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ steps.meta.outputs.version }}
-            VCS_REF=${{ github.sha }}
-          sbom: true
-          provenance: mode=max
-      - uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
-        with:
-          image-ref: ${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
-          format: table
-          exit-code: '1'
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-      - uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409
-      - env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-        run: cosign sign --yes "${IMAGE_NAME}@${DIGEST}"
-
-  dockerhub:
-    if: ${{ vars.DOCKERHUB_IMAGE != '' }}
-    needs: [validate, build-scan-publish]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
-        with:
-          images: ${{ vars.DOCKERHUB_IMAGE }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
+        with: {registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}'}
+      - name: Refuse an existing GHCR staging reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! docker buildx imagetools inspect "$IMAGE_NAME:$STAGING_TAG" >/dev/null 2>&1
       - id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.IMAGE_NAME }}:${{ env.STAGING_TAG }}
           build-args: |
-            VERSION=${{ steps.meta.outputs.version }}
-            VCS_REF=${{ github.sha }}
+            VERSION=${{ env.RELEASE_VERSION }}
+            VCS_REF=${{ env.RELEASE_SHA }}
           sbom: true
           provenance: mode=max
       - uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
-        with:
-          image-ref: ${{ vars.DOCKERHUB_IMAGE }}@${{ steps.build.outputs.digest }}
-          format: table
-          exit-code: '1'
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
+        with: {image-ref: '${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}', format: table, exit-code: '1', severity: 'CRITICAL,HIGH', ignore-unfixed: true}
       - uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409
-      - env:
-          IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
-          DIGEST: ${{ steps.build.outputs.digest }}
+      - env: {DIGEST: '${{ steps.build.outputs.digest }}'}
+        run: cosign sign --yes "${IMAGE_NAME}@${DIGEST}"
+
+  dockerhub-stage:
+    if: ${{ needs.validate.outputs.dockerhub_enabled == 'true' }}
+    needs: validate
+    runs-on: ubuntu-24.04
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: '${{ env.RELEASE_SHA }}'}
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with: {username: '${{ secrets.DOCKERHUB_USERNAME }}', password: '${{ secrets.DOCKERHUB_TOKEN }}'}
+      - name: Refuse an existing Docker Hub staging reference
+        env: {DOCKERHUB_IMAGE: '${{ vars.DOCKERHUB_IMAGE }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DOCKERHUB_IMAGE"
+          ! docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$STAGING_TAG" >/dev/null 2>&1
+      - id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ vars.DOCKERHUB_IMAGE }}:${{ env.STAGING_TAG }}
+          build-args: |
+            VERSION=${{ env.RELEASE_VERSION }}
+            VCS_REF=${{ env.RELEASE_SHA }}
+          sbom: true
+          provenance: mode=max
+      - uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
+        with: {image-ref: '${{ vars.DOCKERHUB_IMAGE }}@${{ steps.build.outputs.digest }}', format: table, exit-code: '1', severity: 'CRITICAL,HIGH', ignore-unfixed: true}
+      - uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409
+      - env: {DIGEST: '${{ steps.build.outputs.digest }}', IMAGE: '${{ vars.DOCKERHUB_IMAGE }}'}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+  finalize-receipt:
+    if: ${{ always() && needs.validate.result == 'success' && needs.ghcr-stage.result == 'success' && ((needs.validate.outputs.dockerhub_enabled == 'true' && needs.dockerhub-stage.result == 'success') || (needs.validate.outputs.dockerhub_enabled == 'false' && needs.dockerhub-stage.result == 'skipped')) }}
+    needs: [validate, ghcr-stage, dockerhub-stage]
+    runs-on: ubuntu-24.04
+    env:
+      GHCR_DIGEST: ${{ needs.ghcr-stage.outputs.digest }}
+      DOCKERHUB_DIGEST: ${{ needs.dockerhub-stage.outputs.digest }}
+      DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+      DOCKERHUB_ENABLED: ${{ needs.validate.outputs.dockerhub_enabled }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {ref: '${{ env.RELEASE_SHA }}', fetch-depth: 0}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Recheck main, tag and final registry names before accepting candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
+          ! git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_VERSION"
+          VERSION="${RELEASE_VERSION#v}"; MINOR="${VERSION%.*}"
+          for ref in "$IMAGE_NAME:$VERSION" "$IMAGE_NAME:$MINOR"; do
+            ! docker buildx imagetools inspect "$ref" >/dev/null 2>&1
+          done
+          test "$(docker buildx imagetools inspect "$IMAGE_NAME:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$GHCR_DIGEST"
+          if [[ "$DOCKERHUB_ENABLED" == "true" ]]; then
+            test -n "$DOCKERHUB_IMAGE"
+            test -n "$DOCKERHUB_DIGEST"
+            for ref in "$DOCKERHUB_IMAGE:$VERSION" "$DOCKERHUB_IMAGE:$MINOR"; do
+              ! docker buildx imagetools inspect "$ref" >/dev/null 2>&1
+            done
+            test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
+          else
+            test "$DOCKERHUB_ENABLED" = "false"
+            test -z "$DOCKERHUB_IMAGE"
+            test -z "$DOCKERHUB_DIGEST"
+          fi
+      - uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409
+      - name: Create and verify signed release receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '{"schema":"mosaic-release-receipt-v1","state":"prepared-not-published","version":"%s","source_sha":"%s","ghcr_image":"%s","ghcr_digest":"%s","dockerhub_enabled":%s,"dockerhub_image":"%s","dockerhub_digest":"%s","staging_tag":"%s","workflow_run":"%s","workflow_attempt":"%s"}\n' \
+            "$RELEASE_VERSION" "$RELEASE_SHA" "$IMAGE_NAME" "$GHCR_DIGEST" "$DOCKERHUB_ENABLED" "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$STAGING_TAG" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > RELEASE_RECEIPT.json
+          cosign sign-blob --yes --bundle RELEASE_RECEIPT.sigstore.json RELEASE_RECEIPT.json
+          cosign verify-blob --bundle RELEASE_RECEIPT.sigstore.json \
+            --certificate-identity-regexp '^https://github.com/Hearthplug/mosaic-erp/.github/workflows/container-release.yml@refs/heads/main$' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com RELEASE_RECEIPT.json
+      - uses: actions/upload-artifact@e454baaac2be505c9450e11b8f3215c6fc023ce8
+        with: {name: 'release-receipt-${{ env.RELEASE_VERSION }}-${{ github.run_id }}', path: 'RELEASE_RECEIPT*', if-no-files-found: error}
