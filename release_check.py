@@ -95,7 +95,7 @@ def main():
                 deps.update(a.name.split('.')[0] for a in node.names)
             elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 deps.add(node.module.split('.')[0])
-    stdlib = set(sys.stdlib_module_names) | {'app','store','postgres_store','extra_packs','accounting','accounting_schema','retail','retail_schema','operational_profile','operating_model','operating_model_schema','onboarding','onboarding_schema','postgres_erp_schema','rbac','tax_engine','branding','business_twin','migration_schema','migration_packs','tax_verification_schema'}
+    stdlib = set(sys.stdlib_module_names) | {'app','store','postgres_store','extra_packs','accounting','accounting_schema','retail','retail_schema','operational_profile','operating_model','operating_model_schema','onboarding','onboarding_schema','postgres_erp_schema','rbac','tax_engine','branding','business_twin','migration_schema','migration_packs','tax_verification_schema','tax_pack_operational'}
     third = deps - stdlib
     gate('Dependency scan', third <= {'psycopg','psycopg_pool'}, f'pinned PostgreSQL dependencies only: {third}' if third <= {'psycopg','psycopg_pool'} else f'unexpected third-party: {third}')
 
