@@ -13,6 +13,7 @@ from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
 from tax_engine import TaxEngine
+from provisioning import Provisioner
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -464,6 +465,8 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/workspace/audit':
             wid, _, _ = self._auth('viewer')
             return self.out(200, {'events': STORE.audit_trail(wid)}, rid=rid) or 200
+        if p == '/api/provisioning':
+            wid, _, _ = self._auth('viewer'); return self.out(200,PROVISIONER.status(wid),rid=rid) or 200
         if p == '/api/onboarding/schema':
             return self.out(200,{'version':SCHEMA_VERSION,'questions':QUESTIONS},rid=rid) or 200
         if p == '/api/onboarding/session':
@@ -658,7 +661,8 @@ STORE = create_store()
 BOOKS = Accounting(STORE)
 RETAIL = Retail(STORE,BOOKS)
 PROFILES = Profiles(STORE)
-ONBOARDING = Onboarding(STORE,PROFILES)
+PROVISIONER = Provisioner(STORE)
+ONBOARDING = Onboarding(STORE,PROFILES,PROVISIONER)
 MIGRATIONS_API = Migrations(STORE,BOOKS,RETAIL)
 TAX = TaxEngine(STORE)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
