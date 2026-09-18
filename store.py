@@ -23,6 +23,7 @@ from retail_schema import RETAIL_SQLITE_SCHEMA
 from onboarding_schema import ONBOARDING_SQLITE_SCHEMA
 from operating_model_schema import OPERATING_MODEL_SQLITE_SCHEMA
 from migration_schema import MIGRATION_SQLITE_SCHEMA
+from tax_verification_schema import TAX_VERIFICATION_SQLITE_SCHEMA
 
 MIGRATIONS = [
     # 1: core workspace schema
@@ -105,6 +106,7 @@ MIGRATIONS = [
     ONBOARDING_SQLITE_SCHEMA,
     OPERATING_MODEL_SQLITE_SCHEMA,
     MIGRATION_SQLITE_SCHEMA,
+    TAX_VERIFICATION_SQLITE_SCHEMA,
 ]
 
 def utcnow() -> str:
