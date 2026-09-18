@@ -27,4 +27,28 @@ class LivePG(unittest.TestCase):
   def worker():
    with self.s.tx():self.s._db.execute("SELECT set_config('mosaic.workspace_id',%s,true)",(w,));self.s.accounting_lock(w,'number');seen.append(1)
   ts=[threading.Thread(target=worker) for _ in range(4)];[t.start() for t in ts];[t.join() for t in ts];self.assertEqual(len(seen),4)
+ def test_combined_representative_retailer_runtime_chain(self):
+  from accounting import Accounting
+  from retail import Retail
+  from rbac import RBAC,Denied
+  from store import utcnow
+  w,_=self.s.create_workspace('Representative PG retailer');a=Accounting(self.s);a.setup(w,'owner');r=Retail(self.s,a);rb=RBAC(self.s);loc=r.setup_location(w,'owner','MAIN','Main')['id'];vendor=a.create_party(w,'owner','vendor','Supplier')['id'];p=r.product(w,'owner','A','Apple',500,300)['id']
+  rb.assign(w,'owner','cashier','Cashier',['sale.create','payment.accept']);
+  with self.assertRaises(Denied):rb.check(w,'cashier','purchase.approve')
+  self.assertTrue(rb.check(w,'cashier','sale.create'))
+  po=r.purchase_order(w,'buyer',vendor,loc,'2026-09-18',[{'product_id':p,'quantity':'10','unit_cost_minor':300}]);r.approve_purchase(w,'owner',po['id']);line=self.s._db.execute('SELECT id FROM purchase_order_lines WHERE purchase_order_id=?',(po['id'],)).fetchone()['id'];r.receive_purchase(w,'receiver',po['id'],{line:'10'})
+  bill=a.create_document(w,'buyer','purchase_bill','2026-09-18',[{'description':'10 Apples','quantity':'10','unit_price_minor':300}],vendor,due_date='2026-10-18');a.approve_document(w,'owner',bill['id']);a.post_document(w,'owner',bill['id']);match=r.three_way_match(w,'owner',po['id'],bill['id']);self.assertEqual(match['status'],'matched');pay=a.record_payment(w,'accountant',bill['id'],3000,'2026-09-18');self.assertEqual(pay['remaining_minor'],0)
+  cash=r.open_cash(w,'cashier',loc,1000);sale=r.complete_sale(w,'cashier',loc,[{'product_id':p,'quantity':'2'}],[{'kind':'cash','amount_minor':1000}]);self.assertEqual(r.close_cash(w,'owner',cash['id'],2000)['variance_minor'],0)
+  bank=a._system(w,'bank');tx=a.import_bank_transactions(w,'accountant',bank,[{'posted_on':'2026-09-18','description':'Supplier payment','amount_minor':-3000,'external_id':'bank-1'}])[0];self.assertTrue(a.match_bank_transaction(w,'owner',tx['id'],pay['journal_id'])['matched'])
+  period=a.add_period(w,'owner','September','2026-09-01','2026-09-30');a.lock_period(w,'owner',period['id']);
+  with self.assertRaises(Exception):a.post_journal(w,'owner','2026-09-19','must fail',[{'account_id':a._system(w,'cash'),'debit_minor':1},{'account_id':a._system(w,'sales'),'credit_minor':1}])
+  before=a.trial_balance(w);self.assertEqual(before['total_debit_minor'],before['total_credit_minor'])
+  with self.assertRaises(RuntimeError):
+   with self.s.tx():self.s._db.execute("SELECT set_config('mosaic.workspace_id',%s,true)",(w,));self.s._db.execute('INSERT INTO locations(id,workspace_id,code,name,kind,active) VALUES(?,?,?,?,?,?)',('loc_fail',w,'FAIL','Fail','store',1));raise RuntimeError('induced failure')
+  self.assertIsNone(self.s._db.execute('SELECT id FROM locations WHERE id=? AND workspace_id=?',('loc_fail',w)).fetchone())
+  # Reconnect proves committed state survives process-style pool reuse. Operator restore remains externally managed.
+  from postgres_store import PostgresStore
+  reopened=PostgresStore(self.s.path,1,2,False)
+  try:self.assertEqual(Retail(reopened,Accounting(reopened)).stock(w,p,loc),8);self.assertEqual(Accounting(reopened).trial_balance(w)['total_debit_minor'],before['total_debit_minor'])
+  finally:reopened.close()
 if __name__=='__main__':unittest.main()
