@@ -7,8 +7,9 @@ from accounting_schema import ACCOUNTING_SQLITE_SCHEMA
 from retail_schema import RETAIL_SQLITE_SCHEMA
 from onboarding_schema import ONBOARDING_SQLITE_SCHEMA
 from operating_model_schema import OPERATING_MODEL_SQLITE_SCHEMA
+from migration_schema import MIGRATION_SQLITE_SCHEMA
 
-DIRECT_TENANT_TABLES=('accounting_settings','accounts','fiscal_periods','parties','items','tax_rules','tax_transaction_facts','tax_codes','document_sequences','documents','journals','journal_lines','settlements','bank_transactions','inventory_movements','statutory_adapters','acceptance_runs','migration_batches','locations','retail_products','stock_ledger','purchase_orders','sales','tender_entries','retail_returns','cash_sessions','credit_policies','stock_counts','goods_receipts','three_way_matches','onboarding_sessions','operating_models','role_assignments','approval_requests')
+DIRECT_TENANT_TABLES=('accounting_settings','accounts','fiscal_periods','parties','items','tax_rules','tax_transaction_facts','tax_codes','document_sequences','documents','journals','journal_lines','settlements','bank_transactions','inventory_movements','statutory_adapters','acceptance_runs','migration_batches','locations','retail_products','stock_ledger','purchase_orders','sales','tender_entries','retail_returns','cash_sessions','credit_policies','stock_counts','goods_receipts','three_way_matches','onboarding_sessions','operating_models','role_assignments','approval_requests','import_batches')
 CHILD_POLICIES={
  'journal_reversals':"EXISTS (SELECT 1 FROM journals p WHERE p.id=journal_reversals.original_journal_id AND p.workspace_id=current_setting('mosaic.workspace_id',true))",
  'document_lines':"EXISTS (SELECT 1 FROM documents p WHERE p.id=document_lines.document_id AND p.workspace_id=current_setting('mosaic.workspace_id',true))",
@@ -32,7 +33,7 @@ def _translate(src):
   out.append(line)
  return '\n'.join(out)
 
-BASE='\n'.join(_translate(x) for x in (ACCOUNTING_SQLITE_SCHEMA,RETAIL_SQLITE_SCHEMA,ONBOARDING_SQLITE_SCHEMA,OPERATING_MODEL_SQLITE_SCHEMA))
+BASE='\n'.join(_translate(x) for x in (ACCOUNTING_SQLITE_SCHEMA,RETAIL_SQLITE_SCHEMA,ONBOARDING_SQLITE_SCHEMA,OPERATING_MODEL_SQLITE_SCHEMA,MIGRATION_SQLITE_SCHEMA))
 RLS=[]
 for t in DIRECT_TENANT_TABLES:
  RLS += [f'ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;',f'ALTER TABLE {t} FORCE ROW LEVEL SECURITY;',f"CREATE POLICY {t}_tenant ON {t} USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));"]
