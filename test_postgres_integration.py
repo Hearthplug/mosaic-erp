@@ -18,7 +18,7 @@ class PostgreSQLIntegration(unittest.TestCase):
    conn.execute(f'GRANT USAGE ON SCHEMA public TO {cls.role}')
    conn.execute(f'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO {cls.role}')
    conn.execute(f'GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO {cls.role}')
-   conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO {cls.role}')
+   conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_oauth_users(text,text,text) TO {cls.role}')
   parts=conninfo_to_dict(url);parts.update(user=cls.role,password=runtime_secret)
   cls.s=PostgresStore(make_conninfo(**parts),min_size=1,max_size=8,auto_migrate=False)
  @classmethod
