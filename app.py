@@ -3,6 +3,7 @@ import hashlib, json, os
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from decimal import Decimal
 from urllib.parse import urlparse
 import secrets, sys, threading, time
 from urllib.parse import parse_qs
@@ -14,6 +15,7 @@ from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
 from tax_engine import TaxEngine
 from provisioning import Provisioner
+from rbac import Denied
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -393,6 +395,12 @@ class H(BaseHTTPRequestHandler):
         if not Store.role_ok(role, minimum):
             raise AuthError(403, f'This key has role {role}; {minimum} or higher is required')
         return wid, key_id, role
+    def _operational_auth(self, action, minimum='viewer', location_id=None, amount_minor=None, record_state=None):
+        wid, actor, role = self._auth(minimum)
+        if role != 'owner':
+            try: PROVISIONER.rbac.check(wid,actor,action,location_id,amount_minor,record_state=record_state)
+            except Denied as e: raise AuthError(403,str(e))
+        return wid,actor,role
     def _body(self):
         n = int(self.headers.get('Content-Length', '0'))
         if n <= 0 or n > MAX_BYTES:
@@ -553,27 +561,27 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/retail/locations':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,RETAIL.setup_location(wid,actor,d['code'],d['name'],d.get('kind','store')),rid=rid) or 201
         if p == '/api/retail/products':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.product(wid,actor,d['sku'],d['name'],d['selling_price_minor'],d['cost_minor'],**{k:v for k,v in d.items() if k not in ('sku','name','selling_price_minor','cost_minor')}),rid=rid) or 201
+            wid, actor, _ = self._operational_auth('product.create','editor'); d=self._body(); return self.out(201,RETAIL.product(wid,actor,d['sku'],d['name'],d['selling_price_minor'],d['cost_minor'],**{k:v for k,v in d.items() if k not in ('sku','name','selling_price_minor','cost_minor')}),rid=rid) or 201
         if p == '/api/retail/purchases':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.purchase_order(wid,actor,d['vendor_id'],d['location_id'],d['ordered_on'],d['lines'],d.get('currency','USD')),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._operational_auth('purchase.create','editor',d['location_id'],sum(int((Decimal(str(x['quantity']))*int(x['unit_cost_minor'])).quantize(Decimal('1'))) for x in d['lines'])); return self.out(201,RETAIL.purchase_order(wid,actor,d['vendor_id'],d['location_id'],d['ordered_on'],d['lines'],d.get('currency','USD')),rid=rid) or 201
         if p == '/api/retail/purchases/approve':
-            wid, actor, _ = self._auth('owner'); d=self._body(); RETAIL.approve_purchase(wid,actor,d['purchase_order_id']); return self.out(200,{'approved':True},rid=rid) or 200
+            wid, actor, _ = self._operational_auth('purchase.approve','owner'); d=self._body(); RETAIL.approve_purchase(wid,actor,d['purchase_order_id']); return self.out(200,{'approved':True},rid=rid) or 200
         if p == '/api/retail/purchases/receive':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,RETAIL.receive_purchase(wid,actor,d['purchase_order_id'],d['received']),rid=rid) or 200
+            d=self._body(); wid, actor, _ = self._auth('editor'); po=STORE._db.execute('SELECT location_id,status FROM purchase_orders WHERE id=? AND workspace_id=?',(d['purchase_order_id'],wid)).fetchone(); self._operational_auth('purchase.receive','editor',po['location_id'] if po else None,record_state=po['status'] if po else None); return self.out(200,RETAIL.receive_purchase(wid,actor,d['purchase_order_id'],d['received']),rid=rid) or 200
         if p == '/api/retail/sales':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.complete_sale(wid,actor,d['location_id'],d['lines'],d['tenders'],d.get('customer_id'),d.get('currency','USD')),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._operational_auth('sale.create','editor',d['location_id'],sum(int(x['amount_minor']) for x in d['tenders'])); return self.out(201,RETAIL.complete_sale(wid,actor,d['location_id'],d['lines'],d['tenders'],d.get('customer_id'),d.get('currency','USD')),rid=rid) or 201
         if p == '/api/retail/transfers':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.transfer(wid,actor,d['product_id'],d['from_location'],d['to_location'],d['quantity']),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._operational_auth('stock.transfer.approve','editor',d['from_location']); return self.out(201,RETAIL.transfer(wid,actor,d['product_id'],d['from_location'],d['to_location'],d['quantity']),rid=rid) or 201
         if p == '/api/retail/counts':
-            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,RETAIL.count_stock(wid,actor,d['location_id'],d['counts'],actor),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._operational_auth('stock.count.approve','owner',d['location_id']); return self.out(201,RETAIL.count_stock(wid,actor,d['location_id'],d['counts'],actor),rid=rid) or 201
         if p == '/api/retail/three-way-match':
-            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,RETAIL.three_way_match(wid,actor,d['purchase_order_id'],d['bill_id']),rid=rid) or 200
+            wid, actor, _ = self._operational_auth('purchase_bill.approve','owner'); d=self._body(); return self.out(200,RETAIL.three_way_match(wid,actor,d['purchase_order_id'],d['bill_id']),rid=rid) or 200
         if p == '/api/retail/returns':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.return_sale(wid,actor,d['sale_id'],d['lines'],d['reason'],d['approved_by'],d.get('refund_kind','cash')),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._auth('editor'); sale=STORE._db.execute('SELECT location_id,status FROM sales WHERE id=? AND workspace_id=?',(d['sale_id'],wid)).fetchone(); amount=sum(int((Decimal(str(q))*Decimal(str(STORE._db.execute('SELECT total_minor,quantity FROM sale_lines WHERE id=? AND sale_id=?',(lid,d['sale_id'])).fetchone()['total_minor']))/Decimal(str(STORE._db.execute('SELECT quantity FROM sale_lines WHERE id=? AND sale_id=?',(lid,d['sale_id'])).fetchone()['quantity']))).quantize(Decimal('1'))) for lid,q in d['lines'].items()); self._operational_auth('sale.refund.approve','editor',sale['location_id'] if sale else None,amount, sale['status'] if sale else None); return self.out(201,RETAIL.return_sale(wid,actor,d['sale_id'],d['lines'],d['reason'],actor,d.get('refund_kind','cash')),rid=rid) or 201
         if p == '/api/retail/cash/open':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.open_cash(wid,actor,d['location_id'],d['opening_minor']),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._operational_auth('cash.open','editor',d['location_id'],int(d['opening_minor'])); return self.out(201,RETAIL.open_cash(wid,actor,d['location_id'],d['opening_minor']),rid=rid) or 201
         if p == '/api/retail/cash/close':
-            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,RETAIL.close_cash(wid,actor,d['session_id'],d['actual_minor']),rid=rid) or 200
+            d=self._body(); wid, actor, _ = self._operational_auth('cash.close','owner',amount_minor=int(d['actual_minor'])); return self.out(200,RETAIL.close_cash(wid,actor,d['session_id'],d['actual_minor']),rid=rid) or 200
         if p == '/api/retail/chat':
             wid, actor, role = self._auth('viewer'); d=self._body(); msg=(d.get('message') or '').strip().lower()
             if msg in ('show low stock','what should i reorder'):
@@ -602,25 +610,27 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/accounting/periods':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,BOOKS.add_period(wid,actor,d['name'],d['starts_on'],d['ends_on']),rid=rid) or 201
         if p == '/api/accounting/periods/lock':
-            wid, actor, _ = self._auth('owner'); d=self._body(); BOOKS.lock_period(wid,actor,d['period_id']); return self.out(200,{'locked':True},rid=rid) or 200
+            wid, actor, _ = self._operational_auth('period.lock','owner'); d=self._body(); BOOKS.lock_period(wid,actor,d['period_id']); return self.out(200,{'locked':True},rid=rid) or 200
         if p == '/api/accounting/bank/import':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,{'transactions':BOOKS.import_bank_transactions(wid,actor,d['account_id'],d['rows'])},rid=rid) or 201
+            wid, actor, _ = self._operational_auth('bank.import','editor'); d=self._body(); return self.out(201,{'transactions':BOOKS.import_bank_transactions(wid,actor,d['account_id'],d['rows'])},rid=rid) or 201
         if p == '/api/accounting/bank/match':
-            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,BOOKS.match_bank_transaction(wid,actor,d['bank_transaction_id'],d['journal_id']),rid=rid) or 200
+            wid, actor, _ = self._operational_auth('bank.match','owner'); d=self._body(); return self.out(200,BOOKS.match_bank_transaction(wid,actor,d['bank_transaction_id'],d['journal_id']),rid=rid) or 200
         if p == '/api/accounting/documents':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,BOOKS.create_document(wid,actor,d['kind'],d['issue_date'],d['lines'],d.get('party_id'),d.get('currency'),d.get('due_date'),d.get('memo'),d.get('source_document_id'),d.get('exchange_rate','1')),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._operational_auth('document.create','editor',amount_minor=sum(int((Decimal(str(x.get('quantity','1')))*int(x['unit_price_minor'])).quantize(Decimal('1'))) for x in d['lines'])); return self.out(201,BOOKS.create_document(wid,actor,d['kind'],d['issue_date'],d['lines'],d.get('party_id'),d.get('currency'),d.get('due_date'),d.get('memo'),d.get('source_document_id'),d.get('exchange_rate','1')),rid=rid) or 201
         if p == '/api/accounting/documents/approve':
-            wid, actor, _ = self._auth('owner'); d=self._body(); BOOKS.approve_document(wid,actor,d['document_id']); return self.out(200,{'approved':True},rid=rid) or 200
+            wid, actor, _ = self._operational_auth('document.approve','owner'); d=self._body(); BOOKS.approve_document(wid,actor,d['document_id']); return self.out(200,{'approved':True},rid=rid) or 200
         if p == '/api/accounting/documents/post':
-            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,BOOKS.post_document(wid,actor,d['document_id']),rid=rid) or 200
+            wid, actor, _ = self._operational_auth('document.post','owner'); d=self._body(); return self.out(200,BOOKS.post_document(wid,actor,d['document_id']),rid=rid) or 200
         if p == '/api/accounting/payments':
-            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,BOOKS.record_payment(wid,actor,d['target_document_id'],d['amount_minor'],d['paid_on'],d.get('bank_account_id'),d.get('currency'),d.get('exchange_rate','1'),d.get('refund',False)),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._operational_auth('payment.approve','editor',amount_minor=int(d['amount_minor']),record_state='posted'); return self.out(201,BOOKS.record_payment(wid,actor,d['target_document_id'],d['amount_minor'],d['paid_on'],d.get('bank_account_id'),d.get('currency'),d.get('exchange_rate','1'),d.get('refund',False)),rid=rid) or 201
         if p == '/api/accounting/journals/reverse':
-            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,BOOKS.reverse_journal(wid,actor,d['journal_id'],d['effective_date'],d['reason']),rid=rid) or 201
+            wid, actor, _ = self._operational_auth('journal.reverse','owner'); d=self._body(); return self.out(201,BOOKS.reverse_journal(wid,actor,d['journal_id'],d['effective_date'],d['reason']),rid=rid) or 201
         if p == '/api/workspace/users':
             wid, actor_id, _ = self._auth('owner')
             d = self._body()
             result = STORE.create_user(wid, d.get('email',''), d.get('password',''), d.get('role','viewer'), actor_id)
+            if d.get('operational_role'):
+                binding=PROVISIONER.rbac.bind_role(wid,actor_id,result['user_id'],d['operational_role']);result['operational_role']=d['operational_role'];result['role_assignment_id']=binding['id']
             return self.out(201, result, rid=rid) or 201
         if p == '/api/workspace/rollback':
             wid, key_id, _ = self._auth('editor')
