@@ -1,18 +1,18 @@
 # Mosaic ERP
 
-Mosaic ERP is an MIT-licensed, interview-native operational ERP for evidence-backed core retailer work. It turns plain-language owner answers into real controls and supports buying, receiving, selling, returns/refunds, stock, cash, supplier bills/payments, reconciliation, period close and core accounting reports.
+Mosaic ERP is an MIT-licensed, interview-native operational ERP for evidence-backed core retailer work. It turns plain-language owner answers into real controls and supports buying, receiving, selling, returns/refunds, stock, cash, supplier bills/payments, reconciliation, period close and core accounting reports. Built-in deterministic chat is the default, and users can optionally connect their own AI provider. Setup and configuration are guided in chat; provider secrets use a masked secure step and never enter chat, logs, exports, or audit detail. The fine-tuned local assistant is being tested and is not available in v1.2.0.
 
 Official sources:
 - Product page: https://hearthplug.github.io/mosaic-erp/
 - Source: https://github.com/Hearthplug/mosaic-erp
 - v1.2.0 release candidate source: https://github.com/Hearthplug/mosaic-erp/commit/faad203d6a05c125100b76b75a0c46bf31ffa62c
 - Exact-main source/deployment CI: https://github.com/Hearthplug/mosaic-erp/actions/runs/35387562882
-- Reviewed assistant/container/native evidence: https://github.com/Hearthplug/mosaic-erp/actions/runs/35387194935
+- Reviewed assistant/container/native evidence (local-assistant verdict: unavailable): https://github.com/Hearthplug/mosaic-erp/actions/runs/35387194935
 - Exact-main Pages deployment: https://github.com/Hearthplug/mosaic-erp/actions/runs/35387561825
 - Release page, available only after every v1.2.0 gate passes: https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.2.0
 - License: https://github.com/Hearthplug/mosaic-erp/blob/main/LICENSE
 - Deployment guide: https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DEPLOYMENT.md
 
-Current verified source facts for the v1.2.0 candidate: guided setup; core retailer transactions; core accounting; fine-grained operational access; PostgreSQL restricted-runtime-role tenant isolation; concurrency and failure acceptance; strict Helm/deployment checks; configuration-aware real Google/Microsoft OIDC routes with provider-published assets. Fresh release archives, checksums, container digests, signatures, SBOM/provenance and vulnerability-scan results are pending the final tag workflow and must not be inferred from v1.1.0.
+Current verified source facts for the v1.2.0 candidate: guided setup; built-in deterministic chat by default; optional chat-guided bring-your-own AI-provider setup with masked secret handling; core retailer transactions; core accounting; fine-grained operational access; PostgreSQL restricted-runtime-role tenant isolation; concurrency and failure acceptance; strict Helm/deployment checks; configuration-aware real Google/Microsoft OIDC routes with provider-published assets. Fresh release archives, checksums, container digests, signatures, SBOM/provenance and vulnerability-scan results are pending the final tag workflow and must not be inferred from v1.1.0.
 
 Boundaries: statutory invoices, tax filing, e-invoicing and jurisdiction certification are excluded unless a separate local adapter/version is reviewed by the business owner or a named professional. Advanced retail, manufacturing, payroll and broad enterprise-suite modules are excluded. Operators own DNS/TLS, provider registration and secrets, managed PostgreSQL HA/PITR, restore drills, cluster failover/capacity evidence, monitoring and independent penetration testing before real hosted financial-data use. SQLite is for local evaluation or simple single-process use; concurrent production replicas require external PostgreSQL.
