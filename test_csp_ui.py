@@ -8,5 +8,5 @@ class CSPUI(unittest.TestCase):
    self.assertIn(f'/{n}.css',h);self.assertTrue(open(n+'.css').read().strip())
   self.assertIn('/retail.js',open('retail.html').read());self.assertIn("if p == '/retail.js'",open('app.py').read())
  def test_csp_remains_strict(self):
-  s=open('app.py').read();self.assertIn("script-src 'self'",s);self.assertIn("style-src 'self'",s);self.assertNotIn("'unsafe-inline'",s)
+  s=open('app.py').read();self.assertIn("script-src 'self'",s);self.assertIn("style-src 'self'",s);self.assertNotIn("'unsafe-inline'",s);self.assertNotIn('.style.',open('interview.js').read())
 if __name__=='__main__':unittest.main()
