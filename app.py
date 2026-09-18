@@ -11,6 +11,7 @@ from accounting import Accounting
 from retail import Retail
 from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
+from migration_packs import Migrations
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -411,6 +412,12 @@ class H(BaseHTTPRequestHandler):
         qs = parse_qs(urlparse(self.path).query)
         if p == '/':
             return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/migration':
+            return self.out(200,(ROOT/'migration.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+        if p == '/migration.css':
+            return self.out(200,(ROOT/'migration.css').read_text(),'text/css; charset=utf-8',rid=rid) or 200
+        if p == '/migration.js':
+            return self.out(200,(ROOT/'migration.js').read_text(),'application/javascript; charset=utf-8',rid=rid) or 200
         if p == '/interview':
             return self.out(200, (ROOT / 'interview.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
         if p in ('/interview.css','/retail.css','/accounting.css'):
@@ -466,6 +473,8 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer'); return self.out(200,{'items':RETAIL.reorder(wid,qs.get('location_id',[None])[0],int(qs.get('minimum',['5'])[0]))},rid=rid) or 200
         if p == '/api/retail/export':
             wid, _, _ = self._auth('editor'); return self.out(200,RETAIL.export_all(wid),hdrs={'Content-Disposition':'attachment; filename="mosaic-retail-export.json"'},rid=rid) or 200
+        if p == '/api/migrations':
+            wid, _, _ = self._auth('viewer'); return self.out(200,{'batches':MIGRATIONS_API.list(wid)},rid=rid) or 200
         if p == '/api/accounting/status':
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.status(wid), rid=rid) or 200
         if p == '/api/accounting/trial-balance':
@@ -551,6 +560,14 @@ class H(BaseHTTPRequestHandler):
             if msg in ('show my books','trial balance'):
                 return self.out(200,{'action':'trial_balance','result':BOOKS.trial_balance(wid)},rid=rid) or 200
             raise AuthError(400,'Chat can only run a recognized, role-checked operation')
+        if p == '/api/migrations/stage':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,MIGRATIONS_API.stage(wid,actor,d['kind'],d['csv'],d.get('source_system','upload')),rid=rid) or 201
+        if p == '/api/migrations/apply':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,MIGRATIONS_API.apply(wid,actor,d['batch_id']),rid=rid) or 200
+        if p == '/api/migrations/opening-balances/apply':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,MIGRATIONS_API.apply_opening_balances(wid,actor,d['batch_id'],d.get('professional',''),d['approved_on']),rid=rid) or 200
+        if p == '/api/migrations/rollback':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,MIGRATIONS_API.rollback(wid,actor,d['batch_id']),rid=rid) or 200
         if p == '/api/accounting/setup':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,BOOKS.setup(wid,actor,d.get('base_currency','USD'),d.get('fiscal_year_start','01-01')),rid=rid) or 201
         if p == '/api/accounting/verify':
@@ -635,6 +652,7 @@ BOOKS = Accounting(STORE)
 RETAIL = Retail(STORE,BOOKS)
 PROFILES = Profiles(STORE)
 ONBOARDING = Onboarding(STORE,PROFILES)
+MIGRATIONS_API = Migrations(STORE,BOOKS,RETAIL)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
 
 def main():
