@@ -63,7 +63,10 @@ def _context(sql_text, params):
         low=sql_text.lower()
         for child,(parent,fk) in child_parents.items():
             if child in low and vals:
-                return ('mosaic.parent_context',parent+'|'+str(vals[0]))
+                # When the query also filters the child id, the parent foreign
+                # key is the later parameter (id=? AND parent_id=?).
+                parent_id=vals[-1] if fk in low and len(vals)>1 else vals[0]
+                return ('mosaic.parent_context',parent+'|'+str(parent_id))
     return ('mosaic.workspace_id',wid) if wid else (None,None)
 
 class _Cursor:
