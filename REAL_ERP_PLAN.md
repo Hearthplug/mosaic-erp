@@ -1,32 +1,24 @@
 # Real ERP acceptance plan
 
-The target is a persistent operational retail ERP. The interview/chat is only onboarding and an operating shortcut. It must configure and call the same durable modules as every screen and API. Country packs are inputs, never the deliverable.
+Mosaic's target is a persistent operational ERP. The interview is onboarding and configuration, not the deliverable.
 
-## Stage 1: transaction spine (draft branch, partially implemented)
+## Production core retailer candidate - implemented
 
-- durable catalog, locations, parties and role-controlled users
-- append-only inventory movements and live stock by product/location
-- purchase order approval and partial/full receiving
-- completed POS sale and exact tender control
-- billing/accounting journal, periods, sign-off and reports
-- backups, imports, audits, idempotency and explicit correction flows
+- persistent masters, buy/approve/receive, sell/tender, return/refund, transfer/count, cash close
+- supplier bills, three-way match, payment, bank match, immutable journals, period close and core reports
+- authenticated layperson screens, migration/reconciliation, audit and correction paths
+- interview-provisioned action/location/amount/state RBAC on real APIs
+- PostgreSQL forced RLS, restricted runtime role, atomic commands and concurrency controls
+- representative SQLite recovery and PostgreSQL reconnect/failure/concurrency acceptance
 
-Acceptance: purchase 10 units, receive them, sell 2, persist stock 8, record tender, post invoice/COGS/tax journals, and recover the same balances from backup.
+## Deployment gates - operator owned
 
-## Stage 2: full daily operations
+For each target deployment: TLS/DNS and secrets, managed PostgreSQL HA/PITR, monitoring, capacity/failover evidence, an isolated restore drill with data/audit/trial-balance checks, and an independent security review appropriate to the data and exposure.
 
-- barcode/search POS UI, held carts, discounts, cash sessions and receipt output
-- sales returns/exchanges/refunds with stock disposition
-- customer/vendor credit limits, statements, collections and payable runs
-- reorder suggestions, stock transfer, counts, shrinkage, batches/expiry and serials
-- purchase bills matched to orders/receipts; landed cost and verified costing policy
-- dashboards, alerts, printable documents and end-of-day close
+## Statutory/localization gates - professionally owned
 
-## Stage 3: production and localization gates
+Statutory invoice, tax return, e-invoice and filing adapters remain disabled until the exact jurisdiction, capability and rules version are verified by a named local professional and pass transaction regressions.
 
-- PostgreSQL schema/RLS for every ERP table plus concurrent order/stock/numbering tests
-- verified local statutory invoice, tax, e-invoice and filing adapters
-- real source-system import reconciliation and accountant acceptance packs
-- restore, failover, security, performance and independent controls review
+## Advanced modules - out of this release
 
-The current public release remains an early technical prototype until all acceptance gates for the intended first country and retail workflow pass.
+Held carts, promotions, printable fiscal receipts, deep batch/expiry/serial operations, landed cost, manufacturing, payroll and broad enterprise-suite modules require their own persistent vertical slices and acceptance evidence before being claimed.
