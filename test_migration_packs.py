@@ -23,4 +23,10 @@ class Packs(unittest.TestCase):
   with self.assertRaises(Exception):m.apply(w,'owner',b['id'])
   self.assertEqual(s._db.execute('SELECT COUNT(*) n FROM stock_ledger WHERE workspace_id=?',(w,)).fetchone()['n'],0)
   self.assertEqual(s._db.execute('SELECT status FROM import_batches WHERE id=?',(b['id'],)).fetchone()['status'],'validated')
+ def test_reviewed_opening_balances_post_balanced_immutable_journal(self):
+  s=Store(tempfile.mktemp());w,_=s.create_workspace('X');a=Accounting(s);a.setup(w,'owner');m=Migrations(s,a,None)
+  csv='account_code,balance_minor,normal\n1000,500,debit\n3000,500,credit';b=m.stage(w,'owner','opening_balances',csv,'old')
+  out=m.apply_opening_balances(w,'owner',b['id'],'A. Reviewer, CPA','2026-01-01');self.assertEqual(out['debit_minor'],out['credit_minor']);self.assertEqual(out['status'],'reconciled')
+  with self.assertRaises(Exception):s._db.execute("UPDATE journals SET description='changed' WHERE id=?",(out['journal_id'],))
+  self.assertEqual(m.list(w)[0]['status'],'reconciled')
 if __name__=='__main__':unittest.main()
