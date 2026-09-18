@@ -12,6 +12,7 @@ from retail import Retail
 from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
+from tax_engine import TaxEngine
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -473,6 +474,8 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer'); return self.out(200,{'items':RETAIL.reorder(wid,qs.get('location_id',[None])[0],int(qs.get('minimum',['5'])[0]))},rid=rid) or 200
         if p == '/api/retail/export':
             wid, _, _ = self._auth('editor'); return self.out(200,RETAIL.export_all(wid),hdrs={'Content-Disposition':'attachment; filename="mosaic-retail-export.json"'},rid=rid) or 200
+        if p == '/api/tax/checklist':
+            wid, _, _ = self._auth('viewer'); country=qs.get('jurisdiction',[''])[0]; from tax_pack_operational import candidate; return self.out(200,TAX.verification_checklist(candidate(country)),rid=rid) or 200
         if p == '/api/migrations':
             wid, _, _ = self._auth('viewer'); return self.out(200,{'batches':MIGRATIONS_API.list(wid)},rid=rid) or 200
         if p == '/api/accounting/status':
@@ -560,6 +563,10 @@ class H(BaseHTTPRequestHandler):
             if msg in ('show my books','trial balance'):
                 return self.out(200,{'action':'trial_balance','result':BOOKS.trial_balance(wid)},rid=rid) or 200
             raise AuthError(400,'Chat can only run a recognized, role-checked operation')
+        if p == '/api/tax/verify':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,TAX.attest(wid,actor,d['verification'],d['rules']),rid=rid) or 201
+        if p == '/api/tax/regression':
+            wid, _, _ = self._auth('owner'); d=self._body(); return self.out(200,TAX.regression(wid,d['jurisdiction'],d['cases']),rid=rid) or 200
         if p == '/api/migrations/stage':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,MIGRATIONS_API.stage(wid,actor,d['kind'],d['csv'],d.get('source_system','upload')),rid=rid) or 201
         if p == '/api/migrations/apply':
@@ -653,6 +660,7 @@ RETAIL = Retail(STORE,BOOKS)
 PROFILES = Profiles(STORE)
 ONBOARDING = Onboarding(STORE,PROFILES)
 MIGRATIONS_API = Migrations(STORE,BOOKS,RETAIL)
+TAX = TaxEngine(STORE)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
 
 def main():
