@@ -107,6 +107,7 @@ class Accounting:
         return {'id':pid,'name':name,'starts_on':starts_on,'ends_on':ends_on,'status':'open'}
     def lock_period(self,wid,actor,period_id):
         with self.s.tx():
+            self.s.accounting_lock(wid,'period')
             row=self.s._db.execute('SELECT status FROM fiscal_periods WHERE id=? AND workspace_id=?',(period_id,wid)).fetchone()
             if not row: raise NotFound('Period not found')
             if self.s._db.execute("UPDATE fiscal_periods SET status='locked' WHERE id=? AND workspace_id=? AND status='open'",(period_id,wid)).rowcount!=1: raise Conflict('fiscal period was not open')
@@ -115,6 +116,10 @@ class Accounting:
         row=self.s._db.execute('SELECT status FROM fiscal_periods WHERE workspace_id=? AND ? BETWEEN starts_on AND ends_on ORDER BY starts_on DESC LIMIT 1',(wid,date)).fetchone()
         if row and row['status']=='locked': raise Conflict('fiscal period is locked')
     def post_journal(self,wid,actor,effective_date,description,lines,source_type='manual',source_id=None,reference=None,currency=None,exchange_rate='1',approved_by=None,reverses=None):
+        with self.s.tx():
+            self.s.accounting_lock(wid,'period')
+            return self._post_journal(wid,actor,effective_date,description,lines,source_type,source_id,reference,currency,exchange_rate,approved_by,reverses)
+    def _post_journal(self,wid,actor,effective_date,description,lines,source_type='manual',source_id=None,reference=None,currency=None,exchange_rate='1',approved_by=None,reverses=None):
         if len(lines)<2: raise ValueError('journal requires at least two lines')
         self._period_open(wid,effective_date); rate=Decimal(str(exchange_rate)); debit=sum(int(x.get('debit_minor',0)) for x in lines); credit=sum(int(x.get('credit_minor',0)) for x in lines)
         if debit!=credit or debit<=0: raise ValueError('journal debits and credits must be positive and equal')
@@ -165,6 +170,10 @@ class Accounting:
         if not r: raise Conflict('required system account is missing: '+key)
         return r['id']
     def post_document(self,wid,actor,document_id):
+        with self.s.tx():
+            self.s.accounting_lock(wid,'document:'+document_id)
+            return self._post_document(wid,actor,document_id)
+    def _post_document(self,wid,actor,document_id):
         d=self.s._db.execute('SELECT * FROM documents WHERE id=? AND workspace_id=?',(document_id,wid)).fetchone()
         if not d or d['status']!='approved': raise Conflict('document must be approved before posting')
         lines=self.s._db.execute('SELECT * FROM document_lines WHERE document_id=? ORDER BY position',(document_id,)).fetchall(); out=[]
@@ -233,6 +242,10 @@ class Accounting:
         return self.post_journal(wid,actor,effective_date,'Approved opening balances',lines,'opening_balance',ident('open'),approved_by=approved_by)
 
     def record_payment(self,wid,actor,target_document_id,amount_minor,paid_on,bank_account_id=None,currency=None,exchange_rate='1',refund=False):
+        with self.s.tx():
+            self.s.accounting_lock(wid,'document:'+target_document_id)
+            return self._record_payment(wid,actor,target_document_id,amount_minor,paid_on,bank_account_id,currency,exchange_rate,refund)
+    def _record_payment(self,wid,actor,target_document_id,amount_minor,paid_on,bank_account_id=None,currency=None,exchange_rate='1',refund=False):
         d=self.s._db.execute('SELECT * FROM documents WHERE id=? AND workspace_id=?',(target_document_id,wid)).fetchone()
         if not d or d['status']!='posted': raise Conflict('payment target must be posted')
         amount=int(amount_minor)
