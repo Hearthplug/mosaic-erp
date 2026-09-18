@@ -8,8 +8,9 @@ from retail_schema import RETAIL_SQLITE_SCHEMA
 from onboarding_schema import ONBOARDING_SQLITE_SCHEMA
 from operating_model_schema import OPERATING_MODEL_SQLITE_SCHEMA
 
-DIRECT_TENANT_TABLES=('accounting_settings','accounts','fiscal_periods','parties','items','tax_rules','tax_transaction_facts','tax_codes','document_sequences','documents','journals','journal_lines','settlements','journal_reversals','bank_transactions','inventory_movements','statutory_adapters','acceptance_runs','migration_batches','locations','retail_products','stock_ledger','purchase_orders','sales','tender_entries','retail_returns','cash_sessions','credit_policies','stock_counts','goods_receipts','three_way_matches','onboarding_sessions','operating_models','role_assignments','approval_requests')
+DIRECT_TENANT_TABLES=('accounting_settings','accounts','fiscal_periods','parties','items','tax_rules','tax_transaction_facts','tax_codes','document_sequences','documents','journals','journal_lines','settlements','bank_transactions','inventory_movements','statutory_adapters','acceptance_runs','migration_batches','locations','retail_products','stock_ledger','purchase_orders','sales','tender_entries','retail_returns','cash_sessions','credit_policies','stock_counts','goods_receipts','three_way_matches','onboarding_sessions','operating_models','role_assignments','approval_requests')
 CHILD_POLICIES={
+ 'journal_reversals':"EXISTS (SELECT 1 FROM journals p WHERE p.id=journal_reversals.original_journal_id AND p.workspace_id=current_setting('mosaic.workspace_id',true))",
  'document_lines':"EXISTS (SELECT 1 FROM documents p WHERE p.id=document_lines.document_id AND p.workspace_id=current_setting('mosaic.workspace_id',true))",
  'purchase_order_lines':"EXISTS (SELECT 1 FROM purchase_orders p WHERE p.id=purchase_order_lines.purchase_order_id AND p.workspace_id=current_setting('mosaic.workspace_id',true))",
  'sale_lines':"EXISTS (SELECT 1 FROM sales p WHERE p.id=sale_lines.sale_id AND p.workspace_id=current_setting('mosaic.workspace_id',true))",
