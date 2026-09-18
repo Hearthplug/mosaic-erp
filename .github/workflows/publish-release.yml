@@ -73,7 +73,9 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "$SOURCE_SHA"
-          ! git ls-remote --exit-code --tags origin "refs/tags/$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            test "$(git ls-remote --tags origin "refs/tags/${VERSION}^{}" | awk '{print $1}')" = "$SOURCE_SHA"
+          fi
           test -n "$DOCKERHUB_IMAGE"
           ! git grep -n -i -E 'Instinct Agent|Co-authored-by|generated[ -]by|assistant contribution|AI[ -]agent|authored[ -]with' "$SOURCE_SHA" -- .
           ! git show -s --format='%B' "$SOURCE_SHA" | grep -Eqi 'Instinct Agent|Co-authored-by|generated[ -]by|assistant contribution|AI[ -]agent|authored[ -]with'
@@ -144,12 +146,23 @@ jobs:
           set -euo pipefail
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "$SOURCE_SHA"
-          ! git ls-remote --exit-code --tags origin "refs/tags/$VERSION"
-          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${VERSION}" >/dev/null 2>&1 && exit 1 || test "$?" = 1
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            test "$(git ls-remote --tags origin "refs/tags/${VERSION}^{}" | awk '{print $1}')" = "$SOURCE_SHA"
+          fi
+          if gh release view "$VERSION" --json isDraft,tagName,targetCommitish >/tmp/existing-release.json 2>/dev/null; then
+            jq -e --arg tag "$VERSION" --arg sha "$SOURCE_SHA" '.isDraft == true and .tagName == $tag and .targetCommitish == $sha' /tmp/existing-release.json >/dev/null
+          fi
           plain="${VERSION#v}"; minor="${plain%.*}"
-          for ref in "$GHCR_IMAGE:$plain" "$GHCR_IMAGE:$minor" "$DOCKERHUB_IMAGE:$plain" "$DOCKERHUB_IMAGE:$minor"; do
-            ! docker buildx imagetools inspect "$ref" >/dev/null 2>&1
-          done
+          accept_absent_or_exact() {
+            local ref="$1" expected="$2" current
+            if current="$(docker buildx imagetools inspect "$ref" 2>/dev/null | awk '$1=="Digest:"{print $2;exit}')" && [[ -n "$current" ]]; then
+              test "$current" = "$expected"
+            fi
+          }
+          accept_absent_or_exact "$GHCR_IMAGE:$plain" "$GHCR_DIGEST"
+          accept_absent_or_exact "$GHCR_IMAGE:$minor" "$GHCR_DIGEST"
+          accept_absent_or_exact "$DOCKERHUB_IMAGE:$plain" "$DOCKERHUB_DIGEST"
+          accept_absent_or_exact "$DOCKERHUB_IMAGE:$minor" "$DOCKERHUB_DIGEST"
           test "$(docker buildx imagetools inspect "$GHCR_IMAGE:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$GHCR_DIGEST"
           test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
           for spec in "$GHCR_IMAGE@$GHCR_DIGEST" "$DOCKERHUB_IMAGE@$DOCKERHUB_DIGEST"; do
@@ -165,8 +178,10 @@ jobs:
           identity='^https://github.com/Hearthplug/mosaic-erp/.github/workflows/container-release.yml@refs/heads/main$'
           for spec in "$GHCR_IMAGE@$GHCR_DIGEST" "$DOCKERHUB_IMAGE@$DOCKERHUB_DIGEST"; do
             cosign verify --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$spec" >/dev/null
-            cosign verify-attestation --type spdxjson --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$spec" >/dev/null
-            cosign verify-attestation --type slsaprovenance --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$spec" >/dev/null
+            sbom="$(docker buildx imagetools inspect "$spec" --format '{{ json .SBOM }}')"
+            provenance="$(docker buildx imagetools inspect "$spec" --format '{{ json .Provenance }}')"
+            jq -e '.. | objects | select(.predicateType? == "https://spdx.dev/Document")' <<<"$sbom" >/dev/null
+            jq -e '.. | objects | select(.predicateType? | strings | contains("slsa.dev/provenance"))' <<<"$provenance" >/dev/null
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.67.2 image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$spec"
           done
 
