@@ -41,9 +41,13 @@ class Retail:
    line=self.s._db.execute('SELECT l.* FROM purchase_order_lines l JOIN purchase_orders p ON p.id=l.purchase_order_id WHERE l.id=? AND l.purchase_order_id=? AND p.workspace_id=?',(line_id,po,wid)).fetchone(); new=Decimal(line['received_quantity'])+Decimal(str(qty))
    if new>Decimal(line['quantity']):raise Conflict('receipt exceeds order')
    self.move_stock(wid,actor,line['product_id'],order['location_id'],qty,line['unit_cost_minor'],'receipt','purchase_order',po+'-'+line_id+'-'+str(new))
-   with self.s.tx():self.s._db.execute('UPDATE purchase_order_lines SET received_quantity=? WHERE id=?',(str(new),line_id))
+   with self.s.tx():
+    changed=self.s._db.execute('UPDATE purchase_order_lines SET received_quantity=? WHERE id=? AND purchase_order_id=? AND EXISTS (SELECT 1 FROM purchase_orders p WHERE p.id=purchase_order_id AND p.workspace_id=?)',(str(new),line_id,po,wid)).rowcount
+    if changed!=1:raise Conflict('purchase order line was not updated')
   left=self.s._db.execute('SELECT COUNT(*) n FROM purchase_order_lines l JOIN purchase_orders p ON p.id=l.purchase_order_id WHERE l.purchase_order_id=? AND p.workspace_id=? AND CAST(l.received_quantity AS REAL)<CAST(l.quantity AS REAL)',(po,wid)).fetchone()['n'];status='part_received' if left else 'received'
-  with self.s.tx():self.s._db.execute('UPDATE purchase_orders SET status=? WHERE id=?',(status,po));self.s._audit(wid,actor,'purchase.receive',{'id':po,'status':status})
+  with self.s.tx():
+   if self.s._db.execute('UPDATE purchase_orders SET status=? WHERE id=? AND workspace_id=?',(status,po,wid)).rowcount!=1:raise Conflict('purchase order status was not updated')
+   self.s._audit(wid,actor,'purchase.receive',{'id':po,'status':status})
   return {'id':po,'status':status}
  def complete_sale(self,wid,actor,location_id,lines,tenders,customer_id=None,currency='USD'):
   with self._operation_lock:return self._complete_sale(wid,actor,location_id,lines,tenders,customer_id,currency)
