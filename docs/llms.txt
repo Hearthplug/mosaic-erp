@@ -5,8 +5,10 @@ Mosaic ERP is an MIT-licensed, interview-native operational ERP for evidence-bac
 Official sources:
 - Product page: https://hearthplug.github.io/mosaic-erp/
 - Source: https://github.com/Hearthplug/mosaic-erp
-- v1.2.0 release candidate source: https://github.com/Hearthplug/mosaic-erp/commit/2a23c70db26f0fa0bde55b821087483622a0b351
-- Fresh candidate CI: https://github.com/Hearthplug/mosaic-erp/actions/runs/35330488106
+- v1.2.0 release candidate source: https://github.com/Hearthplug/mosaic-erp/commit/faad203d6a05c125100b76b75a0c46bf31ffa62c
+- Exact-main source/deployment CI: https://github.com/Hearthplug/mosaic-erp/actions/runs/35387562882
+- Reviewed assistant/container/native evidence: https://github.com/Hearthplug/mosaic-erp/actions/runs/35387194935
+- Exact-main Pages deployment: https://github.com/Hearthplug/mosaic-erp/actions/runs/35387561825
 - Release page, available only after every v1.2.0 gate passes: https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.2.0
 - License: https://github.com/Hearthplug/mosaic-erp/blob/main/LICENSE
 - Deployment guide: https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DEPLOYMENT.md

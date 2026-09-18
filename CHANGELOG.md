@@ -14,7 +14,7 @@ Production-core retailer ERP candidate:
 
 Release boundaries: target-environment restore/HA/capacity/security certification is operator owned; statutory/local claims require separate professional verification; advanced modules are excluded.
 
-Source candidate: commit [`2a23c70db26f0fa0bde55b821087483622a0b351`](https://github.com/Hearthplug/mosaic-erp/commit/2a23c70db26f0fa0bde55b821087483622a0b351), successful [source/deployment and PostgreSQL CI](https://github.com/Hearthplug/mosaic-erp/actions/runs/35330488106), and successful [Pages deployment](https://github.com/Hearthplug/mosaic-erp/actions/runs/35330487505). Fresh archives, checksums, container images, immutable digests, signatures, SBOM/provenance and vulnerability-scan evidence remain required from the final v1.2.0 tag before publication. v1.1.0 evidence must not be reused.
+Source candidate: commit [`faad203d6a05c125100b76b75a0c46bf31ffa62c`](https://github.com/Hearthplug/mosaic-erp/commit/faad203d6a05c125100b76b75a0c46bf31ffa62c), successful [source/deployment and PostgreSQL CI](https://github.com/Hearthplug/mosaic-erp/actions/runs/35387562882), and successful [Pages deployment](https://github.com/Hearthplug/mosaic-erp/actions/runs/35387561825). Fresh archives, checksums, container images, immutable digests, signatures, SBOM/provenance and vulnerability-scan evidence remain required from the final v1.2.0 tag before publication. v1.1.0 evidence must not be reused.
 
 ## 1.1.0
 
