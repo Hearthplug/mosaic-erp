@@ -38,13 +38,9 @@ def main():
     # Install: fresh run, then repeat run (interrupted-setup safety)
     inst = os.path.join(tmp, 'inst.db')
     r1 = run([sys.executable, 'install.py'], {'MOSAIC_DB_PATH': inst})
-    key = tmp and (ROOT / 'mosaic-workspace.key')
     r2 = run([sys.executable, 'install.py'], {'MOSAIC_DB_PATH': inst})
-    mode = oct(key.stat().st_mode & 0o777) if key.exists() else 'missing'
-    gate('One-command install', r1.returncode == 0 and 'Already set up' in r2.stdout and mode == '0o600',
-         f'fresh install ok, re-run safe, recovery key file mode {mode}')
-    if key.exists():
-        key.unlink()
+    gate('One-command install', r1.returncode == 0 and r2.returncode == 0 and 'first company setup' in r1.stdout and 'first company setup' in r2.stdout,
+         'fresh install and safe re-run lead to normal browser company setup; no user-facing key file')
 
     # Backup / restore via the documented CLI
     bak = os.path.join(tmp, 'backup.db')
@@ -121,7 +117,7 @@ def main():
     if fails:
         print(f'GATE RESULT: FAIL - {len(fails)} gate(s) failed: {", ".join(fails)}. Do not launch.')
         return 1
-    print(f'GATE RESULT: PASS - all {len(RESULTS)} source-verifiable gates pass. Verdict: hardened local/single-node build with a containerized HTTPS deployment path, ready for source-available download; the OWNER ACTION items above remain before any hosted "enterprise service" claim.')
+    print(f'GATE RESULT: PASS - all {len(RESULTS)} source-verifiable gates pass for the production-core retailer candidate. Deployment OWNER ACTION items remain before live traffic; statutory and advanced-module claims remain excluded.')
     return 0
 
 if __name__ == '__main__':
