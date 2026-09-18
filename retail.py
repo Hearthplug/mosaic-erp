@@ -83,7 +83,7 @@ class Retail:
  def check_credit(self,wid,party_id,new_amount_minor):
   p=self.s._db.execute('SELECT * FROM credit_policies WHERE workspace_id=? AND party_id=?',(wid,party_id)).fetchone()
   if not p:return True
-  outstanding=self.s._db.execute("SELECT COALESCE(SUM(balance_minor),0) n FROM documents WHERE workspace_id=? AND party_id=? AND kind IN ('sales_invoice','debit_note') AND status='posted'",(wid,party_id)).fetchone()['n']
+  outstanding=int(self.s._db.execute("SELECT COALESCE(SUM(balance_minor),0) n FROM documents WHERE workspace_id=? AND party_id=? AND kind IN ('sales_invoice','debit_note') AND status='posted'",(wid,party_id)).fetchone()['n'])
   if p['blocked'] or outstanding+int(new_amount_minor)>p['limit_minor']:raise Conflict('customer credit limit exceeded or account blocked')
   return True
  def open_cash(self,wid,actor,location_id,opening_minor):
@@ -94,7 +94,7 @@ class Retail:
  def close_cash(self,wid,actor,session_id,actual_minor):
   x=self.s._db.execute("SELECT * FROM cash_sessions WHERE id=? AND workspace_id=? AND status='open'",(session_id,wid)).fetchone()
   if not x:raise Conflict('open cash session required')
-  tenders=self.s._db.execute("SELECT COALESCE(SUM(t.amount_minor),0) n FROM tender_entries t JOIN sales s ON s.id=t.sale_id WHERE t.workspace_id=? AND s.location_id=? AND t.kind IN ('cash','refund_cash') AND t.received_at>=?",(wid,x['location_id'],x['opened_at'])).fetchone()['n']; expected=x['opening_minor']+tenders;variance=int(actual_minor)-expected
+  tenders=int(self.s._db.execute("SELECT COALESCE(SUM(t.amount_minor),0) n FROM tender_entries t JOIN sales s ON s.id=t.sale_id WHERE t.workspace_id=? AND s.location_id=? AND t.kind IN ('cash','refund_cash') AND t.received_at>=?",(wid,x['location_id'],x['opened_at'])).fetchone()['n']); expected=int(x['opening_minor'])+tenders;variance=int(actual_minor)-expected
   with self.s.tx():
    if self.s._db.execute("UPDATE cash_sessions SET status='closed',closed_by=?,closed_at=?,expected_minor=?,actual_minor=?,variance_minor=? WHERE id=? AND workspace_id=? AND status='open'",(actor,utcnow(),expected,int(actual_minor),variance,session_id,wid)).rowcount!=1:raise Conflict('cash session was not closed')
    self.s._audit(wid,actor,'cash.close',{'id':session_id,'expected_minor':expected,'actual_minor':int(actual_minor),'variance_minor':variance})
