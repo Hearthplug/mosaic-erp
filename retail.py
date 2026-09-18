@@ -35,6 +35,10 @@ class Retail:
    if self.s._db.execute("UPDATE purchase_orders SET status='approved',approved_by=? WHERE id=? AND workspace_id=? AND status='draft'",(actor,po,wid)).rowcount!=1:raise Conflict('purchase order must be draft')
    self.s._audit(wid,actor,'purchase.approve',{'id':po})
  def receive_purchase(self,wid,actor,po,received):
+  with self.s.tx():
+   self.s.accounting_lock(wid,'purchase:'+po)
+   return self._receive_purchase(wid,actor,po,received)
+ def _receive_purchase(self,wid,actor,po,received):
   order=self.s._db.execute('SELECT * FROM purchase_orders WHERE id=? AND workspace_id=?',(po,wid)).fetchone()
   if not order or order['status'] not in ('approved','part_received'):raise Conflict('purchase order is not receivable')
   for line_id,qty in received.items():
@@ -50,7 +54,9 @@ class Retail:
    self.s._audit(wid,actor,'purchase.receive',{'id':po,'status':status})
   return {'id':po,'status':status}
  def complete_sale(self,wid,actor,location_id,lines,tenders,customer_id=None,currency='USD'):
-  with self._operation_lock:return self._complete_sale(wid,actor,location_id,lines,tenders,customer_id,currency)
+  with self._operation_lock,self.s.tx():
+   for x in sorted(lines,key=lambda y:y['product_id']):self.s.accounting_lock(wid,'stock:'+location_id+':'+x['product_id'])
+   return self._complete_sale(wid,actor,location_id,lines,tenders,customer_id,currency)
  def _complete_sale(self,wid,actor,location_id,lines,tenders,customer_id=None,currency='USD'):
   sale=ident('sale'); number=self.books._next(wid,'sales_invoice'); computed=[]; sub=tax=0
   for x in lines:
@@ -114,6 +120,10 @@ class Retail:
    self.s._audit(wid,approved_by,'stock.count.post',{'id':cid})
   return {'id':cid,'status':'posted'}
  def return_sale(self,wid,actor,sale_id,lines,reason,approved_by,refund_kind='cash'):
+  with self.s.tx():
+   self.s.accounting_lock(wid,'return:'+sale_id)
+   return self._return_sale(wid,actor,sale_id,lines,reason,approved_by,refund_kind)
+ def _return_sale(self,wid,actor,sale_id,lines,reason,approved_by,refund_kind='cash'):
   sale=self.s._db.execute('SELECT * FROM sales WHERE id=? AND workspace_id=?',(sale_id,wid)).fetchone();rid=ident('ret');refund=0; moves=[]; cogs=0
   if not sale:raise NotFound('sale not found')
   with self.s.tx():
