@@ -1,15 +1,15 @@
 # Mosaic ERP
 
-Mosaic is an interview-native operational ERP for core retailer work. An owner describes the business in plain language; Mosaic provisions the relevant modules, workflows, reports, branding, verification tasks and fine-grained staff roles. The same system then runs persistent buying, receiving, selling, returns/refunds, stock, cash, supplier bills/payments, reconciliation, period close and accounting reports.
+Mosaic is an interview-native operational ERP for core retailer work. An owner describes the business in plain language; Mosaic provisions the relevant workflows, reports, branding, verification tasks and fine-grained staff roles. The same system then runs persistent buying, receiving, selling, returns/refunds, stock, cash, supplier bills/payments, reconciliation, period close and core accounting reports.
 
-## Scope of this candidate
+## Scope of v1.2.0
 
-The `accounting-foundation` branch is an evidence-backed **production-core retailer ERP candidate**. It is not a claim of complete advanced-retail or enterprise-suite breadth.
+v1.2.0 is an evidence-backed **production-core retailer ERP release candidate**. It is not a claim of complete advanced-retail or enterprise-suite breadth.
 
-Implemented and tested:
+Implemented and source-tested:
 
 - guided owner interview that provisions an operating model and real controls
-- normal email/password sign-in, expiring/revocable sessions, secure single-use invitations and company chooser
+- normal email/password sign-in, secure Google and Microsoft OIDC routes, expiring/revocable sessions, secure single-use invitations and company chooser
 - action, location, amount and record-state RBAC with segregation-of-duties checks
 - products, stores, suppliers/customers, purchase orders, receiving, sales, exact tenders, returns/refunds, transfers, counts and cash close
 - purchase bills, three-way match, payments, bank matching, immutable double-entry journals, period locks, aging, trial balance, P&L and balance sheet
@@ -36,9 +36,11 @@ SQLite is for evaluation and simple single-process use. It includes an integrity
 
 ## Production deployment
 
-Use an external PostgreSQL 16+ service and the supplied Compose or Helm path. Runtime and schema-migration credentials are separate. Operators must provide TLS/DNS, secret management, managed database HA/PITR, monitoring, capacity testing and an isolated restore drill against the exact target environment. See [deployment](docs/DEPLOYMENT.md) and [PostgreSQL operations](docs/POSTGRESQL.md).
+Use an external PostgreSQL 16+ service and the supplied Compose or Helm path. Runtime and schema-migration credentials are separate. Operators must provide TLS/DNS, secret management, managed database HA/PITR, monitoring, capacity testing and an isolated restore drill against the exact target environment. See [deployment](docs/DEPLOYMENT.md), [PostgreSQL operations](docs/POSTGRESQL.md), and [identity-provider deployment](docs/DEPLOYMENT.md#google-and-microsoft-sign-in).
 
-Source verification for this candidate is tied to commit `5ee8b96254eddd2c676af874a07ffa57e2c94b75` and CI run <https://github.com/Hearthplug/mosaic-erp/actions/runs/35326493761>. A published image, digest, SBOM, signature, vulnerability scan and download archive do not exist for this candidate yet. Generate and verify them from the final release tag rather than reusing v1.1.0 artifacts.
+Source verification for the v1.2.0 release candidate is tied to commit [`2a23c70db26f0fa0bde55b821087483622a0b351`](https://github.com/Hearthplug/mosaic-erp/commit/2a23c70db26f0fa0bde55b821087483622a0b351) and its successful [source/deployment and PostgreSQL CI](https://github.com/Hearthplug/mosaic-erp/actions/runs/35330488106). Fresh v1.2.0 archives, checksums, image digests, signatures, SBOM/provenance and vulnerability-scan evidence must be generated and verified from the final v1.2.0 tag before publication. No v1.1.0 artifact is evidence for v1.2.0.
+
+Google and Microsoft controls use provider-published sign-in assets and real configuration-aware OIDC routes. Live activation remains deployment-owned: the operator must provide a canonical HTTPS domain, register exact callbacks with each provider, select the Microsoft account type, complete required consent/domain review and provision rotated secrets. Unconfigured controls remain disabled.
 
 ## Tax and professional verification
 
