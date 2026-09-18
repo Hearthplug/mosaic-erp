@@ -1,0 +1,22 @@
+name: PR image scan
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  fixed-vulnerabilities:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: docker build --pull --tag mosaic-erp:pr .
+      - uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
+        with:
+          image-ref: mosaic-erp:pr
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          vuln-type: os,library
