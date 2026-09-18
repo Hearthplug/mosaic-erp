@@ -4,9 +4,21 @@ import app
 class AuthExperience(unittest.TestCase):
  @classmethod
  def setUpClass(c):
+  c.old=(app.STORE,app.BOOKS,app.RETAIL,app.PROFILES,app.PROVISIONER,app.ONBOARDING,app.MIGRATIONS_API,app.TAX,app.OAUTH,app.LIMITER)
+
+  from store import Store
+  from accounting import Accounting
+  from retail import Retail
+  from operational_profile import Profiles
+  from provisioning import Provisioner
+  from onboarding import Onboarding
+  from migration_packs import Migrations
+  from tax_engine import TaxEngine
+  app.STORE=Store(tempfile.mktemp());app.BOOKS=Accounting(app.STORE);app.RETAIL=Retail(app.STORE,app.BOOKS);app.PROFILES=Profiles(app.STORE);app.PROVISIONER=Provisioner(app.STORE);app.ONBOARDING=Onboarding(app.STORE,app.PROFILES,app.PROVISIONER);app.MIGRATIONS_API=Migrations(app.STORE,app.BOOKS,app.RETAIL);app.TAX=TaxEngine(app.STORE);app.OAUTH=app.OAuth(app.STORE,app.PROVISIONER);app.LIMITER=app.RateLimiter(1000,app.STORE)
   from http.server import ThreadingHTTPServer;c.s=ThreadingHTTPServer(('127.0.0.1',0),app.H);c.p=c.s.server_address[1];threading.Thread(target=c.s.serve_forever,daemon=True).start()
  @classmethod
- def tearDownClass(c):c.s.shutdown();c.s.server_close()
+ def tearDownClass(c):
+  c.s.shutdown();c.s.server_close();app.STORE.close();(app.STORE,app.BOOKS,app.RETAIL,app.PROFILES,app.PROVISIONER,app.ONBOARDING,app.MIGRATIONS_API,app.TAX,app.OAUTH,app.LIMITER)=c.old
  def call(self,path,body=None,token=None):
   h={'Content-Type':'application/json'}
   if token:h['Authorization']='Bearer '+token

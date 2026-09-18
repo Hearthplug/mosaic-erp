@@ -24,7 +24,20 @@ CREATE TABLE idempotency_keys(key text NOT NULL,workspace_id text NOT NULL REFER
 CREATE TABLE users(id text PRIMARY KEY,workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,email text NOT NULL,password_hash text NOT NULL,role text NOT NULL CHECK(role IN ('viewer','editor','owner')),created_at text NOT NULL,disabled_at text,UNIQUE(workspace_id,email));
 CREATE TABLE sessions(id text PRIMARY KEY,user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,token_hash text NOT NULL UNIQUE,created_at text NOT NULL,expires_at text NOT NULL,revoked_at text);
 CREATE TABLE rate_buckets(identity text PRIMARY KEY,tokens double precision NOT NULL,updated_at double precision NOT NULL);
-''', POSTGRES_ERP_MIGRATION]
+''', POSTGRES_ERP_MIGRATION, r'''
+CREATE TABLE oauth_challenges(state_hash text PRIMARY KEY,provider text NOT NULL,nonce text NOT NULL,code_verifier text NOT NULL,next_path text NOT NULL,invite_token text NOT NULL DEFAULT '',created_at text NOT NULL,expires_at text NOT NULL,used_at text);
+CREATE TABLE oauth_identities(provider text NOT NULL,issuer text NOT NULL,subject text NOT NULL,user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,created_at text NOT NULL,PRIMARY KEY(provider,issuer,subject,workspace_id),UNIQUE(provider,issuer,subject,user_id));
+CREATE INDEX idx_oauth_identity_user ON oauth_identities(user_id);
+ALTER TABLE oauth_challenges ENABLE ROW LEVEL SECURITY; ALTER TABLE oauth_challenges FORCE ROW LEVEL SECURITY;
+CREATE POLICY oauth_challenges_secret ON oauth_challenges USING (state_hash=current_setting('mosaic.oauth_state_hash',true)) WITH CHECK (state_hash=current_setting('mosaic.oauth_state_hash',true));
+CREATE TABLE oauth_grants(code_hash text PRIMARY KEY,provider text NOT NULL,issuer text NOT NULL,subject text NOT NULL,email text NOT NULL,email_verified integer NOT NULL,mode text NOT NULL CHECK(mode IN ('signin','link','enter')),next_path text NOT NULL,created_at text NOT NULL,expires_at text NOT NULL,used_at text);
+ALTER TABLE oauth_grants ENABLE ROW LEVEL SECURITY; ALTER TABLE oauth_grants FORCE ROW LEVEL SECURITY;
+CREATE POLICY oauth_grants_secret ON oauth_grants USING (code_hash=current_setting('mosaic.oauth_grant_hash',true)) WITH CHECK (code_hash=current_setting('mosaic.oauth_grant_hash',true));
+ALTER TABLE oauth_identities ENABLE ROW LEVEL SECURITY; ALTER TABLE oauth_identities FORCE ROW LEVEL SECURITY;
+CREATE POLICY oauth_identities_tenant ON oauth_identities USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));
+CREATE OR REPLACE FUNCTION mosaic_oauth_users(p_provider text,p_issuer text,p_subject text) RETURNS TABLE(id text,workspace_id text,email text,role text,name text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT u.id,u.workspace_id,u.email,u.role,w.name FROM oauth_identities i JOIN users u ON u.id=i.user_id JOIN workspaces w ON w.id=u.workspace_id WHERE i.provider=p_provider AND i.issuer=p_issuer AND i.subject=p_subject AND u.disabled_at IS NULL AND w.status='active' $$;
+REVOKE ALL ON FUNCTION mosaic_oauth_users(text,text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_oauth_users(text,text,text) TO CURRENT_USER;
+''' ]
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
 RLS_SQL=r'''
@@ -60,6 +73,8 @@ def _context(sql_text, params):
     if 'api_keys WHERE key_hash=' in sql_text and vals: return ('mosaic.auth_key_hash',vals[0])
     if 'sessions s JOIN users' in sql_text and vals: return ('mosaic.auth_session_hash',vals[0])
     if 'workspace_invitations WHERE token_hash=' in sql_text and vals:return ('mosaic.auth_invite_hash',vals[0])
+    if 'oauth_challenges' in sql_text and vals:return ('mosaic.oauth_state_hash',vals[0])
+    if 'oauth_grants' in sql_text and vals:return ('mosaic.oauth_grant_hash',vals[0])
     if not wid:
         # Child-table queries often carry only a parent id. Recover the tenant
         # from the parent while the connection is still outside tenant scope.
@@ -150,6 +165,16 @@ class PostgresStore(Store):
         valid=[{'workspace_id':r['workspace_id'],'name':r['name'],'role':r['role']} for r in rows if self._password_ok(password or '',r['password_hash'])]
         if not valid:self._password_ok(password or '',self._password_hash('dummy-password-value'))
         return valid
+
+    def _session_for_user(self,row,ttl_hours=12):
+        with self.tx():
+            self._db.execute("SELECT set_config('mosaic.workspace_id',%s,true)",(row['workspace_id'],))
+            return super()._session_for_user(row,ttl_hours)
+
+    def oauth_identity_users(self,provider,issuer,subject):
+        with self._pool.connection() as conn:rows=conn.execute('SELECT * FROM mosaic_oauth_users(%s,%s,%s)',(provider,issuer,subject)).fetchall()
+        return [dict(x) for x in rows]
+
     def create_workspace(self,name,label='Owner key'):
         # Set the newly generated tenant before FORCE RLS checks the inserts.
         import secrets

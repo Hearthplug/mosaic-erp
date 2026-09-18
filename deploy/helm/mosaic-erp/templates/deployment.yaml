@@ -49,6 +49,18 @@ spec:
               value: {{ .Values.config.dbPoolMin | quote }}
             - name: MOSAIC_DB_POOL_MAX
               value: {{ .Values.config.dbPoolMax | quote }}
+            - name: MOSAIC_PUBLIC_ORIGIN
+              value: {{ .Values.config.publicOrigin | quote }}
+            {{- if .Values.oauth.secretName }}
+            - name: MOSAIC_GOOGLE_CLIENT_ID
+              valueFrom: {secretKeyRef: {name: {{ .Values.oauth.secretName | quote }}, key: {{ .Values.oauth.googleClientIdKey | quote }}}}
+            - name: MOSAIC_GOOGLE_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ .Values.oauth.secretName | quote }}, key: {{ .Values.oauth.googleClientSecretKey | quote }}}}
+            - name: MOSAIC_MICROSOFT_CLIENT_ID
+              valueFrom: {secretKeyRef: {name: {{ .Values.oauth.secretName | quote }}, key: {{ .Values.oauth.microsoftClientIdKey | quote }}}}
+            - name: MOSAIC_MICROSOFT_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ .Values.oauth.secretName | quote }}, key: {{ .Values.oauth.microsoftClientSecretKey | quote }}}}
+            {{- end }}
             - name: MOSAIC_DATABASE_URL
               valueFrom:
                 secretKeyRef:

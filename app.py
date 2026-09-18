@@ -16,6 +16,7 @@ from migration_packs import Migrations
 from tax_engine import TaxEngine
 from provisioning import Provisioner
 from rbac import Denied
+from oauth import OAuth, OAuthError
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -362,6 +363,10 @@ class H(BaseHTTPRequestHandler):
                 self.out(e.status, {'error': e.message, 'request_id': rid}, rid=rid)
             except Exception:
                 pass
+        except OAuthError as e:
+            status=400
+            try:self.out(400,{'error':str(e),'request_id':rid},rid=rid)
+            except Exception:pass
         except (Conflict, NotFound) as e:
             status = 409 if isinstance(e, Conflict) else 404
             try:
@@ -401,6 +406,10 @@ class H(BaseHTTPRequestHandler):
             try: PROVISIONER.rbac.check(wid,actor,action,location_id,amount_minor,record_state=record_state)
             except Denied as e: raise AuthError(403,str(e))
         return wid,actor,role
+    def _landing(self,result):
+        assignment=STORE._db.execute('SELECT permissions_json FROM role_assignments WHERE workspace_id=? AND user_id=? AND effective_to IS NULL ORDER BY effective_from DESC LIMIT 1',(result['workspace_id'],result['user_id'])).fetchone();perms=set(json.loads(assignment['permissions_json'])) if assignment else set()
+        return '/accounting' if {'report.read','journal.read'}&perms and 'sale.create' not in perms else '/operations' if perms else '/interview' if result['role']=='owner' else '/operations'
+
     def _body(self):
         n = int(self.headers.get('Content-Length', '0'))
         if n <= 0 or n > MAX_BYTES:
@@ -459,6 +468,16 @@ class H(BaseHTTPRequestHandler):
             return self.out(200, (ROOT / p[1:]).read_text(), kind, hdrs={'Cache-Control': 'public, max-age=3600'}, rid=rid) or 200
         if p == '/api/invitations/inspect':
             x=STORE.invitation(qs.get('token',[''])[0]); return self.out(200 if x else 404,({'invitation':x} if x else {'error':'Invitation is invalid or expired'}),rid=rid) or (200 if x else 404)
+        if p == '/api/oauth/providers':
+            return self.out(200,{'providers':OAUTH.public()},rid=rid) or 200
+        if p.startswith('/oauth/') and p.endswith('/start'):
+            provider=p.split('/')[2];location=OAUTH.start(provider,qs.get('next',['/'])[0],qs.get('invite',[''])[0])
+            return self.out(302,'','text/plain; charset=utf-8',hdrs={'Location':location,'Cache-Control':'no-store'},rid=rid) or 302
+        if p.startswith('/oauth/') and p.endswith('/callback'):
+            provider=p.split('/')[2]
+            if qs.get('error'):raise OAuthError('Sign-in was cancelled or denied')
+            code,mode=OAUTH.callback(provider,qs.get('code',[''])[0],qs.get('state',[''])[0])
+            return self.out(302,'','text/plain; charset=utf-8',hdrs={'Location':'/signin?oauth='+code+'&mode='+mode,'Cache-Control':'no-store'},rid=rid) or 302
         if p == '/api/questions':
             return self.out(200, {'questions': questions_for({})}, rid=rid) or 200
         if p == '/health':
@@ -542,6 +561,12 @@ class H(BaseHTTPRequestHandler):
             result=STORE.login(u['workspace_id'],u['email'],d.get('password',''));result['workspace_name']=STORE.get_workspace(u['workspace_id'])['name'];result['landing']='/accounting' if u.get('operational_role')=='Accountant' else '/operations';return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
         if p == '/api/signup':
             d=self._body();wid,key=STORE.create_workspace(d.get('company_name','My company'));user=STORE.create_user(wid,d.get('email',''),d.get('password',''),'owner','signup');result=STORE.login(wid,d.get('email',''),d.get('password',''));result['workspace_name']=d.get('company_name','My company');result['landing']='/interview';return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
+        if p == '/api/oauth/complete':
+            d=self._body();return self.out(200,STORE.oauth_complete(d.get('code','')),hdrs={'Cache-Control':'no-store'},rid=rid) or 200
+        if p == '/api/oauth/enter':
+            d=self._body();result=STORE.oauth_enter(d.get('code',''),d.get('workspace_id',''));result['workspace_name']=STORE.get_workspace(result['workspace_id'])['name'];result['landing']=self._landing(result);return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
+        if p == '/api/oauth/link':
+            d=self._body();code=STORE.oauth_link(d.get('code',''),d.get('email',''),d.get('password',''));return self.out(201,{'code':code},hdrs={'Cache-Control':'no-store'},rid=rid) or 201
         if p == '/api/session/options':
             d=self._body(); return self.out(200,{'workspaces':STORE.login_options(d.get('email',''),d.get('password',''))},hdrs={'Cache-Control':'no-store'},rid=rid) or 200
         if p == '/api/session':
@@ -549,7 +574,7 @@ class H(BaseHTTPRequestHandler):
             result = STORE.login(d.get('workspace_id',''), d.get('email',''), d.get('password',''))
             if not result:
                 raise AuthError(401, 'Invalid workspace, email, or password')
-            result['workspace_name']=STORE.get_workspace(result['workspace_id'])['name']; assignment=STORE._db.execute('SELECT permissions_json FROM role_assignments WHERE workspace_id=? AND user_id=? AND effective_to IS NULL ORDER BY effective_from DESC LIMIT 1',(result['workspace_id'],result['user_id'])).fetchone();perms=set(json.loads(assignment['permissions_json'])) if assignment else set();result['landing']='/accounting' if {'report.read','journal.read'}&perms and 'sale.create' not in perms else '/operations' if perms else '/interview' if result['role']=='owner' else '/operations'
+            result['workspace_name']=STORE.get_workspace(result['workspace_id'])['name']; result['landing']=self._landing(result)
             return self.out(201, result, hdrs={'Cache-Control':'no-store'}, rid=rid) or 201
         if p == '/api/workspaces':
             d = self._body()
@@ -715,6 +740,7 @@ PROVISIONER = Provisioner(STORE)
 ONBOARDING = Onboarding(STORE,PROFILES,PROVISIONER)
 MIGRATIONS_API = Migrations(STORE,BOOKS,RETAIL)
 TAX = TaxEngine(STORE)
+OAUTH = OAuth(STORE,PROVISIONER)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
 
 def main():

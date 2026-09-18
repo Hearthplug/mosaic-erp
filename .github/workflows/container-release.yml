@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - run: python3 -m unittest test_customization test_persistence
+      - run: python3 -m unittest test_customization test_persistence test_auth_experience test_oauth
       - run: python3 release_check.py
       - run: python3 scripts/validate_deployment.py
       - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
