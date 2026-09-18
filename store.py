@@ -109,6 +109,13 @@ MIGRATIONS = [
     MIGRATION_SQLITE_SCHEMA,
     TAX_VERIFICATION_SQLITE_SCHEMA,
     PROVISIONING_SQLITE_SCHEMA,
+    # 10: persistent, single-use OIDC challenges, identities, and browser grants
+    """
+    CREATE TABLE oauth_challenges(state_hash TEXT PRIMARY KEY,provider TEXT NOT NULL,nonce TEXT NOT NULL,code_verifier TEXT NOT NULL,next_path TEXT NOT NULL,invite_token TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL,expires_at TEXT NOT NULL,used_at TEXT);
+    CREATE TABLE oauth_identities(provider TEXT NOT NULL,issuer TEXT NOT NULL,subject TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,created_at TEXT NOT NULL,PRIMARY KEY(provider,issuer,subject,workspace_id),UNIQUE(provider,issuer,subject,user_id));
+    CREATE INDEX idx_oauth_identity_user ON oauth_identities(user_id);
+    CREATE TABLE oauth_grants(code_hash TEXT PRIMARY KEY,provider TEXT NOT NULL,issuer TEXT NOT NULL,subject TEXT NOT NULL,email TEXT NOT NULL,email_verified INTEGER NOT NULL,mode TEXT NOT NULL CHECK(mode IN ('signin','link','enter')),next_path TEXT NOT NULL,created_at TEXT NOT NULL,expires_at TEXT NOT NULL,used_at TEXT);
+    """,
 ]
 
 def utcnow() -> str:
@@ -269,14 +276,7 @@ class Store:
         ok = self._password_ok(password or '', encoded)
         if not row or not ok:
             return None
-        sid, token = 'ses_' + secrets.token_hex(8), 'mss_' + secrets.token_hex(32)
-        now = datetime.now(timezone.utc); expires = now + timedelta(hours=max(1, min(int(ttl_hours), 24)))
-        with self.tx():
-            self._db.execute('INSERT INTO sessions(id,user_id,token_hash,created_at,expires_at) VALUES(?,?,?,?,?)',
-                             (sid, row['id'], sha256(token), now.isoformat(), expires.isoformat()))
-            self._audit(workspace_id, row['id'], 'session.login', {'session_id': sid})
-        return {'session_token': token, 'expires_at': expires.isoformat(), 'workspace_id': workspace_id,
-                'user_id': row['id'], 'role': row['role']}
+        return self._session_for_user(row,ttl_hours)
 
     def authenticate_session(self, token: str):
         if not token.startswith('mss_'):
@@ -295,6 +295,69 @@ class Store:
             if not row: raise NotFound('Session not found')
             self._db.execute('UPDATE sessions SET revoked_at=? WHERE id=?', (utcnow(), session_id))
             self._audit(row['workspace_id'], actor_id, 'session.logout', {'session_id': session_id})
+
+
+    def _session_for_user(self, row, ttl_hours=12):
+        sid,token='ses_'+secrets.token_hex(8),'mss_'+secrets.token_hex(32);now=datetime.now(timezone.utc);expires=now+timedelta(hours=max(1,min(int(ttl_hours),24)))
+        with self.tx():
+            self._db.execute('INSERT INTO sessions(id,user_id,token_hash,created_at,expires_at) VALUES(?,?,?,?,?)',(sid,row['id'],sha256(token),now.isoformat(),expires.isoformat()))
+            self._audit(row['workspace_id'],row['id'],'session.login',{'session_id':sid})
+        return {'session_token':token,'expires_at':expires.isoformat(),'workspace_id':row['workspace_id'],'user_id':row['id'],'role':row['role']}
+
+    def oauth_challenge_create(self,state,provider,nonce,verifier,next_path,invite_token=''):
+        now=datetime.now(timezone.utc);expires=now+timedelta(minutes=10)
+        with self.tx():self._db.execute('INSERT INTO oauth_challenges(state_hash,provider,nonce,code_verifier,next_path,invite_token,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',(sha256(state),provider,nonce,verifier,next_path,invite_token or '',now.isoformat(),expires.isoformat()))
+    def oauth_challenge_consume(self,state,provider):
+        with self.tx():
+            r=self._db.execute('SELECT * FROM oauth_challenges WHERE state_hash=? AND provider=?',(sha256(state or ''),provider)).fetchone()
+            if not r or r['used_at'] or datetime.fromisoformat(r['expires_at'])<=datetime.now(timezone.utc):return None
+            if self._db.execute('UPDATE oauth_challenges SET used_at=? WHERE state_hash=? AND used_at IS NULL',(utcnow(),sha256(state))).rowcount!=1:return None
+            return dict(r)
+    def oauth_identity_users(self,provider,issuer,subject):
+        rows=self._db.execute("SELECT u.id,u.workspace_id,u.email,u.role,w.name FROM oauth_identities i JOIN users u ON u.id=i.user_id JOIN workspaces w ON w.id=u.workspace_id WHERE i.provider=? AND i.issuer=? AND i.subject=? AND u.disabled_at IS NULL AND w.status='active'",(provider,issuer,subject)).fetchall()
+        return [dict(x) for x in rows]
+    def oauth_grant_create(self,provider,issuer,subject,email,verified,next_path,mode):
+        code='mog_'+secrets.token_urlsafe(32);now=datetime.now(timezone.utc);expires=now+timedelta(minutes=5)
+        with self.tx():self._db.execute('INSERT INTO oauth_grants(code_hash,provider,issuer,subject,email,email_verified,mode,next_path,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)',(sha256(code),provider,issuer,subject,email,int(verified),mode,next_path,now.isoformat(),expires.isoformat()))
+        return code,mode
+    def oauth_grant_consume(self,code,mode):
+        with self.tx():
+            r=self._db.execute('SELECT * FROM oauth_grants WHERE code_hash=? AND mode=?',(sha256(code or ''),mode)).fetchone()
+            if not r or r['used_at'] or datetime.fromisoformat(r['expires_at'])<=datetime.now(timezone.utc):return None
+            if self._db.execute('UPDATE oauth_grants SET used_at=? WHERE code_hash=? AND used_at IS NULL',(utcnow(),sha256(code))).rowcount!=1:return None
+            return dict(r)
+    def oauth_complete(self,code):
+        g=self.oauth_grant_consume(code,'signin')
+        if not g:raise Conflict('sign-in grant is invalid or expired')
+        users=self.oauth_identity_users(g['provider'],g['issuer'],g['subject'])
+        enter,_=self.oauth_grant_create(g['provider'],g['issuer'],g['subject'],g['email'],bool(g['email_verified']),g['next_path'],'enter')
+        return {'workspaces':[{'workspace_id':u['workspace_id'],'name':u['name'],'role':u['role']} for u in users],'enter_code':enter,'next_path':g['next_path']}
+    def oauth_enter(self,code,workspace_id):
+        g=self.oauth_grant_consume(code,'enter')
+        if not g:raise Conflict('company-selection grant is invalid or expired')
+        users=self.oauth_identity_users(g['provider'],g['issuer'],g['subject']);row=next((x for x in users if x['workspace_id']==workspace_id),None)
+        if not row:raise NotFound('company is not linked to this identity')
+        return self._session_for_user(row)
+    def oauth_link(self,code,email,password):
+        g=self.oauth_grant_consume(code,'link')
+        if not g:raise Conflict('account-link grant is invalid or expired')
+        email=(email or '').strip().lower();options=self.login_options(email,password)
+        if not options:raise Conflict('email or password did not match an existing Mosaic account')
+        if g['email_verified'] and g['email'] and email!=g['email']:raise Conflict('use the verified provider email to link this identity')
+        with self.tx():
+            for o in options:
+                u=self._db.execute('SELECT id,workspace_id FROM users WHERE workspace_id=? AND email=? AND disabled_at IS NULL',(o['workspace_id'],email)).fetchone()
+                self._db.execute('INSERT INTO oauth_identities(provider,issuer,subject,user_id,workspace_id,created_at) VALUES(?,?,?,?,?,?)',(g['provider'],g['issuer'],g['subject'],u['id'],u['workspace_id'],utcnow()))
+                self._audit(u['workspace_id'],u['id'],'identity.link',{'provider':g['provider']})
+        return self.oauth_grant_create(g['provider'],g['issuer'],g['subject'],email,bool(g['email_verified']),g['next_path'],'signin')[0]
+    def accept_invitation_federated(self,token,provider,issuer,subject):
+        invite=self.invitation(token)
+        if not invite:raise Conflict('invitation is invalid or expired')
+        with self.tx():
+            user=self.create_user(invite['workspace_id'],invite['email'],secrets.token_urlsafe(48),invite['role'],invite['id'])
+            self._db.execute('INSERT INTO oauth_identities(provider,issuer,subject,user_id,workspace_id,created_at) VALUES(?,?,?,?,?,?)',(provider,issuer,subject,user['user_id'],invite['workspace_id'],utcnow()))
+            if self._db.execute('UPDATE workspace_invitations SET accepted_at=? WHERE id=? AND workspace_id=? AND accepted_at IS NULL',(utcnow(),invite['id'],invite['workspace_id'])).rowcount!=1:raise Conflict('invitation was already used')
+        return user|{'workspace_id':invite['workspace_id'],'operational_role':invite['operational_role']}
 
     def rate_allow(self, identity: str, rpm: int):
         import time
