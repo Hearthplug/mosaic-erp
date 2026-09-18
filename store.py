@@ -148,8 +148,19 @@ class Store:
 
     @contextlib.contextmanager
     def tx(self, immediate: bool = True):
-        """Single atomic unit: commit on success, roll back on any error."""
+        """Atomic unit; nested domain steps use savepoints under one outer commit."""
         with self._lock:
+            if self._db.in_transaction:
+                point='mosaic_nested_'+secrets.token_hex(6)
+                self._db.execute('SAVEPOINT '+point)
+                try:
+                    yield self._db
+                except Exception:
+                    self._db.execute('ROLLBACK TO '+point)
+                    self._db.execute('RELEASE '+point)
+                    raise
+                else:self._db.execute('RELEASE '+point)
+                return
             self._db.execute('BEGIN IMMEDIATE' if immediate else 'BEGIN')
             try:
                 yield self._db
@@ -168,6 +179,10 @@ class Store:
                 # executescript runs in autocommit mode, so the script carries
                 # its own transaction: all-or-nothing per migration step.
                 self._db.executescript('BEGIN;' + MIGRATIONS[version] + f'PRAGMA user_version={version + 1};' + 'COMMIT;')
+
+    def accounting_lock(self, wid, scope):
+        # SQLite's BEGIN IMMEDIATE already serializes writers.
+        return None
 
     def integrity_check(self) -> bool:
         with self._lock:
