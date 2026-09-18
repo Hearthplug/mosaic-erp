@@ -420,6 +420,12 @@ class H(BaseHTTPRequestHandler):
     def _get(self, rid):
         p = urlparse(self.path).path
         qs = parse_qs(urlparse(self.path).query)
+        if p == '/invite':
+            return self.out(200,(ROOT/'invite.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+        if p == '/signin':
+            return self.out(200,(ROOT/'signin.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+        if p in ('/auth.js','/signin.js','/signin.css','/invite.js'):
+            kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8'; return self.out(200,(ROOT/p[1:]).read_text(),kind,rid=rid) or 200
         if p == '/':
             return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/migration':
@@ -451,6 +457,8 @@ class H(BaseHTTPRequestHandler):
         if p in ('/static.css', '/static.js'):
             kind = 'text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8'
             return self.out(200, (ROOT / p[1:]).read_text(), kind, hdrs={'Cache-Control': 'public, max-age=3600'}, rid=rid) or 200
+        if p == '/api/invitations/inspect':
+            x=STORE.invitation(qs.get('token',[''])[0]); return self.out(200 if x else 404,({'invitation':x} if x else {'error':'Invitation is invalid or expired'}),rid=rid) or (200 if x else 404)
         if p == '/api/questions':
             return self.out(200, {'questions': questions_for({})}, rid=rid) or 200
         if p == '/health':
@@ -528,11 +536,18 @@ class H(BaseHTTPRequestHandler):
                 return self.out(200, configure(d) if p.endswith('configure') else partial(d), rid=rid) or 200
             except Exception as e:
                 return self.out(400, {'error': str(e), 'request_id': rid}, rid=rid) or 400
+        if p == '/api/invitations/accept':
+            d=self._body(); u=STORE.accept_invitation(d.get('token',''),d.get('password',''));
+            if u.get('operational_role'): PROVISIONER.rbac.bind_role(u['workspace_id'],u['user_id'],u['user_id'],u['operational_role'])
+            result=STORE.login(u['workspace_id'],u['email'],d.get('password',''));result['workspace_name']=STORE.get_workspace(u['workspace_id'])['name'];return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
+        if p == '/api/session/options':
+            d=self._body(); return self.out(200,{'workspaces':STORE.login_options(d.get('email',''),d.get('password',''))},hdrs={'Cache-Control':'no-store'},rid=rid) or 200
         if p == '/api/session':
             d = self._body()
             result = STORE.login(d.get('workspace_id',''), d.get('email',''), d.get('password',''))
             if not result:
                 raise AuthError(401, 'Invalid workspace, email, or password')
+            result['workspace_name']=STORE.get_workspace(result['workspace_id'])['name']
             return self.out(201, result, hdrs={'Cache-Control':'no-store'}, rid=rid) or 201
         if p == '/api/workspaces':
             d = self._body()
@@ -625,6 +640,8 @@ class H(BaseHTTPRequestHandler):
             d=self._body(); wid, actor, _ = self._operational_auth('payment.approve','editor',amount_minor=int(d['amount_minor']),record_state='posted'); return self.out(201,BOOKS.record_payment(wid,actor,d['target_document_id'],d['amount_minor'],d['paid_on'],d.get('bank_account_id'),d.get('currency'),d.get('exchange_rate','1'),d.get('refund',False)),rid=rid) or 201
         if p == '/api/accounting/journals/reverse':
             wid, actor, _ = self._operational_auth('journal.reverse','owner'); d=self._body(); return self.out(201,BOOKS.reverse_journal(wid,actor,d['journal_id'],d['effective_date'],d['reason']),rid=rid) or 201
+        if p == '/api/workspace/invitations':
+            wid,actor,_=self._auth('owner');d=self._body();x=STORE.create_invitation(wid,d.get('email',''),d.get('role','viewer'),d.get('operational_role'),actor);x['invite_url']='/invite?token='+x.pop('invite_token');return self.out(201,x,rid=rid) or 201
         if p == '/api/workspace/users':
             wid, actor_id, _ = self._auth('owner')
             d = self._body()
