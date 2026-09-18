@@ -14,6 +14,8 @@ from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
 from tax_engine import TaxEngine
+from artifact_builder import ArtifactBuilder
+from assistant_setup import AssistantSetup
 from provisioning import Provisioner
 from rbac import Denied
 from oauth import OAuth, OAuthError
@@ -446,6 +448,10 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,(ROOT/'migration.js').read_text(),'application/javascript; charset=utf-8',rid=rid) or 200
         if p == '/interview':
             return self.out(200, (ROOT / 'interview.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/assistant':
+            return self.out(200,(ROOT/'assistant.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+        if p in ('/assistant.css','/assistant.js'):
+            kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(),kind,rid=rid) or 200
         if p in ('/interview.css','/retail.css','/accounting.css'):
             return self.out(200,(ROOT / p[1:]).read_text(),'text/css; charset=utf-8',rid=rid) or 200
         if p == '/interview.js':
@@ -522,6 +528,10 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer'); return self.out(200,{'items':RETAIL.reorder(wid,qs.get('location_id',[None])[0],int(qs.get('minimum',['5'])[0]))},rid=rid) or 200
         if p == '/api/retail/export':
             wid, _, _ = self._auth('editor'); return self.out(200,RETAIL.export_all(wid),hdrs={'Content-Disposition':'attachment; filename="mosaic-retail-export.json"'},rid=rid) or 200
+        if p == '/api/artifacts':
+            wid, _, _ = self._auth('viewer'); return self.out(200,{'artifacts':ARTIFACTS.list(wid)},rid=rid) or 200
+        if p == '/api/assistant':
+            wid, _, _ = self._auth('viewer');return self.out(200,ASSISTANT.get(wid),rid=rid) or 200
         if p == '/api/tax/checklist':
             wid, _, _ = self._auth('viewer'); country=qs.get('jurisdiction',[''])[0]; from tax_pack_operational import candidate; return self.out(200,TAX.verification_checklist(candidate(country)),rid=rid) or 200
         if p == '/api/migrations':
@@ -632,6 +642,16 @@ class H(BaseHTTPRequestHandler):
             if msg in ('show my books','trial balance'):
                 return self.out(200,{'action':'trial_balance','result':BOOKS.trial_balance(wid)},rid=rid) or 200
             raise AuthError(400,'Chat can only run a recognized, role-checked operation')
+        if p == '/api/assistant/chat':
+            wid, actor, _=self._auth('owner');d=self._body();return self.out(200,ASSISTANT.chat(wid,actor,d.get('message','')),rid=rid) or 200
+        if p == '/api/assistant/stage':
+            wid,actor,_=self._auth('owner');d=self._body();return self.out(200,ASSISTANT.stage(wid,actor,d.get('candidate',{})),rid=rid) or 200
+        if p == '/api/assistant/secret':
+            wid,actor,_=self._auth('owner');d=self._body();return self.out(200,ASSISTANT.save_secret(wid,actor,d.get('api_key','')),rid=rid) or 200
+        if p == '/api/artifacts/chat':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,ARTIFACTS.draft(wid,actor,d.get('message','')),rid=rid) or 201
+        if p == '/api/artifacts/verify':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ARTIFACTS.activate(wid,actor,d['artifact_id'],d.get('reviewer_kind','owner'),d.get('note','Owner reviewed the definition and sample output'),d.get('rules_version')),rid=rid) or 200
         if p == '/api/tax/verify':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,TAX.attest(wid,actor,d['verification'],d['rules']),rid=rid) or 201
         if p == '/api/tax/regression':
@@ -741,6 +761,8 @@ PROVISIONER = Provisioner(STORE)
 ONBOARDING = Onboarding(STORE,PROFILES,PROVISIONER)
 MIGRATIONS_API = Migrations(STORE,BOOKS,RETAIL)
 TAX = TaxEngine(STORE)
+ARTIFACTS = ArtifactBuilder(STORE,BOOKS,RETAIL)
+ASSISTANT = AssistantSetup(STORE)
 OAUTH = OAuth(STORE,PROVISIONER)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
 

@@ -81,7 +81,7 @@ PostgreSQL is the shared production consistency boundary. Forced RLS protects ev
 - TLS/DNS, managed database HA/PITR, capacity, failover and restore behavior in a target environment
 - protection after theft of a database credential allowed to bypass/change RLS roles
 - independent penetration/security review
-- statutory or jurisdiction compliance without local professional verification
+- statutory or jurisdiction compliance without recorded owner or professional verification
 - advanced-module breadth excluded from the production-core retailer scope
 
 ## Deployment-dependent (operator action before live traffic)

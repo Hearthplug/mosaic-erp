@@ -55,3 +55,17 @@ Set the canonical HTTPS origin with no path, plus credentials from each provider
 Keep client secrets in the deployment secret manager, rotate them under the provider's overlap procedure, and never put them in values files, images or logs. Production needs HTTPS at the public origin. Provider console ownership, consent policy, verified domains, credential issuance and secret rotation are deployment-owned gates.
 
 The locally packaged sign-in graphics come from the providers themselves; see [provider sign-in branding](PROVIDER_BRANDING.md). They do not change the route behavior. The flow uses authorization code, state, nonce and S256 PKCE; verifies signed ID tokens against provider JWKS, audience, issuer and time claims; stores one-time challenges/grants server-side; and keys identities by provider, issuer and stable subject. A provider email never silently creates or merges an account. A new identity must either match a valid invitation with a provider-verified email or be linked once by the existing Mosaic password. Company choice, role binding, revocation and session expiry are unchanged after sign-in.
+
+## Kubernetes and Helm need professional help
+
+Do not treat the chart as a one-click production cluster. Kubernetes deployment needs a qualified platform professional to design the cluster, identity, network, secrets, TLS, PostgreSQL availability and recovery, observability, upgrades and incident response for the real environment.
+
+Start with the official [production environment overview](https://kubernetes.io/docs/setup/production-environment/) and [kubeadm cluster guide](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/). Install Helm from its [official install guide](https://helm.sh/docs/intro/install), follow the [quickstart](https://helm.sh/docs/intro/quickstart/), then use the [`helm install` reference](https://helm.sh/docs/helm/helm_install/) with this repository's chart and validation checks.
+
+## Assistant setup stays in chat
+
+Owners do not edit configuration files. Open `/assistant` after sign-in and tell Mosaic to use deterministic chat, a private local assistant, or an OpenAI-compatible provider. Endpoint and model choices, previews, status, connection checks, disable/remove and rollback are handled in that conversation. When a provider needs an API key, chat opens a masked secret form; the key is never put into the conversation, browser storage, exports, application logs or audit details.
+
+Docker Desktop can accept that masked secret into a server-side runtime secret. For restart-safe deployment, the owner follows the exact secret handoff shown by chat. Kubernetes remains operator-owned: chat generates the exact Secret command or secret-manager step and checks the mounted reference, but the Mosaic pod is never given cluster-admin or Kubernetes API write access.
+
+The local assistant is an optional companion service, not part of the core image. It stays unavailable until its pinned model passes measured CPU-only amd64/arm64 resource and typed-intent quality gates. No model or container download starts until chat shows the exact source, license, bytes, verified hashes and measured requirements, and the owner confirms the network and disk change.

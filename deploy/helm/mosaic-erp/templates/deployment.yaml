@@ -61,6 +61,10 @@ spec:
             - name: MOSAIC_MICROSOFT_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: {{ .Values.oauth.secretName | quote }}, key: {{ .Values.oauth.microsoftClientSecretKey | quote }}}}
             {{- end }}
+            {{- if .Values.assistant.secretName }}
+            - name: MOSAIC_ASSISTANT_MOUNTED_SECRET_FILE
+              value: /run/mosaic-assistant-secrets/assistant-mounted.key
+            {{- end }}
             - name: MOSAIC_DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -90,9 +94,20 @@ spec:
             capabilities:
               drop: [ALL]
           volumeMounts:
+            {{- if .Values.assistant.secretName }}
+            - name: assistant-secret
+              mountPath: /run/mosaic-assistant-secrets
+              readOnly: true
+            {{- end }}
             - name: tmp
               mountPath: /tmp
       volumes:
+        {{- if .Values.assistant.secretName }}
+        - name: assistant-secret
+          secret:
+            secretName: {{ .Values.assistant.secretName | quote }}
+            items: [{key: {{ .Values.assistant.secretKey | quote }}, path: assistant-mounted.key}]
+        {{- end }}
         - name: tmp
           emptyDir:
             sizeLimit: 16Mi

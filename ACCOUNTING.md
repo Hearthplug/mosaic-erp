@@ -12,12 +12,12 @@ This module adds an operational accounting core. It does not turn the current UI
 - draft -> approval -> posting workflow with actor IDs and audit events
 - accounts receivable/payable postings, tax rounding, general ledger, trial balance, P&L and balance sheet
 - CSV validation-first imports for customers, vendors and accounts
-- professional verification state; chart, tax or material accounting-setting changes invalidate it
+- review state; chart, tax or material accounting-setting changes invalidate it
 - database transactions, existing tenant isolation, and existing request idempotency primitives
 
-## Professional launch verification
+## Launch verification
 
-Before live use, a qualified local accountant or implementer must verify the legal entity, opening balances, chart mappings, tax registrations/rates, fiscal periods, numbering, currency rules and example outputs. Mosaic stores who verified it, when, and their note. A material configuration change moves the state from `verified` to `invalidated`; daily transaction entry does not.
+Before live use, the business owner can verify with one click after reviewing the evidence; review by a qualified local accountant is recommended the legal entity, opening balances, chart mappings, tax registrations/rates, fiscal periods, numbering, currency rules and example outputs. Mosaic stores who verified it, when, and their note. A material configuration change moves the state from `verified` to `invalidated`; daily transaction entry does not.
 
 ## Production-core accounting boundary
 
@@ -33,4 +33,4 @@ The accounting core uses the existing atomic database transaction boundary, tena
 
 Every source migration must record the source control total, row count, posted total and variance. A non-zero variance remains visible as `variance`, not reconciled. Acceptance runs store expected and actual results, differences and a checksum so an accountant can sign off against agreed real sample data.
 
-Statutory adapters are fail-closed. They are `disabled` until a named professional verifies a jurisdiction, capability and rules version. Configuration invalidates the overall accounting sign-off.
+Statutory adapters are fail-closed. They are `disabled` until the business owner or a named professional verifies a jurisdiction, capability and rules version. Configuration invalidates the overall accounting sign-off.

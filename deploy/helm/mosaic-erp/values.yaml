@@ -4,6 +4,7 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 config: {rateLimitRpm: 120, dbPoolMin: 1, dbPoolMax: 10, publicOrigin: ""}
+assistant: {secretName: "", secretKey: api-key}
 oauth: {secretName: "", googleClientIdKey: google-client-id, googleClientSecretKey: google-client-secret, microsoftClientIdKey: microsoft-client-id, microsoftClientSecretKey: microsoft-client-secret}
 database:
   # Existing Secret key database-url. Use sslmode=verify-full in production.

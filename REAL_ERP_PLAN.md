@@ -15,9 +15,9 @@ Mosaic's target is a persistent operational ERP. The interview is onboarding and
 
 For each target deployment: TLS/DNS and secrets, managed PostgreSQL HA/PITR, monitoring, capacity/failover evidence, an isolated restore drill with data/audit/trial-balance checks, and an independent security review appropriate to the data and exposure.
 
-## Statutory/localization gates - professionally owned
+## Statutory/localization review gates
 
-Statutory invoice, tax return, e-invoice and filing adapters remain disabled until the exact jurisdiction, capability and rules version are verified by a named local professional and pass transaction regressions.
+Statutory invoice, tax return, e-invoice and filing adapters remain disabled until the exact jurisdiction, capability and rules version are verified by the business owner or a named local professional (professional review recommended) and pass transaction regressions.
 
 ## Advanced modules - out of this release
 
