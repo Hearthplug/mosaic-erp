@@ -1,0 +1,54 @@
+"""Audited chat-driven dashboard, report and statutory-invoice definition builder."""
+from __future__ import annotations
+import json,re,secrets
+from store import canon,utcnow,Conflict,NotFound
+
+ALLOWED_METRICS={'sales_total','sales_count','stock_value','receivables','payables','cash_variance','gross_profit'}
+ALLOWED_GROUPS={'day','week','month','product','location','customer','vendor','status'}
+ALLOWED_REPORTS={'sales_summary','stock_position','receivables_aging','payables_aging','trial_balance','profit_and_loss','balance_sheet','cash_close'}
+class ArtifactBuilder:
+ def __init__(self,s,books,retail):self.s,self.books,self.retail=s,books,retail
+ def interpret(self,message):
+  m=' '.join((message or '').strip().split());low=m.lower()
+  if not m:raise ValueError('Describe the dashboard, report, or invoice you want')
+  kind='statutory_invoice' if 'invoice' in low and any(x in low for x in ('statutory','tax','legal')) else 'dashboard' if 'dashboard' in low else 'report' if 'report' in low else None
+  if not kind:raise ValueError('Say whether to build a dashboard, report, or statutory invoice')
+  name=(re.sub(r'(?i)^(build|create|make|draft)\s+(a|an|the)?\s*','',m)[:100] or kind.replace('_',' ').title())
+  if kind=='dashboard':
+   metrics=[x for x in ALLOWED_METRICS if x.replace('_',' ') in low] or ['sales_total','stock_value']
+   groups=[x for x in ALLOWED_GROUPS if x in low] or ['day']
+   spec={'widgets':[{'metric':x,'visual':'line' if groups[0] in ('day','week','month') else 'bar','group_by':groups[0]} for x in metrics],'filters':['date_range','location_id'],'currency':'workspace'};sources=['sales','sale_lines','stock_ledger']
+  elif kind=='report':
+   r=next((x for x in ALLOWED_REPORTS if x.replace('_',' ') in low),None)
+   if not r:raise ValueError('Choose a supported report: '+', '.join(sorted(ALLOWED_REPORTS)))
+   spec={'report_type':r,'columns':'standard','filters':['date_range','location_id'],'format':['screen','csv']};sources={'sales_summary':['sales','sale_lines'],'stock_position':['stock_ledger'],'receivables_aging':['documents','settlements'],'payables_aging':['documents','settlements'],'trial_balance':['journals','journal_lines'],'profit_and_loss':['journals','journal_lines','accounts'],'balance_sheet':['journals','journal_lines','accounts'],'cash_close':['cash_sessions','tender_entries']}[r]
+  else:
+   spec={'template':'jurisdiction_scoped_invoice','fields':['seller','buyer','invoice_number','issue_date','currency','lines','net','tax','gross','tax_registration','rules_version'],'output_state':'DRAFT - REVIEW REQUIRED'};sources=['documents','document_lines','tax_transaction_facts','tax_verifications','statutory_adapters']
+  return {'kind':kind,'name':name,'specification':spec,'source_tables':sources,'legal_status':'review_required' if kind=='statutory_invoice' else 'not_applicable'}
+ def draft(self,wid,actor,message):
+  x=self.interpret(message);aid='gar_'+secrets.token_hex(8)
+  with self.s.tx():
+   self.s._db.execute("INSERT INTO generated_artifacts(id,workspace_id,kind,name,specification_json,specification_hash,source_tables_json,config_version,status,legal_status,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,'draft',?,?,?)",(aid,wid,x['kind'],x['name'],canon(x['specification']),__import__('hashlib').sha256(canon(x['specification']).encode()).hexdigest(),canon(x['source_tables']),self._config_version(wid),x['legal_status'],actor,utcnow()))
+   self.s._audit(wid,actor,'artifact.draft',{'artifact_id':aid,'kind':x['kind'],'name':x['name'],'source_tables':x['source_tables']})
+  return {'id':aid,'status':'draft',**x,'message':'Draft created. Review the fields, filters, access and sample output before activation.'}
+ def _config_version(self,wid):
+  r=self.s._db.execute('SELECT MAX(version) v FROM config_versions WHERE workspace_id=?',(wid,)).fetchone();return r['v'] if r else None
+ def list(self,wid):
+  rows=self.s._db.execute('SELECT id,kind,name,status,legal_status,rules_version,tax_verification_id,config_version,specification_hash,created_by,created_at,reviewer_kind,reviewed_by,reviewed_at,review_note,specification_json,source_tables_json FROM generated_artifacts WHERE workspace_id=? ORDER BY created_at DESC',(wid,)).fetchall()
+  return [dict(r)|{'specification':json.loads(r['specification_json']),'source_tables':json.loads(r['source_tables_json'])} for r in rows]
+ def activate(self,wid,actor,aid,reviewer_kind,note,rules_version=None):
+  r=self.s._db.execute('SELECT * FROM generated_artifacts WHERE workspace_id=? AND id=?',(wid,aid)).fetchone()
+  if not r:raise NotFound('generated artifact not found')
+  if r['status']!='draft':raise Conflict('only a draft can be activated')
+  if not (note or '').strip():raise ValueError('record what was reviewed')
+  if reviewer_kind not in ('owner','professional'):raise ValueError('reviewer_kind must be owner or professional')
+  if r['kind']=='statutory_invoice':
+   if not rules_version:raise ValueError('a reviewed tax rules version is required')
+   tax=self.s._db.execute("SELECT id FROM tax_verifications WHERE workspace_id=? AND rules_version=? AND status='active'",(wid,rules_version)).fetchone()
+   if not tax:raise Conflict('the tax rules version is not active')
+   legal='professional_reviewed' if reviewer_kind=='professional' else 'owner_reviewed';tax_id=tax['id']
+  else:legal='not_applicable';tax_id=None
+  with self.s.tx():
+   self.s._db.execute('UPDATE generated_artifacts SET status=\'active\',legal_status=?,rules_version=?,tax_verification_id=?,reviewer_kind=?,reviewed_by=?,reviewed_at=?,review_note=? WHERE id=? AND workspace_id=?',(legal,rules_version,tax_id,reviewer_kind,actor,utcnow(),note.strip(),aid,wid))
+   self.s._audit(wid,actor,'artifact.activate',{'artifact_id':aid,'reviewer_kind':reviewer_kind,'rules_version':rules_version,'legal_status':legal,'tax_verification_id':tax_id,'config_version':self._config_version(wid)})
+  return {'id':aid,'status':'active','reviewed_by':actor,'reviewer_kind':reviewer_kind,'legal_status':legal,'rules_version':rules_version,'professional_review_recommended':r['kind']=='statutory_invoice' and reviewer_kind=='owner'}

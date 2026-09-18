@@ -1,0 +1,258 @@
+{
+  "schema": "mosaic-user-story-coverage-v1",
+  "required_variants": [
+    "happy",
+    "paraphrase",
+    "clarify",
+    "invalid_value",
+    "permission_denial",
+    "cross_company",
+    "cancel",
+    "correction",
+    "idempotent_retry",
+    "recovery"
+  ],
+  "acceptance": [
+    "intent_slot_correct",
+    "safe_fallback",
+    "owner_response_usable"
+  ],
+  "stories": [
+    {
+      "story": "onboarding and company structure",
+      "intent_families": [
+        "onboarding.*",
+        "workspace.config.preview"
+      ],
+      "owning_tests": [
+        "test_onboarding.py",
+        "test_interview_api.py",
+        "test_customization.py",
+        "test_provisioning.py"
+      ],
+      "boundary": "preview/apply only"
+    },
+    {
+      "story": "roles and RBAC",
+      "intent_families": [
+        "workspace.invite",
+        "workspace.role.update",
+        "clarify",
+        "reject"
+      ],
+      "owning_tests": [
+        "test_rbac.py",
+        "test_operational_rbac_api.py",
+        "test_auth_experience.py"
+      ],
+      "boundary": "deny outside actor scope"
+    },
+    {
+      "story": "catalog and locations",
+      "intent_families": [
+        "retail.location.create",
+        "retail.product.create"
+      ],
+      "owning_tests": [
+        "test_retail.py",
+        "test_retail_api.py"
+      ],
+      "boundary": "allowlisted fields"
+    },
+    {
+      "story": "procurement and receiving",
+      "intent_families": [
+        "retail.purchase.create/approve/receive",
+        "retail.three_way_match"
+      ],
+      "owning_tests": [
+        "test_retail.py",
+        "test_representative_retailer.py",
+        "test_concurrency_erp.py"
+      ],
+      "boundary": "state-machine and idempotency checks"
+    },
+    {
+      "story": "sales, payments and returns",
+      "intent_families": [
+        "retail.sale.create",
+        "accounting.payment.create",
+        "retail.return.create"
+      ],
+      "owning_tests": [
+        "test_retail.py",
+        "test_accounting.py",
+        "test_recovery_retail.py"
+      ],
+      "boundary": "exact tenders and refund controls"
+    },
+    {
+      "story": "inventory",
+      "intent_families": [
+        "retail.transfer.create",
+        "retail.count.create",
+        "retail.stock.status",
+        "retail.reorder.status"
+      ],
+      "owning_tests": [
+        "test_retail.py",
+        "test_retail_api.py",
+        "test_concurrency_erp.py"
+      ],
+      "boundary": "no invented product/location IDs"
+    },
+    {
+      "story": "suppliers and customers",
+      "intent_families": [
+        "accounting.party.create"
+      ],
+      "owning_tests": [
+        "test_accounting.py",
+        "test_postgres_erp_contract.py"
+      ],
+      "boundary": "tenant-scoped identifiers"
+    },
+    {
+      "story": "bank reconciliation",
+      "intent_families": [
+        "accounting.bank.import",
+        "accounting.bank.match"
+      ],
+      "owning_tests": [
+        "test_accounting.py",
+        "test_postgres_erp_live.py"
+      ],
+      "boundary": "validation before match"
+    },
+    {
+      "story": "accounting and tax",
+      "intent_families": [
+        "accounting.setup.preview",
+        "tax.verify_preview",
+        "tax.regression"
+      ],
+      "owning_tests": [
+        "test_accounting.py",
+        "test_tax_engine.py",
+        "test_tax_verification.py",
+        "test_tax_all_packs.py"
+      ],
+      "boundary": "owner review; professional review recommended"
+    },
+    {
+      "story": "invoices and documents",
+      "intent_families": [
+        "accounting.document.create/approve/post"
+      ],
+      "owning_tests": [
+        "test_accounting.py",
+        "test_postgres_erp_live.py"
+      ],
+      "boundary": "posting requires preview/permission/state"
+    },
+    {
+      "story": "reports and dashboards",
+      "intent_families": [
+        "artifact.draft",
+        "artifact.verify_preview"
+      ],
+      "owning_tests": [
+        "test_artifact_builder.py",
+        "test_accounting.py"
+      ],
+      "boundary": "allowlisted metrics/reports; no raw SQL"
+    },
+    {
+      "story": "corrections and reversals",
+      "intent_families": [
+        "accounting.journal.reverse",
+        "workspace.rollback",
+        "migration.rollback"
+      ],
+      "owning_tests": [
+        "test_accounting.py",
+        "test_recovery_retail.py",
+        "test_migration_api.py"
+      ],
+      "boundary": "immutable originals and audit trail"
+    },
+    {
+      "story": "period close",
+      "intent_families": [
+        "accounting.period.create/lock"
+      ],
+      "owning_tests": [
+        "test_accounting.py",
+        "test_postgres_erp_live.py"
+      ],
+      "boundary": "no back-posting after lock"
+    },
+    {
+      "story": "imports and exports",
+      "intent_families": [
+        "migration.stage/apply/openings/rollback",
+        "workspace.export",
+        "retail.export"
+      ],
+      "owning_tests": [
+        "test_migration_api.py",
+        "test_migration_packs.py",
+        "test_persistence.py"
+      ],
+      "boundary": "validation/reconciliation first"
+    },
+    {
+      "story": "Docker deployment guidance",
+      "intent_families": [
+        "guidance.docker"
+      ],
+      "owning_tests": [
+        "release_check.py",
+        ".github/workflows/assistant-validation.yml"
+      ],
+      "boundary": "guidance only, no host control"
+    },
+    {
+      "story": "Kubernetes deployment guidance",
+      "intent_families": [
+        "guidance.kubernetes"
+      ],
+      "owning_tests": [
+        ".github/workflows/assistant-validation.yml"
+      ],
+      "boundary": "qualified professional required"
+    },
+    {
+      "story": "assistant configuration",
+      "intent_families": [
+        "assistant.configure/status/test/cancel/rollback",
+        "reject_secret"
+      ],
+      "owning_tests": [
+        "test_assistant_setup.py"
+      ],
+      "boundary": "local unavailable; masked secrets only"
+    },
+    {
+      "story": "statutory adapters and filings",
+      "intent_families": [
+        "guidance",
+        "reject"
+      ],
+      "owning_tests": [
+        "test_tax_verification.py",
+        "test_tax_all_packs.py"
+      ],
+      "boundary": "unavailable until exact adapter/version verified"
+    },
+    {
+      "story": "advanced manufacturing, payroll, managed hosting",
+      "intent_families": [
+        "guidance",
+        "reject"
+      ],
+      "owning_tests": [],
+      "boundary": "unsupported in v1.2.0"
+    }
+  ]
+}

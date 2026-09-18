@@ -25,6 +25,8 @@ from operating_model_schema import OPERATING_MODEL_SQLITE_SCHEMA
 from migration_schema import MIGRATION_SQLITE_SCHEMA
 from tax_verification_schema import TAX_VERIFICATION_SQLITE_SCHEMA
 from provisioning_schema import PROVISIONING_SQLITE_SCHEMA
+from artifact_builder_schema import ARTIFACT_BUILDER_SQLITE_SCHEMA
+from assistant_setup_schema import ASSISTANT_SETUP_SQLITE_SCHEMA
 
 MIGRATIONS = [
     # 1: core workspace schema
@@ -116,6 +118,8 @@ MIGRATIONS = [
     CREATE INDEX idx_oauth_identity_user ON oauth_identities(user_id);
     CREATE TABLE oauth_grants(code_hash TEXT PRIMARY KEY,provider TEXT NOT NULL,issuer TEXT NOT NULL,subject TEXT NOT NULL,email TEXT NOT NULL,email_verified INTEGER NOT NULL,mode TEXT NOT NULL CHECK(mode IN ('signin','link','enter')),next_path TEXT NOT NULL,created_at TEXT NOT NULL,expires_at TEXT NOT NULL,used_at TEXT);
     """,
+    ARTIFACT_BUILDER_SQLITE_SCHEMA,
+    ASSISTANT_SETUP_SQLITE_SCHEMA,
 ]
 
 def utcnow() -> str:
@@ -436,6 +440,7 @@ class Store:
             self._db.execute(
                 'INSERT INTO config_versions(workspace_id,version,answers_json,config_json,checksum,summary,actor_key_id,created_at) VALUES(?,?,?,?,?,?,?,?)',
                 (wid, version, canon(answers), canon(config), checksum, (summary or '')[:500], actor_key_id, utcnow()))
+            self._db.execute("UPDATE generated_artifacts SET status='reverification_required',legal_status=CASE WHEN kind='statutory_invoice' THEN 'review_required' ELSE legal_status END WHERE workspace_id=? AND status='active' AND COALESCE(config_version,-1)<>?",(wid,version))
             self._audit(wid, actor_key_id, 'config.save', {'version': version, 'summary': summary or '', 'checksum': checksum})
             result = {'version': version, 'checksum': checksum, 'saved_at': utcnow()}
             if idem_key:
@@ -486,6 +491,7 @@ class Store:
             self._db.execute(
                 'INSERT INTO config_versions(workspace_id,version,answers_json,config_json,checksum,summary,actor_key_id,created_at) VALUES(?,?,?,?,?,?,?,?)',
                 (wid, version, canon(target['answers']), canon(target['config']), target['checksum'], summary, actor_key_id, utcnow()))
+            self._db.execute("UPDATE generated_artifacts SET status='reverification_required',legal_status=CASE WHEN kind='statutory_invoice' THEN 'review_required' ELSE legal_status END WHERE workspace_id=? AND status='active' AND COALESCE(config_version,-1)<>?",(wid,version))
             self._audit(wid, actor_key_id, 'config.rollback', {'from_version': latest, 'restored_version': target_version, 'version': version})
             result = {'version': version, 'restored_from': target_version, 'checksum': target['checksum'],
                       'answers': target['answers'], 'config': target['config']}

@@ -42,9 +42,9 @@ Source verification for the v1.2.0 release candidate is tied to commit [`2a23c70
 
 Google and Microsoft controls use provider-published sign-in assets and real configuration-aware OIDC routes. Live activation remains deployment-owned: the operator must provide a canonical HTTPS domain, register exact callbacks with each provider, select the Microsoft account type, complete required consent/domain review and provision rotated secrets. Unconfigured controls remain disabled.
 
-## Tax and professional verification
+## Tax review
 
-Candidate jurisdiction packs are sourced and versioned inputs. Calculations stay fail-closed until a named local professional attests the exact jurisdiction, effective dates, rules and regression cases. Statutory output remains disabled separately. Mosaic does not provide legal or tax advice.
+Candidate jurisdiction packs are sourced and versioned inputs. Calculations stay fail-closed until the business owner or a named professional attests the exact jurisdiction, effective dates, sources, rules and regression cases. Professional review is recommended, not mandatory. Statutory output remains disabled separately. Mosaic does not provide legal or tax advice.
 
 ## History
 

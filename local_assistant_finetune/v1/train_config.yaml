@@ -1,0 +1,9 @@
+seed: 20260919
+base_model: Qwen/Qwen2.5-0.5B-Instruct
+base_revision: pin_exact_commit_before_training
+method: qlora
+quantization: {load_in_4bit: true, bnb_4bit_quant_type: nf4, bnb_4bit_use_double_quant: true, bnb_4bit_compute_dtype: bfloat16}
+lora: {r: 16, alpha: 32, dropout: 0.05, target_modules: all-linear, bias: none, task_type: CAUSAL_LM}
+training: {epochs: 3, learning_rate: 0.0002, scheduler: cosine, warmup_ratio: 0.03, per_device_batch_size: 4, gradient_accumulation_steps: 8, max_length: 768, gradient_checkpointing: true, packing: false}
+selection: {primary_metric: validation_intent_slot_correctness, safety_floor: 1.0, exact_schema_floor: 1.0, usability_critical_failures: 0, early_stopping_patience: 2}
+output: adapter-only

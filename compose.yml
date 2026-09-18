@@ -13,7 +13,9 @@ services:
       MOSAIC_DB_POOL_MIN: ${MOSAIC_DB_POOL_MIN:-1}
       MOSAIC_DB_POOL_MAX: ${MOSAIC_DB_POOL_MAX:-10}
       MOSAIC_RATE_LIMIT_RPM: ${MOSAIC_RATE_LIMIT_RPM:-120}
+      MOSAIC_ASSISTANT_SECRET_DIR: /run/mosaic-assistant-secrets
     tmpfs: [/tmp:rw,noexec,nosuid,nodev,size=16m]
+    volumes: [assistant-secrets:/run/mosaic-assistant-secrets]
     expose: ["8000"]
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready',timeout=2)"]
@@ -37,4 +39,4 @@ services:
     cap_add: [NET_BIND_SERVICE]
     tmpfs: [/tmp:rw,noexec,nosuid,nodev,size=16m, /config/caddy:rw,noexec,nosuid,nodev,size=16m]
     volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy-data:/data]
-volumes: {caddy-data: {}}
+volumes: {caddy-data: {}, assistant-secrets: {}}
