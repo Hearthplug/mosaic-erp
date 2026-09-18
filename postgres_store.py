@@ -40,6 +40,9 @@ ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY; ALTER TABLE idempotency_
 CREATE POLICY idempotency_tenant ON idempotency_keys USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));
 ALTER TABLE users ENABLE ROW LEVEL SECURITY; ALTER TABLE users FORCE ROW LEVEL SECURITY;
 CREATE POLICY users_tenant ON users USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));
+
+CREATE OR REPLACE FUNCTION mosaic_login_options(p_email text) RETURNS TABLE(workspace_id text,password_hash text,role text,name text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT u.workspace_id,u.password_hash,u.role,w.name FROM users u JOIN workspaces w ON w.id=u.workspace_id WHERE u.email=p_email AND u.disabled_at IS NULL AND w.status='active' $$;
+REVOKE ALL ON FUNCTION mosaic_login_options(text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_login_options(text) TO CURRENT_USER;
 CREATE OR REPLACE FUNCTION mosaic_auth_session(p_hash text) RETURNS TABLE(id text,user_id text,workspace_id text,role text,expires_at text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT s.id,u.id,u.workspace_id,u.role,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=p_hash AND s.revoked_at IS NULL AND u.disabled_at IS NULL $$;
 REVOKE ALL ON FUNCTION mosaic_auth_session(text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO CURRENT_USER;
 CREATE OR REPLACE FUNCTION mosaic_parent_workspace(p_table text,p_id text) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$ DECLARE w text; BEGIN IF p_table NOT IN ('purchase_orders','sales','retail_returns','stock_counts','documents') THEN RAISE EXCEPTION 'unsupported parent'; END IF; EXECUTE format('SELECT workspace_id FROM %I WHERE id=$1',p_table) INTO w USING p_id; RETURN w; END $$;
@@ -56,6 +59,7 @@ def _context(sql_text, params):
     wid=next((x for x in vals if x.startswith('wsp_')),None)
     if 'api_keys WHERE key_hash=' in sql_text and vals: return ('mosaic.auth_key_hash',vals[0])
     if 'sessions s JOIN users' in sql_text and vals: return ('mosaic.auth_session_hash',vals[0])
+    if 'workspace_invitations WHERE token_hash=' in sql_text and vals:return ('mosaic.auth_invite_hash',vals[0])
     if not wid:
         # Child-table queries often carry only a parent id. Recover the tenant
         # from the parent while the connection is still outside tenant scope.
@@ -141,6 +145,11 @@ class PostgresStore(Store):
                 conn.execute(PG_MIGRATIONS[i]);
                 if i == 0: conn.execute(RLS_SQL)
                 conn.execute('INSERT INTO mosaic_schema_migrations(version) VALUES(%s)',(i+1,))
+    def login_options(self,email,password):
+        with self._pool.connection() as conn:rows=conn.execute('SELECT * FROM mosaic_login_options(%s)',((email or '').strip().lower(),)).fetchall()
+        valid=[{'workspace_id':r['workspace_id'],'name':r['name'],'role':r['role']} for r in rows if self._password_ok(password or '',r['password_hash'])]
+        if not valid:self._password_ok(password or '',self._password_hash('dummy-password-value'))
+        return valid
     def create_workspace(self,name,label='Owner key'):
         # Set the newly generated tenant before FORCE RLS checks the inserts.
         import secrets
