@@ -14,3 +14,6 @@ JSONL records contain `id`, `split`, `locale`, `category`, `messages`, and `expe
 - native gate: `local_assistant_suite_v1.json` remains a separate locked acceptance set
 
 `validate_dataset.py` rejects duplicate IDs/text, secret-like strings, split overlap, normalized-text overlap, and cross-split token 5-gram overlap. It validates allowed intent names and exact output keys.
+
+## 360-degree readiness gate
+`generate_coverage_manifest.py`, `generate_dataset.py`, `validate_dataset.py`, and `report_coverage.py` deterministically build and independently check 380 cells across 19 implemented story families and 20 risk dimensions. The split is 190 train, 95 validation, and 95 locked test. Training is prohibited until the committed validator reports 380/380 cells, 50/50 high-risk locked cells, 100% schema validity, real owning-test links, and zero secret, cross-split, entity-namespace, or native-suite contamination findings.
