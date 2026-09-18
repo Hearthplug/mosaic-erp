@@ -7,8 +7,9 @@ secret=re.compile(r'(?:sk-|github_pat_|ghp_|AKIA)[A-Za-z0-9_\-]{8,}|-----BEGIN .
 norm=lambda s:' '.join(re.sub(r'[^\w\s]',' ',s.casefold()).split())
 seen_id=set();seen_text={};grams={}
 for r in rows:
- assert set(r)=={'id','split','locale','category','messages','expected'} and r['split'] in {'train','validation','test'}
- assert r['locale']=='en',('v1 is English-only',r['id'],r['locale'])
+ assert set(r)=={'id','split','locale','category','messages','expected','story','variant','schema','owning_tests'} and r['split'] in {'train','validation','test'}
+ assert r['locale']=='en'
+ assert r['schema']=='mosaic.typed-intent.v1' and r['owning_tests'] and r['story'] and r['variant'],('v1 is English-only',r['id'],r['locale'])
  assert r['id'] not in seen_id;seen_id.add(r['id'])
  text=r['messages'][-1]['content'];n=norm(text);assert n not in seen_text,(r['id'],seen_text.get(n));seen_text[n]=r['id']
  assert not secret.search(text),r['id'];assert set(r['expected'])=={'kind','slots','confidence'};assert r['expected']['kind'] in allowed
