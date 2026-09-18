@@ -26,8 +26,14 @@ jobs:
             sleep 1
           done
           test "$ready" = 1
-          curl -fsS http://127.0.0.1:18000/assistant | grep -q 'Set it up by talking'
-          test "$(docker inspect -f '{{.State.Health.Status}}' mosaic-assistant-ci)" = healthy
+          curl -fsS http://127.0.0.1:18000/assistant -o /tmp/assistant.html
+          grep -q 'Set it up by talking' /tmp/assistant.html
+          healthy=0
+          for i in $(seq 1 30); do
+            if test "$(docker inspect -f '{{.State.Health.Status}}' mosaic-assistant-ci)" = healthy; then healthy=1; break; fi
+            sleep 1
+          done
+          test "$healthy" = 1
       - if: always()
         run: docker rm -f mosaic-assistant-ci || true
   local-model-benchmark:
