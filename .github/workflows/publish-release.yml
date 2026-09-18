@@ -182,7 +182,7 @@ jobs:
             provenance="$(docker buildx imagetools inspect "$spec" --format '{{ json .Provenance }}')"
             jq -e '.. | objects | select(.predicateType? == "https://spdx.dev/Document")' <<<"$sbom" >/dev/null
             jq -e '.. | objects | select(.predicateType? | strings | contains("slsa.dev/provenance"))' <<<"$provenance" >/dev/null
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.67.2 image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$spec"
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy@sha256:e2b22eac59c02003d8749f5b8d9bd073b62e30fefaef5b7c8371204e0a4b0c08 image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$spec"
           done
 
       - name: Promote immutable digests without rebuilding
