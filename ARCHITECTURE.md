@@ -1,23 +1,17 @@
 # Mosaic ERP data architecture
 
-Status: hardened single-node build. Every claim in the "Implemented" sections is
-verified by `release_check.py` (75 automated tests plus live-server checks).
-The "Deployment-dependent" section lists what source code alone cannot prove.
+Status: production-core retailer ERP candidate. Source-verifiable controls are covered by CI; deployment-dependent claims remain operator owned.
 
 ## Shape
 
 ```
-browser (static.html)  ──HTTP──>  app.py (stdlib ThreadingHTTPServer)
-                                     ├── public compiler API (stateless, no data kept)
-                                     ├── workspace API (Bearer key, tenant-scoped)
-                                     └── store.py ──> SQLite (WAL) at MOSAIC_DB_PATH
+browser -> user session/invitation -> app.py -> Store (SQLite evaluation)
+                                          -> PostgresStore (production replicas)
 ```
 
-The compiler endpoints (`/api/preview`, `/api/configure`, `/api/chat`,
-`/api/export`) stay stateless and anonymous: they transform answers into a
-blueprint and keep nothing. Only the workspace API (`/api/workspace*`)
-persists, and every one of its routes resolves the tenant from the presented
-API key - there is no tenant parameter to tamper with.
+Everyday users sign in with a named account. Secure invitations bind a person to a company, coarse platform role and interview-provisioned operational role; sessions expire and revoke immediately. API keys remain hidden owner/admin and integration credentials, not ordinary UI.
+
+PostgreSQL is the shared production consistency boundary. Forced RLS protects every tenant table under a restricted runtime role. Core receive, sale, return/refund, document post and payment commands are atomic; advisory locks serialize competing stock, purchase, document and period operations across replicas.
 
 ## Decisions and sources
 
@@ -82,39 +76,25 @@ API key - there is no tenant parameter to tamper with.
 - Flood from one client: token bucket 429s, tested.
 - Tampered stored config: SHA-256 checksum verified on every read, tested.
 
-## What it does not resist (honest limits)
+## What source code does not prove
 
-- Traffic is plain HTTP on localhost - TLS must come from a reverse proxy.
-- One node, one file: no high availability, no automatic failover.
-- In-memory rate limiting resets on restart and does not cluster.
-- The HTML uses inline script/style, so CSP must allow `unsafe-inline` for
-  those two directives (all external origins are still blocked).
-- No per-user identity, SSO, or session management: workspace keys are the
-  boundary.
-- No independent security audit has been performed.
+- TLS/DNS, managed database HA/PITR, capacity, failover and restore behavior in a target environment
+- protection after theft of a database credential allowed to bypass/change RLS roles
+- independent penetration/security review
+- statutory or jurisdiction compliance without local professional verification
+- advanced-module breadth excluded from the production-core retailer scope
 
-## Deployment-dependent (owner action before any hosted launch)
+## Deployment-dependent (operator action before live traffic)
 
-1. Terminate TLS at a reverse proxy (nginx/Caddy) and forward to 127.0.0.1.
-2. Schedule offsite backups (`app.py backup`) and rehearse `app.py restore`.
-3. Put the database file on encrypted, snapshotted storage.
-4. Add per-user accounts or SSO before inviting teams beyond key sharing.
-5. Commission an external penetration test before storing real financial data.
-6. Move to a managed client-server database if write concurrency outgrows one
-   node (the Store class isolates the schema and SQL to make that a port, not
-   a rewrite).
+1. Configure TLS/DNS, ingress, NetworkPolicy and secret rotation.
+2. Configure managed PostgreSQL HA, encrypted backups and WAL/PITR against business RPO/RTO.
+3. Restore into isolation and verify readiness, data, audit and trial-balance equality.
+4. Run target-environment capacity/failover tests and centralized monitoring/alerts.
+5. Commission an independent security review before sensitive financial data.
 
 ## Usability and installation
 
-- Install is one command (`python3 install.py`): checks Python, applies
-  migrations, creates the online-save workspace, writes the recovery key to a
-  owner-only file, seeds a working sample business, and prints two next steps.
-  Re-running after an interruption continues safely.
-- The interface is one guided conversation: plain-language questions, example
-  answers, one question at a time, large touch targets (44px on small
-  screens), visible focus outlines, screen-reader live regions, and automatic
-  retry with clear "saved on this device / saved online / save failed"
-  states. No technical vocabulary is required to finish setup.
+Local evaluation remains `python3 install.py && python3 app.py`. Open `/signin`, choose **Set up a new company**, and answer the owner interview. Staff join through secure single-use links and land on the work their role allows. Ordinary users never handle workspace/API keys or tenant IDs.
 
 ## Production hardening added in v1.1
 

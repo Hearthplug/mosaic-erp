@@ -11,6 +11,7 @@ from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from store import Store, MIGRATIONS, Conflict, NotFound
+from postgres_erp_schema import POSTGRES_ERP_MIGRATION, ALL_ERP_TABLES
 
 SCHEMA_VERSION = 1
 PG_MIGRATIONS = [r'''
@@ -23,7 +24,7 @@ CREATE TABLE idempotency_keys(key text NOT NULL,workspace_id text NOT NULL REFER
 CREATE TABLE users(id text PRIMARY KEY,workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,email text NOT NULL,password_hash text NOT NULL,role text NOT NULL CHECK(role IN ('viewer','editor','owner')),created_at text NOT NULL,disabled_at text,UNIQUE(workspace_id,email));
 CREATE TABLE sessions(id text PRIMARY KEY,user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,token_hash text NOT NULL UNIQUE,created_at text NOT NULL,expires_at text NOT NULL,revoked_at text);
 CREATE TABLE rate_buckets(identity text PRIMARY KEY,tokens double precision NOT NULL,updated_at double precision NOT NULL);
-''']
+''', POSTGRES_ERP_MIGRATION]
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
 RLS_SQL=r'''
@@ -39,8 +40,13 @@ ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY; ALTER TABLE idempotency_
 CREATE POLICY idempotency_tenant ON idempotency_keys USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));
 ALTER TABLE users ENABLE ROW LEVEL SECURITY; ALTER TABLE users FORCE ROW LEVEL SECURITY;
 CREATE POLICY users_tenant ON users USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));
+
+CREATE OR REPLACE FUNCTION mosaic_login_options(p_email text) RETURNS TABLE(workspace_id text,password_hash text,role text,name text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT u.workspace_id,u.password_hash,u.role,w.name FROM users u JOIN workspaces w ON w.id=u.workspace_id WHERE u.email=p_email AND u.disabled_at IS NULL AND w.status='active' $$;
+REVOKE ALL ON FUNCTION mosaic_login_options(text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_login_options(text) TO CURRENT_USER;
 CREATE OR REPLACE FUNCTION mosaic_auth_session(p_hash text) RETURNS TABLE(id text,user_id text,workspace_id text,role text,expires_at text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT s.id,u.id,u.workspace_id,u.role,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=p_hash AND s.revoked_at IS NULL AND u.disabled_at IS NULL $$;
 REVOKE ALL ON FUNCTION mosaic_auth_session(text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO CURRENT_USER;
+CREATE OR REPLACE FUNCTION mosaic_parent_workspace(p_table text,p_id text) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$ DECLARE w text; BEGIN IF p_table NOT IN ('purchase_orders','sales','retail_returns','stock_counts','documents') THEN RAISE EXCEPTION 'unsupported parent'; END IF; EXECUTE format('SELECT workspace_id FROM %I WHERE id=$1',p_table) INTO w USING p_id; RETURN w; END $$;
+REVOKE ALL ON FUNCTION mosaic_parent_workspace(text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_parent_workspace(text,text) TO CURRENT_USER;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY; ALTER TABLE sessions FORCE ROW LEVEL SECURITY;
 CREATE POLICY sessions_tenant ON sessions USING (EXISTS (SELECT 1 FROM users u WHERE u.id=sessions.user_id AND u.workspace_id=current_setting('mosaic.workspace_id',true)) OR token_hash=current_setting('mosaic.auth_session_hash',true)) WITH CHECK (EXISTS (SELECT 1 FROM users u WHERE u.id=sessions.user_id AND u.workspace_id=current_setting('mosaic.workspace_id',true)));
 '''
@@ -53,6 +59,18 @@ def _context(sql_text, params):
     wid=next((x for x in vals if x.startswith('wsp_')),None)
     if 'api_keys WHERE key_hash=' in sql_text and vals: return ('mosaic.auth_key_hash',vals[0])
     if 'sessions s JOIN users' in sql_text and vals: return ('mosaic.auth_session_hash',vals[0])
+    if 'workspace_invitations WHERE token_hash=' in sql_text and vals:return ('mosaic.auth_invite_hash',vals[0])
+    if not wid:
+        # Child-table queries often carry only a parent id. Recover the tenant
+        # from the parent while the connection is still outside tenant scope.
+        child_parents={'purchase_order_lines':('purchase_orders','purchase_order_id'),'sale_lines':('sales','sale_id'),'retail_return_lines':('retail_returns','return_id'),'stock_count_lines':('stock_counts','stock_count_id'),'document_lines':('documents','document_id')}
+        low=sql_text.lower()
+        for child,(parent,fk) in child_parents.items():
+            if child in low and vals:
+                # When the query also filters the child id, the parent foreign
+                # key is the later parameter (id=? AND parent_id=?).
+                parent_id=vals[-1] if fk in low and len(vals)>1 else vals[0]
+                return ('mosaic.parent_context',parent+'|'+str(parent_id))
     return ('mosaic.workspace_id',wid) if wid else (None,None)
 
 class _Cursor:
@@ -77,7 +95,13 @@ class _Proxy:
             cm=self.owner._pool.connection();conn=cm.__enter__()
             release=lambda: cm.__exit__(None,None,None)
         key,val=_context(query,params)
-        if key and val: conn.execute('SELECT set_config(%s,%s,true)',(key,val))
+        if key=='mosaic.parent_context':
+            parent,parent_id=val.split('|',1)
+            # Parent tables are RLS-protected too, so resolve with a narrowly
+            # scoped SECURITY DEFINER helper created by the schema migration.
+            row=conn.execute('SELECT mosaic_parent_workspace(%s,%s)',(parent,parent_id)).fetchone();wid=next(iter(row.values())) if row else None
+            if wid:conn.execute('SELECT set_config(%s,%s,true)',('mosaic.workspace_id',wid))
+        elif key and val: conn.execute('SELECT set_config(%s,%s,true)',(key,val))
         cur=conn.execute(_q(query),params)
         if cur.description is None and release: release();release=None
         return _Cursor(cur,release)
@@ -118,7 +142,14 @@ class PostgresStore(Store):
             rows=conn.execute('SELECT version FROM mosaic_schema_migrations ORDER BY version').fetchall();current=len(rows)
             if current>len(PG_MIGRATIONS): raise RuntimeError('PostgreSQL schema is newer than this build')
             for i in range(current,len(PG_MIGRATIONS)):
-                conn.execute(PG_MIGRATIONS[i]);conn.execute(RLS_SQL);conn.execute('INSERT INTO mosaic_schema_migrations(version) VALUES(%s)',(i+1,))
+                conn.execute(PG_MIGRATIONS[i]);
+                if i == 0: conn.execute(RLS_SQL)
+                conn.execute('INSERT INTO mosaic_schema_migrations(version) VALUES(%s)',(i+1,))
+    def login_options(self,email,password):
+        with self._pool.connection() as conn:rows=conn.execute('SELECT * FROM mosaic_login_options(%s)',((email or '').strip().lower(),)).fetchall()
+        valid=[{'workspace_id':r['workspace_id'],'name':r['name'],'role':r['role']} for r in rows if self._password_ok(password or '',r['password_hash'])]
+        if not valid:self._password_ok(password or '',self._password_hash('dummy-password-value'))
+        return valid
     def create_workspace(self,name,label='Owner key'):
         # Set the newly generated tenant before FORCE RLS checks the inserts.
         import secrets
@@ -145,6 +176,8 @@ class PostgresStore(Store):
             self._db.execute("SELECT set_config('mosaic.workspace_id',%s,true)",(wid,))
             self._db.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",('mosaic-config:'+wid,))
             return super().rollback(*args,**kwargs)
+    def accounting_lock(self,wid,scope):
+        self._db.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",('mosaic:'+scope+':'+wid,))
     def backup(self,out_path): raise RuntimeError('PostgreSQL backup is operator-managed; use pgBackRest/WAL-G or your managed service')
     @staticmethod
     def restore(from_path,db_path): raise RuntimeError('PostgreSQL restore is operator-managed; see docs/POSTGRESQL.md')

@@ -38,13 +38,9 @@ def main():
     # Install: fresh run, then repeat run (interrupted-setup safety)
     inst = os.path.join(tmp, 'inst.db')
     r1 = run([sys.executable, 'install.py'], {'MOSAIC_DB_PATH': inst})
-    key = tmp and (ROOT / 'mosaic-workspace.key')
     r2 = run([sys.executable, 'install.py'], {'MOSAIC_DB_PATH': inst})
-    mode = oct(key.stat().st_mode & 0o777) if key.exists() else 'missing'
-    gate('One-command install', r1.returncode == 0 and 'Already set up' in r2.stdout and mode == '0o600',
-         f'fresh install ok, re-run safe, recovery key file mode {mode}')
-    if key.exists():
-        key.unlink()
+    gate('One-command install', r1.returncode == 0 and r2.returncode == 0 and 'first company setup' in r1.stdout and 'first company setup' in r2.stdout,
+         'fresh install and safe re-run lead to normal browser company setup; no user-facing key file')
 
     # Backup / restore via the documented CLI
     bak = os.path.join(tmp, 'backup.db')
@@ -86,7 +82,7 @@ def main():
     finally:
         srv.terminate()
 
-    # Dependency scan: third-party imports must be zero
+    # Dependency scan: local modules are first-party; only pinned PostgreSQL drivers may be external
     deps = set()
     for f in ('app.py', 'store.py', 'postgres_store.py', 'install.py', 'extra_packs.py', 'test_customization.py', 'test_persistence.py', 'test_postgres_contract.py'):
         tree = ast.parse((ROOT / f).read_text())
@@ -95,7 +91,7 @@ def main():
                 deps.update(a.name.split('.')[0] for a in node.names)
             elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 deps.add(node.module.split('.')[0])
-    stdlib = set(sys.stdlib_module_names) | {'app', 'store', 'postgres_store', 'extra_packs'}
+    stdlib = set(sys.stdlib_module_names) | {'app','store','postgres_store','extra_packs','accounting','accounting_schema','retail','retail_schema','operational_profile','operating_model','operating_model_schema','onboarding','onboarding_schema','postgres_erp_schema','rbac','tax_engine','branding','business_twin','migration_schema','migration_packs','tax_verification_schema','tax_pack_operational','provisioning_schema','provisioning'}
     third = deps - stdlib
     gate('Dependency scan', third <= {'psycopg','psycopg_pool'}, f'pinned PostgreSQL dependencies only: {third}' if third <= {'psycopg','psycopg_pool'} else f'unexpected third-party: {third}')
 
@@ -121,7 +117,7 @@ def main():
     if fails:
         print(f'GATE RESULT: FAIL - {len(fails)} gate(s) failed: {", ".join(fails)}. Do not launch.')
         return 1
-    print(f'GATE RESULT: PASS - all {len(RESULTS)} source-verifiable gates pass. Verdict: hardened local/single-node build with a containerized HTTPS deployment path, ready for source-available download; the OWNER ACTION items above remain before any hosted "enterprise service" claim.')
+    print(f'GATE RESULT: PASS - all {len(RESULTS)} source-verifiable gates pass for the production-core retailer candidate. Deployment OWNER ACTION items remain before live traffic; statutory and advanced-module claims remain excluded.')
     return 0
 
 if __name__ == '__main__':
