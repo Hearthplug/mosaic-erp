@@ -109,7 +109,7 @@ class Accounting:
         with self.s.tx():
             row=self.s._db.execute('SELECT status FROM fiscal_periods WHERE id=? AND workspace_id=?',(period_id,wid)).fetchone()
             if not row: raise NotFound('Period not found')
-            self.s._db.execute("UPDATE fiscal_periods SET status='locked' WHERE id=?",(period_id,))
+            if self.s._db.execute("UPDATE fiscal_periods SET status='locked' WHERE id=? AND workspace_id=? AND status='open'",(period_id,wid)).rowcount!=1: raise Conflict('fiscal period was not open')
             self.s._audit(wid,actor,'period.lock',{'period_id':period_id})
     def _period_open(self,wid,date):
         row=self.s._db.execute('SELECT status FROM fiscal_periods WHERE workspace_id=? AND ? BETWEEN starts_on AND ends_on ORDER BY starts_on DESC LIMIT 1',(wid,date)).fetchone()
@@ -184,7 +184,7 @@ class Accounting:
             out.append({'account_id':self._system(wid,'receivable'),'party_id':d['party_id'],'credit_minor':d['total_minor']})
         j=self.post_journal(wid,actor,d['issue_date'],f"{d['kind']} {d['number']}",out,d['kind'],d['id'],d['number'],d['currency'],d['exchange_rate'],d['approved_by'])
         with self.s.tx():
-            self.s._db.execute("UPDATE documents SET status='posted',journal_id=?,posted_at=? WHERE id=?",(j['id'],utcnow(),document_id))
+            if self.s._db.execute("UPDATE documents SET status='posted',journal_id=?,posted_at=? WHERE id=? AND workspace_id=? AND status='approved'",(j['id'],utcnow(),document_id,wid)).rowcount!=1: raise Conflict('approved document was not posted')
             self.s._audit(wid,actor,'document.post',{'document_id':document_id,'journal_id':j['id']})
         return j
     def trial_balance(self,wid,as_of=None):
@@ -250,7 +250,7 @@ class Accounting:
             fxid=self._system(wid,'fx_gain_loss')
             self.post_journal(wid,actor,paid_on,'Realized foreign exchange difference',[{'account_id':control,'debit_minor':max(fx,0),'credit_minor':max(-fx,0)},{'account_id':fxid,'debit_minor':max(-fx,0),'credit_minor':max(fx,0)}],'fx_settlement',pid+'-fx')
         with self.s.tx():
-            self.s._db.execute('UPDATE documents SET balance_minor=balance_minor-? WHERE id=?',(amount,target_document_id))
+            if self.s._db.execute("UPDATE documents SET balance_minor=balance_minor-? WHERE id=? AND workspace_id=? AND status='posted' AND balance_minor>=?",(amount,target_document_id,wid,amount)).rowcount!=1: raise Conflict('payment target balance was not updated')
             self.s._db.execute('INSERT INTO settlements(id,workspace_id,payment_document_id,target_document_id,amount_minor,created_at) VALUES(?,?,?,?,?,?)',(ident('set'),wid,pid,target_document_id,amount,utcnow()))
             self.s._audit(wid,actor,'settlement.create',{'payment_document_id':pid,'target_document_id':target_document_id,'amount_minor':amount,'realized_fx_minor':fx})
         return {'payment_document_id':pid,'journal_id':j['id'],'remaining_minor':d['balance_minor']-amount,'realized_fx_minor':fx}
@@ -278,7 +278,8 @@ class Accounting:
         with self.s.tx():
             b=self.s._db.execute('SELECT amount_minor FROM bank_transactions WHERE id=? AND workspace_id=? AND status=?',(bank_transaction_id,wid,'unmatched')).fetchone(); j=self.s._db.execute('SELECT id FROM journals WHERE id=? AND workspace_id=?',(journal_id,wid)).fetchone()
             if not b or not j: raise Conflict('unmatched bank transaction and journal are required')
-            self.s._db.execute("UPDATE bank_transactions SET status='matched',matched_journal_id=? WHERE id=?",(journal_id,bank_transaction_id)); self.s._audit(wid,actor,'bank.match',{'bank_transaction_id':bank_transaction_id,'journal_id':journal_id})
+            if self.s._db.execute("UPDATE bank_transactions SET status='matched',matched_journal_id=? WHERE id=? AND workspace_id=? AND status='unmatched'",(journal_id,bank_transaction_id,wid)).rowcount!=1: raise Conflict('bank transaction was not matched')
+            self.s._audit(wid,actor,'bank.match',{'bank_transaction_id':bank_transaction_id,'journal_id':journal_id})
         return {'matched':True}
 
     def record_inventory_movement(self,wid,actor,item_id,effective_date,quantity,unit_cost_minor,kind,warehouse='main',source_document_id=None):
