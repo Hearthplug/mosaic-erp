@@ -26,7 +26,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY --chown=10001:10001 requirements.txt ./
 RUN pip install --no-cache-dir --requirement requirements.txt
-COPY --chown=10001:10001 app.py store.py postgres_store.py postgres_erp_schema.py migration_schema.py migration_packs.py tax_verification_schema.py provisioning_schema.py provisioning.py identity.py extra_packs.py accounting.py accounting_schema.py retail.py retail_schema.py operational_profile.py onboarding.py onboarding_schema.py operating_model.py operating_model_schema.py rbac.py tax_engine.py branding.py business_twin.py static.html static.css static.js interview.html interview.css interview.js retail.html retail.css retail.js accounting.html accounting.css accounting.js migration.html migration.css migration.js operations.html operations.css operations.js LICENSE ./
+COPY --chown=10001:10001 app.py oauth.py store.py postgres_store.py postgres_erp_schema.py migration_schema.py migration_packs.py tax_verification_schema.py provisioning_schema.py provisioning.py identity.py extra_packs.py accounting.py accounting_schema.py retail.py retail_schema.py operational_profile.py onboarding.py onboarding_schema.py operating_model.py operating_model_schema.py rbac.py tax_engine.py branding.py business_twin.py static.html static.css static.js interview.html interview.css interview.js retail.html retail.css retail.js accounting.html accounting.css accounting.js migration.html migration.css migration.js operations.html operations.css operations.js signin.html signin.css signin.js invite.html invite.js auth.js LICENSE ./
 USER 10001:10001
 VOLUME ["/data"]
 EXPOSE 8000
