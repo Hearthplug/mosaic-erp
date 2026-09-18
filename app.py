@@ -426,6 +426,12 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,(ROOT / p[1:]).read_text(),'text/css; charset=utf-8',rid=rid) or 200
         if p == '/interview.js':
             return self.out(200, (ROOT / 'interview.js').read_text(), 'application/javascript; charset=utf-8', rid=rid) or 200
+        if p == '/operations':
+            return self.out(200,(ROOT/'operations.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+        if p == '/operations.css':
+            return self.out(200,(ROOT/'operations.css').read_text(),'text/css; charset=utf-8',rid=rid) or 200
+        if p == '/operations.js':
+            return self.out(200,(ROOT/'operations.js').read_text(),'application/javascript; charset=utf-8',rid=rid) or 200
         if p == '/retail':
             return self.out(200, (ROOT / 'retail.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/accounting':
@@ -553,6 +559,12 @@ class H(BaseHTTPRequestHandler):
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,RETAIL.receive_purchase(wid,actor,d['purchase_order_id'],d['received']),rid=rid) or 200
         if p == '/api/retail/sales':
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.complete_sale(wid,actor,d['location_id'],d['lines'],d['tenders'],d.get('customer_id'),d.get('currency','USD')),rid=rid) or 201
+        if p == '/api/retail/transfers':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.transfer(wid,actor,d['product_id'],d['from_location'],d['to_location'],d['quantity']),rid=rid) or 201
+        if p == '/api/retail/counts':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,RETAIL.count_stock(wid,actor,d['location_id'],d['counts'],actor),rid=rid) or 201
+        if p == '/api/retail/three-way-match':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,RETAIL.three_way_match(wid,actor,d['purchase_order_id'],d['bill_id']),rid=rid) or 200
         if p == '/api/retail/returns':
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,RETAIL.return_sale(wid,actor,d['sale_id'],d['lines'],d['reason'],d['approved_by'],d.get('refund_kind','cash')),rid=rid) or 201
         if p == '/api/retail/cash/open':
@@ -586,6 +598,12 @@ class H(BaseHTTPRequestHandler):
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,BOOKS.create_party(wid,actor,d.get('kind','customer'),d.get('name',''),email=d.get('email'),tax_id=d.get('tax_id'),currency=d.get('currency')),rid=rid) or 201
         if p == '/api/accounting/periods':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,BOOKS.add_period(wid,actor,d['name'],d['starts_on'],d['ends_on']),rid=rid) or 201
+        if p == '/api/accounting/periods/lock':
+            wid, actor, _ = self._auth('owner'); d=self._body(); BOOKS.lock_period(wid,actor,d['period_id']); return self.out(200,{'locked':True},rid=rid) or 200
+        if p == '/api/accounting/bank/import':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,{'transactions':BOOKS.import_bank_transactions(wid,actor,d['account_id'],d['rows'])},rid=rid) or 201
+        if p == '/api/accounting/bank/match':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,BOOKS.match_bank_transaction(wid,actor,d['bank_transaction_id'],d['journal_id']),rid=rid) or 200
         if p == '/api/accounting/documents':
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,BOOKS.create_document(wid,actor,d['kind'],d['issue_date'],d['lines'],d.get('party_id'),d.get('currency'),d.get('due_date'),d.get('memo'),d.get('source_document_id'),d.get('exchange_rate','1')),rid=rid) or 201
         if p == '/api/accounting/documents/approve':
