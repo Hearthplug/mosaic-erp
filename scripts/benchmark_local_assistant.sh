@@ -13,7 +13,21 @@ curl --fail --location --output llama-server.tar.gz "https://github.com/ggml-org
 echo "$runtime_sha  llama-server.tar.gz" | sha256sum -c -
 tar -xf llama-server.tar.gz
 server=$(find . -type f -name llama-server -print -quit); test -n "$server"; chmod +x "$server"
+started=$(date +%s.%N)
 /usr/bin/time -v "$server" -m model.gguf --host 127.0.0.1 --port 18080 -c 2048 -np 1 >server.log 2>metrics.log & pid=$!
-trap 'kill $pid 2>/dev/null || true' EXIT
-for i in $(seq 1 60); do curl -fsS http://127.0.0.1:18080/health && break; sleep 1; done
-python3 scripts/evaluate_local_assistant.py "$arch" metrics.log > "benchmark-${arch}.json"
+trap 'kill ${sampler:-} $pid 2>/dev/null || true' EXIT
+: > resource-samples.txt
+(while kill -0 "$pid" 2>/dev/null; do ps -o rss=,%cpu= -p "$pid" >> resource-samples.txt || true; sleep 0.1; done) & sampler=$!
+ready=0
+for i in $(seq 1 60); do
+  if curl -fsS http://127.0.0.1:18080/health >/dev/null; then ready=1; break; fi
+  sleep 1
+done
+test "$ready" = 1
+startup_s=$(python3 -c 'import sys; print(float(sys.argv[1])-float(sys.argv[2]))' "$(date +%s.%N)" "$started")
+set +e
+python3 scripts/evaluate_local_assistant.py "$arch" resource-samples.txt "$startup_s" > "benchmark-${arch}.json"
+status=$?
+set -e
+cat "benchmark-${arch}.json"
+exit "$status"

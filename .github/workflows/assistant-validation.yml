@@ -38,5 +38,6 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - run: bash scripts/benchmark_local_assistant.sh '${{ matrix.arch }}'
-      - uses: actions/upload-artifact@e454baaac2be505c9450e11b8f3215c6fc023ce8
+      - if: always()
+        uses: actions/upload-artifact@e454baaac2be505c9450e11b8f3215c6fc023ce8
         with: {name: 'local-assistant-${{ matrix.arch }}', path: 'benchmark-${{ matrix.arch }}.json', if-no-files-found: error}
