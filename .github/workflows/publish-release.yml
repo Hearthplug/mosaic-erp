@@ -1,0 +1,277 @@
+name: Publish prepared release
+run-name: Publish ${{ inputs.version }} from prepared run ${{ inputs.preparation_run }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact SemVer tag, for example v1.2.0
+        required: true
+        type: string
+      source_sha:
+        description: Exact 40-character main commit SHA
+        required: true
+        type: string
+      preparation_run:
+        description: Exact successful Container release run ID
+        required: true
+        type: string
+      preparation_attempt:
+        description: Exact preparation run attempt
+        required: true
+        type: string
+      receipt_artifact:
+        description: Exact signed receipt artifact name
+        required: true
+        type: string
+      receipt_sha256:
+        description: SHA-256 of the GitHub receipt artifact archive
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  actions: read
+
+concurrency:
+  group: publish-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version }}
+  SOURCE_SHA: ${{ inputs.source_sha }}
+  PREPARATION_RUN: ${{ inputs.preparation_run }}
+  PREPARATION_ATTEMPT: ${{ inputs.preparation_attempt }}
+  RECEIPT_ARTIFACT: ${{ inputs.receipt_artifact }}
+  RECEIPT_SHA256: ${{ inputs.receipt_sha256 }}
+  GHCR_IMAGE: ghcr.io/hearthplug/mosaic-erp
+  DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+
+jobs:
+  publish:
+    name: Independently verify and publish
+    runs-on: ubuntu-24.04
+    environment: release
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Validate immutable inputs and prospective attribution boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PREPARATION_RUN" =~ ^[0-9]+$ ]]
+          [[ "$PREPARATION_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$RECEIPT_ARTIFACT" == "release-receipt-${VERSION}-${PREPARATION_RUN}" ]]
+          [[ "$RECEIPT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$SOURCE_SHA"
+          ! git ls-remote --exit-code --tags origin "refs/tags/$VERSION"
+          test -n "$DOCKERHUB_IMAGE"
+          ! git grep -n -i -E 'Instinct Agent|Co-authored-by|generated[ -]by|assistant contribution|AI[ -]agent|authored[ -]with' "$SOURCE_SHA" -- .
+          ! git show -s --format='%B' "$SOURCE_SHA" | grep -Eqi 'Instinct Agent|Co-authored-by|generated[ -]by|assistant contribution|AI[ -]agent|authored[ -]with'
+
+      - name: Verify preparation run and receipt archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-input
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREPARATION_RUN}" > release-input/run.json
+          jq -e --arg sha "$SOURCE_SHA" --argjson attempt "$PREPARATION_ATTEMPT" '
+            .status == "completed" and .conclusion == "success" and
+            .head_sha == $sha and .run_attempt == $attempt and
+            .event == "workflow_dispatch" and .path == ".github/workflows/container-release.yml"
+          ' release-input/run.json >/dev/null
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREPARATION_RUN}/artifacts" > release-input/artifacts.json
+          count="$(jq --arg name "$RECEIPT_ARTIFACT" '[.artifacts[] | select(.name == $name and .expired == false)] | length' release-input/artifacts.json)"
+          test "$count" = 1
+          artifact_id="$(jq -r --arg name "$RECEIPT_ARTIFACT" '.artifacts[] | select(.name == $name and .expired == false) | .id' release-input/artifacts.json)"
+          api_digest="$(jq -r --arg name "$RECEIPT_ARTIFACT" '.artifacts[] | select(.name == $name and .expired == false) | .digest // empty' release-input/artifacts.json)"
+          test "$api_digest" = "sha256:${RECEIPT_SHA256}"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > release-input/receipt.zip
+          echo "${RECEIPT_SHA256}  release-input/receipt.zip" | sha256sum --check --strict
+          unzip -q release-input/receipt.zip -d release-input/receipt
+          test -f release-input/receipt/RELEASE_RECEIPT.json
+          test -f release-input/receipt/RELEASE_RECEIPT.sigstore.json
+
+      - uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Verify receipt signature, identity and exact binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          cosign verify-blob --bundle release-input/receipt/RELEASE_RECEIPT.sigstore.json \
+            --certificate-identity-regexp '^https://github.com/Hearthplug/mosaic-erp/.github/workflows/container-release.yml@refs/heads/main$' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            release-input/receipt/RELEASE_RECEIPT.json
+          jq -e --arg version "$VERSION" --arg sha "$SOURCE_SHA" --arg run "$PREPARATION_RUN" --arg attempt "$PREPARATION_ATTEMPT" \
+            --arg ghcr "$GHCR_IMAGE" --arg dockerhub "$DOCKERHUB_IMAGE" '
+            .schema == "mosaic-release-receipt-v1" and .state == "prepared-not-published" and
+            .version == $version and .source_sha == $sha and .workflow_run == $run and
+            .workflow_attempt == $attempt and .ghcr_image == $ghcr and
+            .dockerhub_enabled == true and .dockerhub_image == $dockerhub and
+            (.ghcr_digest | test("^sha256:[0-9a-f]{64}$")) and
+            (.dockerhub_digest | test("^sha256:[0-9a-f]{64}$")) and
+            .staging_tag == ($version + "-candidate." + $run + "." + $attempt)
+          ' release-input/receipt/RELEASE_RECEIPT.json >/dev/null
+          GHCR_DIGEST="$(jq -r .ghcr_digest release-input/receipt/RELEASE_RECEIPT.json)"
+          DOCKERHUB_DIGEST="$(jq -r .dockerhub_digest release-input/receipt/RELEASE_RECEIPT.json)"
+          STAGING_TAG="$(jq -r .staging_tag release-input/receipt/RELEASE_RECEIPT.json)"
+          printf 'GHCR_DIGEST=%s\nDOCKERHUB_DIGEST=%s\nSTAGING_TAG=%s\n' "$GHCR_DIGEST" "$DOCKERHUB_DIGEST" "$STAGING_TAG" >> "$GITHUB_ENV"
+
+      - name: Recheck non-overwrite and verify receipt-bound candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$SOURCE_SHA"
+          ! git ls-remote --exit-code --tags origin "refs/tags/$VERSION"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${VERSION}" >/dev/null 2>&1 && exit 1 || test "$?" = 1
+          plain="${VERSION#v}"; minor="${plain%.*}"
+          for ref in "$GHCR_IMAGE:$plain" "$GHCR_IMAGE:$minor" "$DOCKERHUB_IMAGE:$plain" "$DOCKERHUB_IMAGE:$minor"; do
+            ! docker buildx imagetools inspect "$ref" >/dev/null 2>&1
+          done
+          test "$(docker buildx imagetools inspect "$GHCR_IMAGE:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$GHCR_DIGEST"
+          test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
+          for spec in "$GHCR_IMAGE@$GHCR_DIGEST" "$DOCKERHUB_IMAGE@$DOCKERHUB_DIGEST"; do
+            raw="$(docker buildx imagetools inspect "$spec" --raw)"
+            test "$(jq '[.manifests[] | select(.platform.os=="linux" and (.platform.architecture=="amd64" or .platform.architecture=="arm64"))] | length' <<<"$raw")" = 2
+            test "$(jq '[.manifests[] | select(.annotations["vnd.docker.reference.type"]=="attestation-manifest")] | length' <<<"$raw")" -ge 2
+          done
+
+      - name: Independently verify signatures, attestations and vulnerability gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          identity='^https://github.com/Hearthplug/mosaic-erp/.github/workflows/container-release.yml@refs/heads/main$'
+          for spec in "$GHCR_IMAGE@$GHCR_DIGEST" "$DOCKERHUB_IMAGE@$DOCKERHUB_DIGEST"; do
+            cosign verify --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$spec" >/dev/null
+            cosign verify-attestation --type spdxjson --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$spec" >/dev/null
+            cosign verify-attestation --type slsaprovenance --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$spec" >/dev/null
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.67.2 image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$spec"
+          done
+
+      - name: Promote immutable digests without rebuilding
+        shell: bash
+        run: |
+          set -euo pipefail
+          plain="${VERSION#v}"; minor="${plain%.*}"
+          promote() {
+            local image="$1" digest="$2" tag="$3" current
+            if current="$(docker buildx imagetools inspect "$image:$tag" 2>/dev/null | awk '$1=="Digest:"{print $2;exit}')" && [[ -n "$current" ]]; then
+              test "$current" = "$digest"
+            else
+              docker buildx imagetools create --tag "$image:$tag" "$image@$digest"
+              test "$(docker buildx imagetools inspect "$image:$tag" | awk '$1=="Digest:"{print $2;exit}')" = "$digest"
+            fi
+          }
+          promote "$GHCR_IMAGE" "$GHCR_DIGEST" "$plain"
+          promote "$GHCR_IMAGE" "$GHCR_DIGEST" "$minor"
+          promote "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$plain"
+          promote "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$minor"
+
+      - name: Create or verify exact annotated tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_ref="refs/tags/$VERSION"
+          if git ls-remote --exit-code --tags origin "$tag_ref" >/dev/null 2>&1; then
+            test "$(git ls-remote --tags origin "${tag_ref}^{}" | awk '{print $1}')" = "$SOURCE_SHA"
+          else
+            tag_object="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/tags" -f tag="$VERSION" -f message="Mosaic ERP ${VERSION}" -f object="$SOURCE_SHA" -f type=commit --jq .sha)"
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="$tag_ref" -f sha="$tag_object" >/dev/null
+            test "$(git ls-remote --tags origin "${tag_ref}^{}" | awk '{print $1}')" = "$SOURCE_SHA"
+          fi
+
+      - name: Generate reproducible release assets and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          plain="${VERSION#v}"; prefix="mosaic-erp-${plain}/"; mkdir -p dist
+          git archive --format=tar --prefix="$prefix" "$SOURCE_SHA" | gzip -n -9 > "dist/mosaic-erp-${plain}.tar.gz"
+          git archive --format=zip -9 --prefix="$prefix" "$SOURCE_SHA" > "dist/mosaic-erp-${plain}.zip"
+          (cd dist && sha256sum "mosaic-erp-${plain}.tar.gz" "mosaic-erp-${plain}.zip" > SHA256SUMS)
+          (cd dist && sha256sum --check --strict SHA256SUMS)
+          ! grep -RniE 'Instinct Agent|Co-authored-by|generated[ -]by|assistant contribution|AI[ -]agent|authored[ -]with' dist
+          cat > dist/RELEASE_NOTES.md <<EOF
+          Mosaic ERP ${VERSION}
+
+          Evidence-backed production-core retailer release.
+
+          Source: ${SOURCE_SHA}
+          GHCR: ${GHCR_IMAGE}@${GHCR_DIGEST}
+          Docker Hub: ${DOCKERHUB_IMAGE}@${DOCKERHUB_DIGEST}
+          Preparation: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${PREPARATION_RUN}/attempts/${PREPARATION_ATTEMPT}
+
+          Built-in deterministic chat is the default. Users may connect their own AI provider through chat-guided setup with masked secret entry. The fine-tuned local assistant is being tested and is not available in ${VERSION}.
+
+          Statutory output remains review-gated. Professional review is recommended. Production operators remain responsible for DNS/TLS, managed PostgreSQL availability and recovery, restore drills, monitoring, capacity/failover evidence, and independent security assessment.
+          EOF
+          ! grep -Eqi 'Instinct Agent|Co-authored-by|generated[ -]by|assistant contribution|AI[ -]agent|authored[ -]with' dist/RELEASE_NOTES.md
+
+      - name: Stage draft release and upload exact assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$VERSION" --json isDraft,tagName,targetCommitish >/tmp/release.json 2>/dev/null; then
+            jq -e --arg tag "$VERSION" --arg sha "$SOURCE_SHA" '.isDraft == true and .tagName == $tag and .targetCommitish == $sha' /tmp/release.json >/dev/null
+          else
+            gh release create "$VERSION" --draft --verify-tag --target "$SOURCE_SHA" --title "Mosaic ERP $VERSION" --notes-file dist/RELEASE_NOTES.md
+          fi
+          gh release upload "$VERSION" dist/mosaic-erp-*.tar.gz dist/mosaic-erp-*.zip dist/SHA256SUMS --clobber
+
+      - name: Remotely redownload and verify staged release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          plain="${VERSION#v}"; rm -rf verify-assets; mkdir verify-assets
+          gh release download "$VERSION" --dir verify-assets --pattern "mosaic-erp-${plain}.tar.gz" --pattern "mosaic-erp-${plain}.zip" --pattern SHA256SUMS
+          cmp dist/SHA256SUMS verify-assets/SHA256SUMS
+          (cd verify-assets && sha256sum --check --strict SHA256SUMS)
+          cmp "dist/mosaic-erp-${plain}.tar.gz" "verify-assets/mosaic-erp-${plain}.tar.gz"
+          cmp "dist/mosaic-erp-${plain}.zip" "verify-assets/mosaic-erp-${plain}.zip"
+
+      - name: Final invariant check and publish release last
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags origin
+          test "$(git rev-parse "${VERSION}^{}")" = "$SOURCE_SHA"
+          test "$(git rev-parse origin/main)" = "$SOURCE_SHA"
+          plain="${VERSION#v}"; minor="${plain%.*}"
+          test "$(docker buildx imagetools inspect "$GHCR_IMAGE:$plain" | awk '$1=="Digest:"{print $2;exit}')" = "$GHCR_DIGEST"
+          test "$(docker buildx imagetools inspect "$GHCR_IMAGE:$minor" | awk '$1=="Digest:"{print $2;exit}')" = "$GHCR_DIGEST"
+          test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$plain" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
+          test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$minor" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
+          gh release view "$VERSION" --json isDraft,tagName,targetCommitish --jq 'select(.isDraft == true)' >/dev/null
+          release_id="$(gh release view "$VERSION" --json databaseId --jq .databaseId)"
+          [[ "$release_id" =~ ^[0-9]+$ ]]
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" -F draft=false >/dev/null
+          gh release view "$VERSION" --json isDraft,tagName,targetCommitish --jq 'select(.isDraft == false)' >/dev/null
