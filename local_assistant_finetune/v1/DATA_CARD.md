@@ -14,3 +14,9 @@ No customer data, production accounting data, emails, chats, invoices, credentia
 
 ## Limits
 Synthetic phrasing may underrepresent dialects and novel attacks. The locked native tests, application controls, and fail-closed product gate remain required.
+
+## 360-degree v2 coverage
+The generated English-only set has 380 cells: all 19 implemented story families crossed with 20 risk dimensions. Roles, organization shapes, lifecycle states, and data quality are rotated pairwise across cells. The locked test split reserves cross-company, idempotent retry, concurrency conflict, post-state reversal, and failure recovery for every story, including every high-risk accounting, tax, security, import, and assistant-secret family. Unsupported v1.2.0 features stay guidance/refusal cases.
+
+## Training readiness
+Training may start only when the committed `validation_report.json` says `passed: true`, all 380 story-dimension cells exist, all 50 high-risk locked cells exist, all owning test paths resolve, schema validity is 100%, secret findings and split/native-suite overlap are zero, and a reviewer confirms the gap report. Locked test and native-suite results may not influence checkpoint choice.
