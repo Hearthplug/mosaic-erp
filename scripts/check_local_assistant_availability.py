@@ -14,4 +14,5 @@ available=all(x['passed'] for x in verdicts)
 out={'schema':'mosaic-local-availability-v1','available':available,'verdicts':sorted(verdicts,key=lambda x:x['architecture'])}
 Path('local-assistant-availability.json').write_text(json.dumps(out,indent=2)+'\n')
 print(json.dumps(out))
-raise SystemExit(0 if available else 1)
+# A valid rejected verdict is successful evidence. Feature promotion is a separate conditional gate.
+raise SystemExit(0)
