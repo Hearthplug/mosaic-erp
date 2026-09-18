@@ -17,6 +17,7 @@ from tax_engine import TaxEngine
 from provisioning import Provisioner
 from rbac import Denied
 from oauth import OAuth, OAuthError
+from provider_assets import GOOGLE_SIGNIN, MICROSOFT_SIGNIN
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -325,7 +326,7 @@ def log_event(**kv):
 class H(BaseHTTPRequestHandler):
     server_version = 'MosaicERP/2'
     def out(self, s, b, k='application/json', hdrs=None, rid=None):
-        x = json.dumps(b, ensure_ascii=False).encode() if k == 'application/json' else b.encode()
+        x = json.dumps(b, ensure_ascii=False).encode() if k == 'application/json' else b if isinstance(b,bytes) else b.encode()
         self.send_response(s)
         self.send_header('Content-Type', k)
         self.send_header('Content-Length', str(len(x)))
@@ -433,8 +434,8 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,(ROOT/'invite.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
         if p == '/signin':
             return self.out(200,(ROOT/'signin.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
-        if p in ('/auth.js','/signin.js','/signin.css','/invite.js'):
-            kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8'; return self.out(200,(ROOT/p[1:]).read_text(),kind,rid=rid) or 200
+        if p in ('/auth.js','/signin.js','/signin.css','/invite.js','/google-signin.png','/microsoft-signin.svg'):
+            kind='text/css; charset=utf-8' if p.endswith('.css') else 'image/png' if p.endswith('.png') else 'image/svg+xml' if p.endswith('.svg') else 'application/javascript; charset=utf-8'; raw=GOOGLE_SIGNIN if p.endswith('google-signin.png') else MICROSOFT_SIGNIN if p.endswith('microsoft-signin.svg') else (ROOT/p[1:]).read_text(); return self.out(200,raw,kind,rid=rid) or 200
         if p == '/':
             return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/migration':
