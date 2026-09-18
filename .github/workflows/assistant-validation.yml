@@ -20,7 +20,12 @@ jobs:
           grep -q 'readOnly: true' /tmp/mosaic.yaml
           docker build --pull -t mosaic-erp:assistant-ci .
           docker run -d --name mosaic-assistant-ci -p 18000:8000 --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev --mount type=volume,src=mosaic-assistant-ci-data,dst=/data --mount type=volume,src=mosaic-assistant-secrets,dst=/run/mosaic-assistant-secrets --cap-drop ALL --security-opt no-new-privileges mosaic-erp:assistant-ci
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:18000/health/ready && break; sleep 1; done
+          ready=0
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18000/health/ready >/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          test "$ready" = 1
           curl -fsS http://127.0.0.1:18000/assistant | grep -q 'Set it up by talking'
           test "$(docker inspect -f '{{.State.Health.Status}}' mosaic-assistant-ci)" = healthy
       - if: always()
