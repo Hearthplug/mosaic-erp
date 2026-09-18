@@ -59,6 +59,26 @@ class Migrations:
     else:raise Conflict('opening balances require accountant-reviewed journal import and are not auto-applied')
    status='reconciled' if actual==b['control_total_minor'] else 'variance';self.s._db.execute('UPDATE import_batches SET status=?,applied_json=?,applied_at=? WHERE id=?',(status,canon(made),utcnow(),batch_id));self.s._audit(wid,actor,'migration.apply',{'id':batch_id,'kind':b['kind'],'rows':len(rows),'expected':b['control_total_minor'],'actual':actual,'status':status})
   return {'id':batch_id,'status':status,'row_count':len(rows),'expected_control_total_minor':b['control_total_minor'],'actual_control_total_minor':actual}
+ def apply_opening_balances(self,wid,actor,batch_id,professional,approved_on):
+  if not professional or not professional.strip():raise ValueError('professional reviewer is required')
+  b=self.s._db.execute("SELECT * FROM import_batches WHERE id=? AND workspace_id=? AND kind='opening_balances'",(batch_id,wid)).fetchone()
+  if not b or b['status']!='validated':raise Conflict('validated opening-balance batch required')
+  rows=json.loads(b['rows_json']);lines=[];debits=credits=0
+  for r in rows:
+   account=self.s._db.execute('SELECT id FROM accounts WHERE workspace_id=? AND code=?',(wid,r['account_code'])).fetchone()
+   if not account:raise Conflict('opening balance account code not found: '+r['account_code'])
+   amount=int(r['balance_minor']);normal=r['normal'].lower()
+   if amount<0 or normal not in ('debit','credit'):raise Conflict('opening balances require non-negative amounts and debit/credit normal')
+   line={'account_id':account['id'],normal+'_minor':amount,'memo':'Reviewed opening balance'};lines.append(line)
+   if normal=='debit':debits+=amount
+   else:credits+=amount
+  if debits!=credits or debits<=0:raise Conflict('reviewed opening balances must balance debits and credits')
+  journal=self.books.post_journal(wid,actor,approved_on,'Reviewed opening balances',lines,'migration_opening',batch_id,'Reviewed by '+professional,approved_by=professional)
+  with self.s.tx():
+   self.s._db.execute("UPDATE import_batches SET status='reconciled',applied_json=?,applied_at=? WHERE id=?",(canon([{'table':'journals','id':journal['id']}]),utcnow(),batch_id));self.s._audit(wid,actor,'migration.opening.apply',{'id':batch_id,'journal_id':journal['id'],'reviewed_by':professional,'debit_minor':debits})
+  return {'id':batch_id,'status':'reconciled','journal_id':journal['id'],'debit_minor':debits,'credit_minor':credits,'reviewed_by':professional}
+ def list(self,wid):
+  return [dict(x) for x in self.s._db.execute('SELECT id,kind,pack_version,source_system,source_hash,row_count,control_total_minor,status,errors_json,created_at,applied_at,rolled_back_at FROM import_batches WHERE workspace_id=? ORDER BY created_at DESC',(wid,)).fetchall()]
  def rollback(self,wid,actor,batch_id):
   b=self.s._db.execute('SELECT * FROM import_batches WHERE id=? AND workspace_id=?',(batch_id,wid)).fetchone()
   if not b or b['status'] not in ('imported','reconciled','variance'):raise Conflict('applied migration batch required')
