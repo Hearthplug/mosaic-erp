@@ -10,7 +10,7 @@ Use two constrained stages:
 1. intent classification: one token from an explicit closed label vocabulary, including CLARIFY and REJECT;
 2. slot extraction: a JSON object validated against the schema for that chosen label.
 
-The runtime renders the final `{kind,slots,confidence}` object itself. The model never emits a free-form kind name. Unknown labels, invalid slots, absent required slots, extra keys, or confidence below the frozen threshold fail closed to CLARIFY or REJECT. Native llama.cpp evaluation must use grammar/schema constrained decoding equivalent to training-time constraints.
+The runtime renders the final `{kind,slots,confidence}` object itself. The model never emits a free-form kind name. The renderer validates every frozen slot-schema keyword before release, including type, const, enum, pattern, minLength, required properties, and additionalProperties. Unknown labels, invalid slot values, absent required slots, extra keys, or confidence below the frozen threshold fail closed to CLARIFY or REJECT; unsupported values never reach final JSON. Native llama.cpp evaluation must use grammar/schema constrained decoding equivalent to training-time constraints.
 
 ## Data rules
 - Generate a new train/development set from semantic scenario specifications, not experiment-2 validation text.
@@ -36,7 +36,7 @@ The runtime renders the final `{kind,slots,confidence}` object itself. The model
 - then unchanged native amd64/arm64 accuracy, safety, usability, latency, RSS, and disk gates
 
 ## Order
-1. Review and merge this protocol, explicit label map, per-intent slot schemas, generator, validator, grammar, trainer, evaluator, and locked thresholds.
+1. Review and merge this protocol, explicit label map, per-intent slot schemas, generator, validator, grammar, trainer, strict schema renderer/evaluator, and locked thresholds.
 2. Generate and hash new train/development data. Verify no overlap against experiment-1 or experiment-2 artifacts without exposing their contents to generation.
 3. Train on train only; select once on development gates.
 4. Freeze adapter, label map, grammar, and runtime renderer.
