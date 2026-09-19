@@ -1,0 +1,19 @@
+{
+  "adapter_manifest_drive_file_id": "1Nz1S4PxgeQjIK1ZJMHtz1NOCUBMm0MQq",
+  "adapter_model": {
+    "bytes": 35237104,
+    "sha256": "5629444921f1116a5144fdd4207d98b4dc664bbc13de28badd9289fad058967b"
+  },
+  "base_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "checkpoint_selection": {
+    "criterion": "minimum validation loss only",
+    "eval_loss": 2.560858964920044,
+    "global_step": 10,
+    "locked_test_accessed": false
+  },
+  "dataset_sha256": "e385595367afbfceca92a13cb79d8d5b449f3d74411174068d8be2a9dad038a3",
+  "frozen_at": "2026-09-19T09:41:03Z",
+  "immutable": true,
+  "schema": "mosaic.local-assistant-freeze-receipt.v1",
+  "seed": 20260919
+}
