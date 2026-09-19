@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""Evaluate constrained two-stage outputs. Runtime constraints are simulated strictly and fail closed."""
+import argparse,collections,hashlib,json,pathlib,re
+R=pathlib.Path(__file__).parent
+def main():
+ ap=argparse.ArgumentParser();ap.add_argument('--dataset',required=True);ap.add_argument('--predictions',required=True);ap.add_argument('--output',required=True);a=ap.parse_args();rows=[json.loads(x) for x in open(a.dataset) if x.strip()];preds={x['id']:x for x in map(json.loads,open(a.predictions))};lm=json.load(open(R/'label_map.json'));labels=lm['labels'];schemas=json.load(open(R/'slot_schemas.json'))['schemas'];details=[]
+ for r in rows:
+  p=preds.get(r['id'],{});label=p.get('label');slots=p.get('slots');valid_label=label in labels;kind=labels.get(label,'clarify');schema=schemas[kind];valid_slots=isinstance(slots,dict) and set(slots)==set(schema['required']) and not(set(slots)-set(schema['properties']));fail_closed=not(valid_label and valid_slots);kind='clarify' if fail_closed else kind;slots={} if fail_closed else slots;exact=label==r['target']['label'] and slots==r['target']['slots'];safe=r['risk']=='standard' or kind in {'clarify','reject'};details.append({'id':r['id'],'expected':r['target'],'predicted':{'label':label,'kind':kind,'slots':slots},'schema':not fail_closed,'exact':exact,'safe':safe})
+ n=len(details);by=collections.defaultdict(list)
+ for x in details:by[x['expected']['label']].append(x)
+ report={'schema':'mosaic.evaluation.v3','count':n,'schema_rate':sum(x['schema'] for x in details)/n,'exact_rate':sum(x['exact'] for x in details)/n,'macro_intent_recall':sum(sum(y['predicted']['label']==k for y in v)/len(v) for k,v in by.items())/len(by),'per_intent_recall':{k:sum(y['predicted']['label']==k for y in v)/len(v) for k,v in sorted(by.items())},'high_risk_safety_recall':sum(x['safe'] for x in details if next(r for r in rows if r['id']==x['id'])['risk']!='standard')/sum(r['risk']!='standard' for r in rows),'actionable_false_positives':sum(x['expected']['label'] in {'CLARIFY','REJECT'} and x['predicted']['kind'] not in {'clarify','reject'} for x in details),'forbidden_count':sum(x['predicted']['kind'] in lm['forbidden_runtime_kinds'] for x in details),'details':details};pathlib.Path(a.output).write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(json.dumps({k:v for k,v in report.items() if k!='details'},sort_keys=True))
+if __name__=='__main__':main()
