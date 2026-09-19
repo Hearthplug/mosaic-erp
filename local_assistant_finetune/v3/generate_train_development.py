@@ -3,6 +3,9 @@
 import argparse,hashlib,json,random,pathlib
 R=pathlib.Path(__file__).parent
 SPECS={
+"GUIDANCE":("topic",["navigation","exports"],["Explain Mosaic {v} features.","Give product guidance about {v}."]),
+"ARTIFACT_DRAFT":("metric",["gross_margin","units_sold"],["Prepare a weekly dashboard draft for {v}.","Draft an analysis artifact showing {v} by week."]),
+"ASSISTANT_CANCEL":(None,[None],["Cancel the pending assistant proposal.","Discard the current language-helper draft."]),
 "WORKSPACE_CONFIG_PREVIEW":("business_type",["retail","wholesale"],["Preview a {v} operating workspace.","Describe proposed workspace settings for a {v} company.","Before changing anything, show the {v} workspace configuration."]),
 "WORKSPACE_INVITE":("role",["cashier","manager"],["Draft workspace access for a {v}.","Prepare an invite with the {v} role."]),
 "RETAIL_PRODUCT_CREATE":("name",["Linen pouch","Copper flask","Oak tray","Paper lamp"],["Prepare a new catalog product called {v}.","Create a product draft named {v}.","Propose adding {v} as a product."]),
@@ -26,12 +29,20 @@ def main():
  for label,(slot,values,phrases) in SPECS.items():
   n=30 if label in {'WORKSPACE_CONFIG_PREVIEW','RETAIL_PRODUCT_CREATE','ACCOUNTING_PARTY_CREATE','ACCOUNTING_BANK_IMPORT','ACCOUNTING_JOURNAL_REVERSE','ASSISTANT_CONFIGURE'} else 18
   for i in range(n):
-   v=values[i%len(values)]; text=phrases[i%len(phrases)].format(v=v); slots={slot:v}
+   v=values[i%len(values)]; text=phrases[i%len(phrases)].format(v=v); slots={} if slot is None else {slot:v}
+   if label=='ARTIFACT_DRAFT':slots={'artifact_kind':'dashboard','group_by':'week','metric':v}
    rows.append((label,text,slots,'standard'))
  for i in range(126):rows.append(('CLARIFY',MISSING[i%len(MISSING)],{},'critical' if i%4==0 else 'high'))
  for i in range(126):rows.append(('REJECT',REJECT[i%len(REJECT)],{},'critical' if i%2==0 else 'high'))
- rng.shuffle(rows);out=[]
- for i,(label,text,slots,risk) in enumerate(rows):
-  split='development' if i%6==0 else 'train';out.append({'id':f'v3-{split[0]}-{i:04d}','split':split,'messages':[{'role':'system','content':'Classify with one allowed Mosaic label, then extract only schema-approved slots. Never execute.'},{'role':'user','content':text}],'target':{'label':label,'slots':slots},'risk':risk})
+ # Stratify by label before shuffling so every label is represented in both splits.
+ grouped={}
+ for item in rows:grouped.setdefault(item[0],[]).append(item)
+ marked=[]
+ for label in sorted(grouped):
+  items=grouped[label];rng.shuffle(items)
+  for j,item in enumerate(items):marked.append(('development' if j%6==0 else 'train',item))
+ rng.shuffle(marked);out=[]
+ for i,(split,(label,text,slots,risk)) in enumerate(marked):
+  out.append({'id':f'v3-{split[0]}-{i:04d}','split':split,'messages':[{'role':'system','content':'Classify with one allowed Mosaic label, then extract only schema-approved slots. Never execute.'},{'role':'user','content':text}],'target':{'label':label,'slots':slots},'risk':risk})
  p=pathlib.Path(a.output);p.write_text(''.join(json.dumps(x,separators=(',',':'))+'\n' for x in out));print(json.dumps({'records':len(out),'train':sum(x['split']=='train' for x in out),'development':sum(x['split']=='development' for x in out),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()},sort_keys=True))
 if __name__=='__main__':main()
