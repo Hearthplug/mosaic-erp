@@ -1,6 +1,6 @@
 seed: 20260919
 base_model: Qwen/Qwen2.5-0.5B-Instruct
-base_revision: pin_exact_commit_before_training
+base_revision: 7ae557604adf67be50417f59c2c2f167def9a775
 method: qlora
 quantization: {load_in_4bit: true, bnb_4bit_quant_type: nf4, bnb_4bit_use_double_quant: true, bnb_4bit_compute_dtype: bfloat16}
 lora: {r: 16, alpha: 32, dropout: 0.05, target_modules: all-linear, bias: none, task_type: CAUSAL_LM}
