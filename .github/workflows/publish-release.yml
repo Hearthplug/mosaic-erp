@@ -178,10 +178,23 @@ jobs:
           identity='^https://github.com/Hearthplug/mosaic-erp/.github/workflows/container-release.yml@refs/heads/main$'
           for spec in "$GHCR_IMAGE@$GHCR_DIGEST" "$DOCKERHUB_IMAGE@$DOCKERHUB_DIGEST"; do
             cosign verify --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$spec" >/dev/null
-            sbom="$(docker buildx imagetools inspect "$spec" --format '{{ json .SBOM }}')"
-            provenance="$(docker buildx imagetools inspect "$spec" --format '{{ json .Provenance }}')"
-            jq -e '.. | objects | select(.predicateType? == "https://spdx.dev/Document")' <<<"$sbom" >/dev/null
-            jq -e '.. | objects | select(.predicateType? | strings | contains("slsa.dev/provenance"))' <<<"$provenance" >/dev/null
+            raw="$(docker buildx imagetools inspect "$spec" --raw)"
+            mapfile -t platform_digests < <(jq -r '.manifests[] | select(.platform.os=="linux" and (.platform.architecture=="amd64" or .platform.architecture=="arm64")) | .digest' <<<"$raw")
+            test "${#platform_digests[@]}" = 2
+            mapfile -t attestation_digests < <(jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"]=="attestation-manifest") | .digest' <<<"$raw")
+            test "${#attestation_digests[@]}" = 2
+            for platform_digest in "${platform_digests[@]}"; do
+              attestation_digest="$(jq -r --arg digest "$platform_digest" '.manifests[] | select(.annotations["vnd.docker.reference.type"]=="attestation-manifest" and .annotations["vnd.docker.reference.digest"]==$digest) | .digest' <<<"$raw")"
+              test -n "$attestation_digest"
+              attestation="$(docker buildx imagetools inspect "${spec%@*}@$attestation_digest" --raw)"
+              jq -e --arg subject "$platform_digest" '
+                .mediaType == "application/vnd.oci.image.manifest.v1+json" and
+                .artifactType == "application/vnd.docker.attestation.manifest.v1+json" and
+                .subject.digest == $subject and
+                ([.layers[] | select(.mediaType=="application/vnd.in-toto+json" and .annotations["in-toto.io/predicate-type"]=="https://spdx.dev/Document")] | length) == 1 and
+                ([.layers[] | select(.mediaType=="application/vnd.in-toto+json" and (.annotations["in-toto.io/predicate-type"] | startswith("https://slsa.dev/provenance/")))] | length) == 1
+              ' <<<"$attestation" >/dev/null
+            done
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy@sha256:e2b22eac59c02003d8749f5b8d9bd073b62e30fefaef5b7c8371204e0a4b0c08 image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$spec"
           done
 
