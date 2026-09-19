@@ -4,6 +4,14 @@
     "file": "requirements-training.lock.txt",
     "sha256": "32cdfb86225a8e102320764547ad7d3145318537c347ce27f51d617231b932fe"
   },
+  "environment": {
+    "bootstrap_file": "bootstrap_training_env.py",
+    "bootstrap_sha256": "96da52d3dafa1802728aec08c011d1d63babd82001e32c48c7d6d3a11d572273",
+    "forbidden_packages": [
+      "torchvision"
+    ],
+    "purpose": "text-only causal language model training"
+  },
   "model": {
     "files": {
       "LICENSE": {
