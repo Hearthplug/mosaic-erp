@@ -1,0 +1,8 @@
+{
+  "schema":"mosaic.local-assistant-candidates.v2",
+  "candidates":[
+    {"repository":"Qwen/Qwen2.5-1.5B-Instruct","revision":"989aa7980e4cf806f80c7fef2b1adb7bc71aa306","license":"Apache-2.0","license_sha256":"832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e","model_files":[{"name":"model.safetensors","bytes":3087467144,"sha256":"dd924a11b4c220f385b51ffa522daea7c9f3d850e31b162bb5661df483c6d3ee"}],"official_q4_k_m_bytes":1120000000},
+    {"repository":"ibm-granite/granite-3.3-2b-instruct","revision":"707f574c62054322f6b5b04b6d075f0a8f05e0f0","license":"Apache-2.0","license_evidence":"https://huggingface.co/ibm-granite/granite-3.3-2b-instruct","model_files":[{"name":"model-00001-of-00002.safetensors","bytes":4999999840,"sha256":"12880d33c0ad4726af5cf8c07406905f9b496253c58ee46f52be8bde8ccf2254"},{"name":"model-00002-of-00002.safetensors","bytes":67121712,"sha256":"a8757c5bf7627933e7fddbd9bab0533491b4dc0962820e0617f356ca1a379ffa"}],"official_q4_k_m_bytes":1550000000}
+  ],
+  "llama_cpp_support":"https://ggml-org-llama-cpp.mintlify.app/models/supported-models"
+}
