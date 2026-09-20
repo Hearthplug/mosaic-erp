@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import json
 import pathlib
 import re
@@ -13,9 +14,18 @@ V3 = ROOT / 'local_assistant_finetune' / 'v3'
 V4 = ROOT / 'local_assistant_finetune' / 'v4'
 V5 = ROOT / 'local_assistant_finetune' / 'v5'
 sys.path.insert(0, str(V3))
-sys.path.insert(0, str(V5))
 import runtime
-import generate_train_development as v5gen
+
+
+def load_generator(script_dir, module_name):
+    spec = importlib.util.spec_from_file_location(module_name, script_dir / 'generate_train_development.py')
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+v5gen = load_generator(V5, 'v5_generate_train_development')
 
 
 def normalized(text):
