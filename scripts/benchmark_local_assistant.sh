@@ -31,7 +31,14 @@ started=$(date +%s.%N)
 /usr/bin/time -v "$server" -m model.gguf --lora adapter.gguf --host 127.0.0.1 --port 18080 -c 2048 -np 1 >server.log 2>metrics.log & pid=$!
 trap 'kill ${sampler:-} $pid 2>/dev/null || true' EXIT
 : > resource-samples.txt
-(while kill -0 "$pid" 2>/dev/null; do ps -o rss=,%cpu= -p "$pid" >> resource-samples.txt || true; sleep 0.1; done) & sampler=$!
+# Measure the actual llama-server process (child of /usr/bin/time), never the wrapper.
+(for i in $(seq 1 100); do
+  spid=$(pgrep -P "$pid" | head -1)
+  test -n "$spid" && break
+  sleep 0.2
+done
+spid=${spid:-$pid}
+while kill -0 "$pid" 2>/dev/null; do ps -o rss=,%cpu= -p "$spid" >> resource-samples.txt || true; sleep 0.1; done) & sampler=$!
 ready=0
 for i in $(seq 1 60); do
   if curl -fsS http://127.0.0.1:18080/health >/dev/null; then ready=1; break; fi
