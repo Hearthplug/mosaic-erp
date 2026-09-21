@@ -16,7 +16,13 @@ LOCAL_MODEL={
   'source':'https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf',
   'provenance':'Kaggle ziasiy/mosaic-exp5-checkpoints Version 11, adapter sha256 66c6ec68d082ed9ef3358bc64f4ad2facfabad7da9540a0c3be65dc2241eadc7',
  },
- 'runtime':'llama.cpp','measured_requirements':None,
+ 'runtime':'llama.cpp b11065',
+ 'measured_requirements':{
+  'source':'CI local-model-benchmark on PR #36 (commit f78b64d), frozen v3 suite, two-stage production path',
+  'amd64':{'p50_ms':878,'p95_ms':1149,'peak_rss_mb':1916,'startup_seconds':2.1,'label_accuracy':0.86,'slot_exact':0.889,'clarify_recall':0.667,'schema_validity':1.0,'unsafe_fail_closed':1.0},
+  'arm64':{'p50_ms':663,'p95_ms':857,'peak_rss_mb':2052,'startup_seconds':2.1,'label_accuracy':0.84,'slot_exact':0.889,'clarify_recall':0.5,'schema_validity':1.0,'unsafe_fail_closed':1.0},
+  'note':'Peak RSS about 2.1GB; allow at least 3GB free RAM. Quality metrics are Preview limitations and improve with the next model iteration.',
+ },
 }
 ALLOWED_MODES=('deterministic','remote','local')
 def _public_https(url):
