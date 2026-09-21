@@ -4,7 +4,18 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 config: {rateLimitRpm: 120, dbPoolMin: 1, dbPoolMax: 10, publicOrigin: ""}
-assistant: {secretName: "", secretKey: api-key}
+assistant:
+  secretName: ""
+  secretKey: api-key
+  # Optional local assistant Preview companion (llama.cpp server, loopback sidecar).
+  # Ships disabled; enabling requires the CI native-availability verdict mounted as a secret.
+  local:
+    enabled: false
+    image: ghcr.io/ggml-org/llama.cpp:server-b11065@sha256:9dc0a0f4080b7817c9592b19c03a4f4b0be92fd701076b9da259ff941dc5bf91
+    # Secret with key local-assistant-availability.json containing the CI
+    # mosaic-local-availability-v1 verdict (available=true) for amd64+arm64.
+    availabilitySecretName: ""
+    resources: {requests: {cpu: "1", memory: 1536Mi}, limits: {cpu: "4", memory: 3Gi}}
 oauth: {secretName: "", googleClientIdKey: google-client-id, googleClientSecretKey: google-client-secret, microsoftClientIdKey: microsoft-client-id, microsoftClientSecretKey: microsoft-client-secret}
 database:
   # Existing Secret key database-url. Use sslmode=verify-full in production.
