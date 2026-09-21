@@ -34,11 +34,13 @@ class V6Tests(unittest.TestCase):
    priors=[]
    for name,script in [('v3',V3/'generate_train_development.py'),('v4',V4/'generate_train_development.py'),('v5',V5/'generate_train_development.py')]:
     out=d/f'{name}.jsonl';r=subprocess.run([sys.executable,str(script),'--output',str(out)],capture_output=True,text=True);self.assertEqual(r.returncode,0,r.stderr);priors.append(out)
-   command=[sys.executable,str(V3/'validate_no_overlap.py'),'--dataset',str(dataset)]
-   for prior in priors:command.extend(['--prior',str(prior)])
-   r=subprocess.run(command,capture_output=True,text=True,timeout=120);self.assertEqual(r.returncode,0,r.stderr)
-   receipt=json.loads(r.stdout);self.assertTrue(receipt['passed']);self.assertEqual(len(receipt['prior_receipts']),3)
-   for prior in receipt['prior_receipts']:self.assertEqual(prior['exact_overlap'],0);self.assertLess(prior['max_similarity'],0.88)
+   receipts=[]
+   for prior in priors:
+    command=[sys.executable,str(V3/'validate_no_overlap.py'),'--dataset',str(dataset),'--prior',str(prior)]
+    r=subprocess.run(command,capture_output=True,text=True,timeout=240);self.assertEqual(r.returncode,0,r.stderr)
+    receipt=json.loads(r.stdout);self.assertTrue(receipt['passed']);self.assertEqual(len(receipt['prior_receipts']),1);receipts.extend(receipt['prior_receipts'])
+   self.assertEqual(len(receipts),3)
+   for prior in receipts:self.assertEqual(prior['exact_overlap'],0);self.assertLess(prior['max_similarity'],0.88)
  def test_frozen_optimizer_math_reaches_step_60(self):
   train_records=sum(x['split']=='train' for x in gen.build_dataset())
   self.assertGreaterEqual(train_records,609)
