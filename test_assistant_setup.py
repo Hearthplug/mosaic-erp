@@ -12,8 +12,8 @@ class AssistantSetupTests(unittest.TestCase):
   p=self.a.chat(self.w,self.k,'use endpoint https://api.openai.com/v1 model tiny-model');self.a.stage(self.w,self.k,p['preview']);self.a.chat(self.w,self.k,'confirm');self.a.save_secret(self.w,self.k,'secret')
   response=json.dumps({'choices':[{'message':{'content':json.dumps({'kind':'status','confidence':1})}}]}).encode()
   with patch('assistant_setup._pinned_post',return_value=response):self.assertTrue(self.a.test(self.w)['healthy'])
- def test_local_download_blocked_before_measurements(self):
-  x=self.a.chat(self.w,self.k,'use private local assistant');self.assertEqual(x['intent'],'blocked');self.assertEqual(x['local_model']['bytes'],1117320736);self.assertEqual(x['local_model']['adapter']['sha256'],'353fe1febb5b3adc03a3b8a0bf3aa4b86bea55a5d3dfce17b102d5a61c73cd55')
+ def test_local_download_preview_with_measurements(self):
+  x=self.a.chat(self.w,self.k,'use private local assistant');self.assertEqual(x['intent'],'preview');self.assertTrue(x['requires_confirmation']);self.assertEqual(x['local_model']['bytes'],1117320736);self.assertEqual(x['local_model']['adapter']['sha256'],'353fe1febb5b3adc03a3b8a0bf3aa4b86bea55a5d3dfce17b102d5a61c73cd55');m=x['local_model']['measured_requirements'];self.assertEqual(m['amd64']['unsafe_fail_closed'],1.0);self.assertEqual(m['arm64']['unsafe_fail_closed'],1.0);self.assertEqual(m['amd64']['schema_validity'],1.0);self.assertEqual(m['arm64']['schema_validity'],1.0)
  def test_private_or_http_endpoint_rejected(self):
   for u in ('http://example.com/v1','https://127.0.0.1/v1','https://localhost/v1'):
    with self.assertRaises(ValueError):self.a.chat(self.w,self.k,f'use endpoint {u} model x')
