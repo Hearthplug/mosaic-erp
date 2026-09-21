@@ -13,7 +13,7 @@ class AssistantSetupTests(unittest.TestCase):
   response=json.dumps({'choices':[{'message':{'content':json.dumps({'kind':'status','confidence':1})}}]}).encode()
   with patch('assistant_setup._pinned_post',return_value=response):self.assertTrue(self.a.test(self.w)['healthy'])
  def test_local_download_blocked_before_measurements(self):
-  x=self.a.chat(self.w,self.k,'use private local assistant');self.assertEqual(x['intent'],'blocked');self.assertEqual(x['local_model']['bytes'],491400032)
+  x=self.a.chat(self.w,self.k,'use private local assistant');self.assertEqual(x['intent'],'blocked');self.assertEqual(x['local_model']['bytes'],1117320736);self.assertEqual(x['local_model']['adapter']['sha256'],'353fe1febb5b3adc03a3b8a0bf3aa4b86bea55a5d3dfce17b102d5a61c73cd55')
  def test_private_or_http_endpoint_rejected(self):
   for u in ('http://example.com/v1','https://127.0.0.1/v1','https://localhost/v1'):
    with self.assertRaises(ValueError):self.a.chat(self.w,self.k,f'use endpoint {u} model x')
