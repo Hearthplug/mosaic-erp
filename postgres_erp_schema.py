@@ -56,5 +56,4 @@ CREATE TRIGGER journal_lines_no_update BEFORE UPDATE OR DELETE ON journal_lines 
 POSTGRES_ERP_MIGRATION=BASE+'\n'+'\n'.join(RLS)+'\n'+IMMUTABLE
 ALL_ERP_TABLES=set(DIRECT_TENANT_TABLES)|set(CHILD_POLICIES)
 _preview_rls=['ALTER TABLE assistant_action_drafts ENABLE ROW LEVEL SECURITY;','ALTER TABLE assistant_action_drafts FORCE ROW LEVEL SECURITY;',"CREATE POLICY assistant_action_drafts_tenant ON assistant_action_drafts USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));"]
-ALL_ERP_TABLES=ALL_ERP_TABLES|{'assistant_action_drafts'}
 ASSISTANT_PREVIEW_PG=_translate(ASSISTANT_PREVIEW_SQLITE_SCHEMA)+'\n'+'\n'.join(_preview_rls)
