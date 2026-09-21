@@ -195,3 +195,18 @@ class AssistantPreviewTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class AssistantPreviewPGContract(unittest.TestCase):
+    def test_preview_table_rls_and_policy(self):
+        import postgres_erp_schema as p
+        sql = p.ASSISTANT_PREVIEW_PG
+        self.assertIn('ALTER TABLE assistant_action_drafts FORCE ROW LEVEL SECURITY;', sql)
+        self.assertIn('ALTER TABLE assistant_action_drafts ENABLE ROW LEVEL SECURITY;', sql)
+        self.assertIn('CREATE POLICY assistant_action_drafts_tenant', sql)
+
+    def test_preview_migration_appended_incrementally(self):
+        import postgres_store as s
+        from postgres_erp_schema import ASSISTANT_PREVIEW_PG, POSTGRES_ERP_MIGRATION
+        self.assertEqual(s.PG_MIGRATIONS[1], POSTGRES_ERP_MIGRATION)
+        self.assertEqual(s.PG_MIGRATIONS[-1], ASSISTANT_PREVIEW_PG)
+        self.assertNotIn('assistant_action_drafts', POSTGRES_ERP_MIGRATION)
