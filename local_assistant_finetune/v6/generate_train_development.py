@@ -56,6 +56,27 @@ BASE_FAMILIES={
 'ACCOUNTING_PERIOD_CREATE':('period',['Enable ledger-entry dates within period {v}.','Activate a new books window identified as {v}.'],['Make the books window {v} accept entries.'],['2029-01','2029-04'],['2029-07']),
 }
 FAMILIES={**BASE_FAMILIES,**FAMILIES}
+
+# Eight fresh train-only discourse families expand coverage without copying records or changing
+# optimizer semantics. Each keeps the observable semantic core intact. Development uses none.
+TRAIN_CONTEXTS=[
+ 'During opening checks, {t}',
+ 'For the afternoon operations review, {t}',
+ 'Before the next shift handoff, {t}',
+ 'As part of this week’s control run, {t}',
+ 'For the branch readiness exercise, {t}',
+ 'While reconciling today’s work queue, {t}',
+ 'In the supervised practice workflow, {t}',
+ 'For the documented dry run, {t}',
+]
+FROZEN_BATCH_SIZE=2
+FROZEN_GRADIENT_ACCUMULATION=16
+FROZEN_EPOCHS=3
+
+def expected_optimizer_steps(train_records):
+ batches=(train_records+FROZEN_BATCH_SIZE-1)//FROZEN_BATCH_SIZE
+ updates_per_epoch=(batches+FROZEN_GRADIENT_ACCUMULATION-1)//FROZEN_GRADIENT_ACCUMULATION
+ return updates_per_epoch*FROZEN_EPOCHS
 GROUP_BY={'train':['day','month','week'],'development':['quarter','year'],'sentinel':['month']}
 SENTINELS=[
  ('GUIDANCE','topic','Explain Mosaic operating guidance for {v}.',['inventory valuation']),
@@ -93,11 +114,17 @@ def build_dataset():
   for split,templates,vals in [('train',tr,trv),('development',dev,dv)]:
    for t in templates:
     for v in vals:
-     rows.append(row(i,split,label,slot,t,v));i+=1
+     base=row(i,split,label,slot,t,v)
+     if split=='train':
+      for context in TRAIN_CONTEXTS:
+       expanded=dict(base); expanded['id']=f'v6-t-{i:04d}-{len(rows):04d}'; expanded['messages']=[base['messages'][0],{'role':'user','content':context.format(t=base['messages'][-1]['content'])}]; rows.append(expanded)
+     else: rows.append(base)
+     i+=1
  assert {x['split'] for x in rows}=={'train','development'}
  for split in ('train','development'):
   assert {x['target']['label'] for x in rows if x['split']==split}==set(LABELS)
  assert len({norm(x['messages'][-1]['content']) for x in rows})==len(rows)
+ assert expected_optimizer_steps(sum(x['split']=='train' for x in rows))>=60
  return rows
 
 def build_sentinel():
