@@ -252,7 +252,7 @@ jobs:
           Docker Hub: ${DOCKERHUB_IMAGE}@${DOCKERHUB_DIGEST}
           Preparation: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${PREPARATION_RUN}/attempts/${PREPARATION_ATTEMPT}
 
-          Built-in deterministic chat is the default. Users may connect their own AI provider through chat-guided setup with masked secret entry. The fine-tuned local assistant is being tested and is not available in ${VERSION}.
+          Built-in deterministic chat is the default. Users may connect their own AI provider through chat-guided setup with masked secret entry. The fine-tuned local assistant ships in Preview in ${VERSION}: it runs on the shop's own machine, can understand, draft and explain ERP actions, and every action requires the owner's explicit confirmation of the exact rendered payload.
 
           Statutory output remains review-gated. Professional review is recommended. Production operators remain responsible for DNS/TLS, managed PostgreSQL availability and recovery, restore drills, monitoring, capacity/failover evidence, and independent security assessment.
           EOF
