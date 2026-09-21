@@ -16,6 +16,7 @@ from migration_packs import Migrations
 from tax_engine import TaxEngine
 from artifact_builder import ArtifactBuilder
 from assistant_setup import AssistantSetup
+from assistant_preview import AssistantPreview
 from provisioning import Provisioner
 from rbac import Denied
 from oauth import OAuth, OAuthError
@@ -644,6 +645,12 @@ class H(BaseHTTPRequestHandler):
             raise AuthError(400,'Chat can only run a recognized, role-checked operation')
         if p == '/api/assistant/chat':
             wid, actor, _=self._auth('owner');d=self._body();return self.out(200,ASSISTANT.chat(wid,actor,d.get('message','')),rid=rid) or 200
+        if p == '/api/assistant/preview/chat':
+            wid, actor, role = self._auth('viewer'); d=self._body(); return self.out(200,PREVIEW.chat(wid,actor,role,d.get('message','')),rid=rid) or 200
+        if p == '/api/assistant/preview/confirm':
+            wid, actor, role = self._auth('viewer'); d=self._body(); return self.out(200,PREVIEW.confirm(wid,actor,role,d.get('draft_id',''),bool(d.get('approve_once'))),rid=rid) or 200
+        if p == '/api/assistant/preview/cancel':
+            wid, actor, _ = self._auth('viewer'); d=self._body(); return self.out(200,PREVIEW.cancel(wid,actor,d.get('draft_id','')),rid=rid) or 200
         if p == '/api/assistant/stage':
             wid,actor,_=self._auth('owner');d=self._body();return self.out(200,ASSISTANT.stage(wid,actor,d.get('candidate',{})),rid=rid) or 200
         if p == '/api/assistant/secret':
@@ -763,6 +770,7 @@ MIGRATIONS_API = Migrations(STORE,BOOKS,RETAIL)
 TAX = TaxEngine(STORE)
 ARTIFACTS = ArtifactBuilder(STORE,BOOKS,RETAIL)
 ASSISTANT = AssistantSetup(STORE)
+PREVIEW = AssistantPreview(STORE, RETAIL, ASSISTANT)
 OAUTH = OAuth(STORE,PROVISIONER)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
 
