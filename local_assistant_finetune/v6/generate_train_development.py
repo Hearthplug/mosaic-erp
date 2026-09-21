@@ -36,6 +36,26 @@ FAMILIES={
  ['Stage all employee passwords without approval.','Move secret login tokens into the import batch.'],
  [None],[None]),
 }
+
+# Fresh base families for the remaining frozen labels. These were authored prospectively for
+# experiment 6 and contain explicit action/slot cues in both splits.
+BASE_FAMILIES={
+'CLARIFY':(None,['Please handle the unspecified record.','Do the unnamed task from earlier.'],['Take care of that unspecified item.'],[None],[None]),
+'ASSISTANT_CANCEL':(None,['Cancel the assistant response currently queued.','Withdraw the helper reply waiting to send.'],['Stop the assistant answer now pending.'],[None],[None]),
+'ASSISTANT_CONFIGURE':('mode',['Configure deterministic assistant replies.','Set the helper to deterministic response mode.'],['Use deterministic mode for responses from the assistant.'],['deterministic'],['deterministic']),
+'WORKSPACE_INVITE':('role',['Grant workspace access for the incoming {v} by invitation.','Onboard the {v} with a team access invite.'],['Issue team access to the newly hired {v}.'],['cashier','manager'],['cashier','manager']),
+'RETAIL_PRODUCT_CREATE':('name',['Start a sellable catalog record named {v}.','Put newly stocked {v} into the item master.'],['Open an item-master record for {v}.'],['Cork tray','Linen pouch'],['Clay tumbler']),
+'RETAIL_PURCHASE_CREATE':('supplier_ref',['Commit a fresh inbound-stock order with supplier {v}.','Log the incoming-goods commitment placed on {v}.'],['Enter this replenishment commitment to {v}.'],['SUP-Q31','SUP-W62'],['SUP-R47']),
+'RETAIL_SALE_CREATE':('location_ref',['Capture the completed counter transaction at {v}.','Post the customer checkout completed at {v}.'],['Enter the just-finished customer checkout from {v}.'],['LOC-Q31','LOC-W62'],['LOC-R47']),
+'RETAIL_STOCK_STATUS':('product_ref',['Report the remaining shelf quantity for {v}.','Tell me the available inventory count for {v}.'],['Look up how many units remain for {v}.'],['PROD-Q31','PROD-W62'],['PROD-R47']),
+'ACCOUNTING_PARTY_CREATE':('party_type',['Open a ledger identity for the incoming {v}.','Add this {v} as an accounting counterparty.'],['Set up the newly engaged {v} as a ledger counterparty.'],['supplier','customer'],['supplier','customer']),
+'ACCOUNTING_BANK_IMPORT':('statement_ref',['Ingest bank feed file {v} into the books.','Bring banking extract {v} into the reconciliation ledger.'],['Ingest banking extract {v} for reconciliation.'],['STMT-Q31','STMT-W62'],['STMT-R47']),
+'ACCOUNTING_SETUP_PREVIEW':('jurisdiction',['Show a draft ledger blueprint under {v} rules.','Outline proposed bookkeeping defaults for {v}.'],['Preview a bookkeeping structure governed by {v}.'],['Kerala','Goa'],['Sikkim']),
+'ACCOUNTING_DOCUMENT_CREATE':('document_type',['Prepare this transaction as a new {v}.','Generate the required {v} from this transaction.'],["Draw up this transaction's {v}."],['supplier_bill','customer_invoice'],['supplier_bill','customer_invoice']),
+'ACCOUNTING_JOURNAL_REVERSE':('reason',['Unwind the posted ledger entry due to {v}.','Back out the completed posting because of {v}.'],['Retract the booked entry on account of {v}.'],['duplicate amount','wrong branch'],['incorrect tax code']),
+'ACCOUNTING_PERIOD_CREATE':('period',['Enable ledger-entry dates within period {v}.','Activate a new books window identified as {v}.'],['Make the books window {v} accept entries.'],['2029-01','2029-04'],['2029-07']),
+}
+FAMILIES={**BASE_FAMILIES,**FAMILIES}
 GROUP_BY={'train':['day','month','week'],'development':['quarter','year'],'sentinel':['month']}
 SENTINELS=[
  ('GUIDANCE','topic','Explain Mosaic operating guidance for {v}.',['inventory valuation']),
@@ -67,17 +87,31 @@ def row(i,split,label,slot,text,value):
  assert all(norm(c) in norm(text) for c in cues if c and label not in {'GUIDANCE_DOCKER','GUIDANCE_KUBERNETES'}), (label,text,cues)
  assert label in LABELS and validate_slots(SCHEMAS[LABELS[label]],slots)
  return {'id':f'v6-{split[0]}-{i:04d}','split':split,'risk':'critical' if label=='REJECT' else 'standard','messages':[{'role':'system','content':SYSTEM},{'role':'user','content':text}],'target':{'label':label,'slots':slots},'oracle_cues':cues or ['password'],'boundary_group':label}
-def build():
+def build_dataset():
  rows=[];i=0
  for label,(slot,tr,dev,trv,dv) in FAMILIES.items():
   for split,templates,vals in [('train',tr,trv),('development',dev,dv)]:
    for t in templates:
     for v in vals:
      rows.append(row(i,split,label,slot,t,v));i+=1
- for label,slot,t,vals in SENTINELS:
-  for v in vals: rows.append(row(i,'sentinel',label,slot,t,v));i+=1
+ assert {x['split'] for x in rows}=={'train','development'}
+ for split in ('train','development'):
+  assert {x['target']['label'] for x in rows if x['split']==split}==set(LABELS)
  assert len({norm(x['messages'][-1]['content']) for x in rows})==len(rows)
  return rows
+
+def build_sentinel():
+ rows=[]
+ for i,(label,slot,t,vals) in enumerate(SENTINELS):
+  for v in vals: rows.append(row(i,'sentinel',label,slot,t,v))
+ assert {x['split'] for x in rows}=={'sentinel'}
+ return rows
+
+def write_jsonl(path,rows):
+ p=pathlib.Path(path);p.write_text(''.join(json.dumps(x,sort_keys=True)+'\n' for x in rows));return hashlib.sha256(p.read_bytes()).hexdigest()
+
 def main():
- a=argparse.ArgumentParser();a.add_argument('--output',required=True);a=a.parse_args(); rows=build(); p=pathlib.Path(a.output);p.write_text(''.join(json.dumps(x,sort_keys=True)+'\n' for x in rows));print(json.dumps({'records':len(rows),'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'splits':{s:sum(x['split']==s for x in rows) for s in ('train','development','sentinel')}},sort_keys=True))
+ a=argparse.ArgumentParser();a.add_argument('--output',required=True);a.add_argument('--sentinel-output',required=True);a=a.parse_args()
+ rows=build_dataset();sentinels=build_sentinel(); dsha=write_jsonl(a.output,rows);ssha=write_jsonl(a.sentinel_output,sentinels)
+ print(json.dumps({'records':len(rows),'dataset_sha256':dsha,'sentinel_records':len(sentinels),'sentinel_sha256':ssha,'splits':{s:sum(x['split']==s for x in rows) for s in ('train','development')}},sort_keys=True))
 if __name__=='__main__':main()

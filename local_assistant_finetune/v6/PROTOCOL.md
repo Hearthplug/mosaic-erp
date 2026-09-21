@@ -9,7 +9,7 @@ Experiment 6 is prospective. It does not copy, inspect, select, or tune against 
 3. **Observability invariant.** Every non-empty target slot is stated in the semantic core or is the single deterministic normalization of an explicit cue. Generator assertions reject hidden defaults such as an unstated time grain or deployment path.
 4. **Fresh independent families.** New train/development families cover guidance vs documentation lookup, local trial vs production deployment, migration staging vs security rejection, and artifact draft vs workspace preview. Their wording and value pools are independent across splits and from experiments 3-5.
 5. **Ambiguity/oracle audit.** Each generated record carries `oracle_cues`. The generator proves that exactly one label rule fires and every target slot is recoverable from those cues. Ambiguous rows are rejected before serialization.
-6. **Early sentinels.** Fresh sentinel families are held out from training. Checkpoints 20 and 60 must score schema validity 100%, unknown labels 0, and minimum recall 90% on the four boundary groups. A miss stops the run before full training. Sentinels are not the final development set and cannot be used for checkpoint selection beyond stop/go.
+6. **Early sentinels.** Fresh sentinel families are held out from training in a separate deterministic `v6_sentinel.jsonl`; the authoritative dataset contains exactly train and development. Checkpoints 20 and 60 must score schema validity 100%, unknown labels 0, and minimum recall 90% on the four boundary groups. A miss stops the run before full training. Sentinels are not the final development set and cannot be used for checkpoint selection beyond stop/go.
 
 ## Frozen policy
 
