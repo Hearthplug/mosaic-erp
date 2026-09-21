@@ -39,6 +39,11 @@ class V6Tests(unittest.TestCase):
    r=subprocess.run(command,capture_output=True,text=True,timeout=120);self.assertEqual(r.returncode,0,r.stderr)
    receipt=json.loads(r.stdout);self.assertTrue(receipt['passed']);self.assertEqual(len(receipt['prior_receipts']),3)
    for prior in receipt['prior_receipts']:self.assertEqual(prior['exact_overlap'],0);self.assertLess(prior['max_similarity'],0.88)
+ def test_frozen_optimizer_math_reaches_step_60(self):
+  train_records=sum(x['split']=='train' for x in gen.build_dataset())
+  self.assertGreaterEqual(train_records,609)
+  self.assertGreaterEqual(gen.expected_optimizer_steps(train_records),60)
+  self.assertEqual((gen.FROZEN_BATCH_SIZE,gen.FROZEN_GRADIENT_ACCUMULATION,gen.FROZEN_EPOCHS),(2,16,3))
  def test_sentinel_gate(self):
   with tempfile.TemporaryDirectory() as d:
    ds=pathlib.Path(d)/'s.jsonl'; sent=gen.build_sentinel(); ds.write_text(''.join(json.dumps(x)+'\n' for x in sent)); ps=pathlib.Path(d)/'p.jsonl'; ps.write_text(''.join(json.dumps({'id':x['id'],'label':x['target']['label'],'slots':x['target']['slots']})+'\n' for x in sent))
