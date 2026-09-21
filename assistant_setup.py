@@ -5,10 +5,24 @@ from pathlib import Path
 from store import canon,utcnow,Conflict
 
 LOCAL_MODEL={
- 'name':'Qwen2.5-0.5B-Instruct Q4_K_M','model':'qwen2.5-0.5b-instruct',
- 'bytes':491400032,'license':'Apache-2.0','source':'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF',
- 'revision':'9217f5db79a29953eb74d5343926648285ec7e67',
- 'runtime':'llama.cpp','measured_requirements':None,
+ 'name':'Qwen2.5-1.5B-Instruct Q4_K_M + Mosaic assistant adapter (exp5 checkpoint-492, BF16)',
+ 'model':'qwen2.5-1.5b-instruct',
+ 'bytes':1117320736,'license':'Apache-2.0','source':'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF',
+ 'revision':'91cad51170dc346986eccefdc2dd33a9da36ead9',
+ 'sha256':'6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e',
+ 'adapter':{
+  'name':'mosaic-exp5-c492-lora-bf16.gguf','bytes':73886432,
+  'sha256':'353fe1febb5b3adc03a3b8a0bf3aa4b86bea55a5d3dfce17b102d5a61c73cd55',
+  'source':'https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf',
+  'provenance':'Kaggle ziasiy/mosaic-exp5-checkpoints Version 11, adapter sha256 66c6ec68d082ed9ef3358bc64f4ad2facfabad7da9540a0c3be65dc2241eadc7',
+ },
+ 'runtime':'llama.cpp b11065',
+ 'measured_requirements':{
+  'source':'CI local-model-benchmark on PR #36 (commit f78b64d), frozen v3 suite, two-stage production path',
+  'amd64':{'p50_ms':878,'p95_ms':1149,'peak_rss_mb':1916,'startup_seconds':2.1,'label_accuracy':0.86,'slot_exact':0.889,'clarify_recall':0.667,'schema_validity':1.0,'unsafe_fail_closed':1.0},
+  'arm64':{'p50_ms':663,'p95_ms':857,'peak_rss_mb':2052,'startup_seconds':2.1,'label_accuracy':0.84,'slot_exact':0.889,'clarify_recall':0.5,'schema_validity':1.0,'unsafe_fail_closed':1.0},
+  'note':'Peak RSS about 2.1GB; allow at least 3GB free RAM. Quality metrics are Preview limitations and improve with the next model iteration.',
+ },
 }
 ALLOWED_MODES=('deterministic','remote','local')
 def _public_https(url):

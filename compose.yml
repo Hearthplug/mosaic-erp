@@ -14,6 +14,10 @@ services:
       MOSAIC_DB_POOL_MAX: ${MOSAIC_DB_POOL_MAX:-10}
       MOSAIC_RATE_LIMIT_RPM: ${MOSAIC_RATE_LIMIT_RPM:-120}
       MOSAIC_ASSISTANT_SECRET_DIR: /run/mosaic-assistant-secrets
+      # Local assistant Preview stays dark unless the operator sets both of these
+      # (loopback/private URL only) and mounts the CI availability verdict JSON.
+      MOSAIC_ASSISTANT_LOCAL_URL: ${MOSAIC_ASSISTANT_LOCAL_URL:-}
+      MOSAIC_ASSISTANT_LOCAL_AVAILABILITY_FILE: ${MOSAIC_ASSISTANT_LOCAL_AVAILABILITY_FILE:-}
     tmpfs: [/tmp:rw,noexec,nosuid,nodev,size=16m]
     volumes: [assistant-secrets:/run/mosaic-assistant-secrets]
     expose: ["8000"]
@@ -27,6 +31,74 @@ services:
       resources:
         reservations: {cpus: "0.10", memory: 64M}
         limits: {cpus: "1.00", memory: 512M}
+  assistant-model-fetch:
+    # One-shot pinned download of the verified base model + LoRA adapter.
+    profiles: [assistant-local]
+    image: ${MOSAIC_IMAGE:-mosaic-erp:local}
+    build: {context: ., args: {VERSION: "${MOSAIC_VERSION:-dev}", VCS_REF: "${MOSAIC_VCS_REF:-local}"}}
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:rw,noexec,nosuid,nodev,size=16m]
+    volumes: [assistant-models:/models]
+    command:
+      - python3
+      - -c
+      - |
+        import hashlib, pathlib, urllib.request
+        files = [
+          ('https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_k_m.gguf', 'model.gguf', 1117320736, '6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e'),
+                    ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-00', 'adapter.gguf.part-00', 8388608, '980942078bf5528e03b18101185fbb2539dd5bd8b97e64fee13eccc342ce476e'),
+          ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-01', 'adapter.gguf.part-01', 8388608, '5ab825c8edcb33bda411789ef5df035eb1235bcd3f511ee99dce7b972c61dc34'),
+          ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-02', 'adapter.gguf.part-02', 8388608, '5953fa9d0e515bc524953b2f9fecf1b19cd20950b419bfc04638c4fbacebb32b'),
+          ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-03', 'adapter.gguf.part-03', 8388608, '91f58156a55ec1e869c3441bcf106a51e114da7a01b38d633fdd553c4543a94d'),
+          ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-04', 'adapter.gguf.part-04', 8388608, 'e6f86ad3bdb33d68fc88b4430d7626782f8f01f7eeac2d59f51d249db61d8872'),
+          ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-05', 'adapter.gguf.part-05', 8388608, 'c13bd02cca6bba84241f4adbf6699186fadd6d7ba58f7c6e176ca3d8a2edcf01'),
+          ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-06', 'adapter.gguf.part-06', 8388608, 'f9ef9faf9330b9fa9c0fe2543241dcf85f405cfe63970ee8e9f70ceb89968602'),
+          ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-07', 'adapter.gguf.part-07', 8388608, '360baf7439b30a0a686bb65e28bc2e6ac7f97289fd2f92a206d1f98645921b21'),
+          ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-08', 'adapter.gguf.part-08', 6777568, '4ebbe9cc64e616f44bd8fef1b05e9903288792acfcab03b9a970fd5918166049'),
+          ('__concat__', 'adapter.gguf', 73886432, '353fe1febb5b3adc03a3b8a0bf3aa4b86bea55a5d3dfce17b102d5a61c73cd55'),
+        ]
+        for url, name, size, sha in files:
+          target = pathlib.Path('/models') / name
+          if url == '__concat__':
+            data = b''.join((pathlib.Path('/models') / ('adapter.gguf.part-%02d' % i)).read_bytes() for i in range(9))
+            assert len(data) == size, name + ' size mismatch'
+            assert hashlib.sha256(data).hexdigest() == sha, name + ' sha256 mismatch'
+            target.write_bytes(data)
+            for i in range(9):
+              (pathlib.Path('/models') / ('adapter.gguf.part-%02d' % i)).unlink()
+            continue
+          if target.exists() and target.stat().st_size == size and hashlib.sha256(target.read_bytes()).hexdigest() == sha:
+            continue
+          tmp = target.with_suffix('.tmp')
+          with urllib.request.urlopen(url) as r, tmp.open('wb') as f:
+            while True:
+              chunk = r.read(1 << 20)
+              if not chunk:
+                break
+              f.write(chunk)
+          assert tmp.stat().st_size == size, name + ' size mismatch'
+          assert hashlib.sha256(tmp.read_bytes()).hexdigest() == sha, name + ' sha256 mismatch'
+          tmp.replace(target)
+        print('assistant models pinned and verified')
+  assistant-local:
+    # Optional companion llama.cpp server (Preview). Loopback-only to the app.
+    profiles: [assistant-local]
+    image: ghcr.io/ggml-org/llama.cpp:server-b11065@sha256:9dc0a0f4080b7817c9592b19c03a4f4b0be92fd701076b9da259ff941dc5bf91
+    restart: unless-stopped
+    depends_on: {assistant-model-fetch: {condition: service_completed_successfully}}
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:rw,noexec,nosuid,nodev,size=16m]
+    volumes: [assistant-models:/models:ro]
+    command: ["-m", "/models/model.gguf", "--lora", "/models/adapter.gguf", "--host", "0.0.0.0", "--port", "8080", "-c", "2048", "-np", "1"]
+    expose: ["8080"]
+    deploy:
+      resources:
+        reservations: {cpus: "1.00", memory: 1536M}
+        limits: {cpus: "4.00", memory: 3G}
   caddy:
     image: caddy:2.8.4-alpine@sha256:af32e97399febea808609119bb21544d0265c58a02836576e32a2d082c262c17
     restart: unless-stopped
@@ -39,4 +111,4 @@ services:
     cap_add: [NET_BIND_SERVICE]
     tmpfs: [/tmp:rw,noexec,nosuid,nodev,size=16m, /config/caddy:rw,noexec,nosuid,nodev,size=16m]
     volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy-data:/data]
-volumes: {caddy-data: {}, assistant-secrets: {}}
+volumes: {caddy-data: {}, assistant-secrets: {}, assistant-models: {}}
