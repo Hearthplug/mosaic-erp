@@ -31,6 +31,63 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       terminationGracePeriodSeconds: 30
+      {{- if .Values.assistant.local.enabled }}
+      initContainers:
+        - name: assistant-model-fetch
+          image: "{{ .Values.image.repository }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ else }}:{{ .Values.image.tag }}{{ end }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - python3
+            - -c
+            - |
+              import hashlib, pathlib, urllib.request
+              files = [
+                ('https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_k_m.gguf', 'model.gguf', 1117320736, '6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e'),
+                ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-00', 'adapter.gguf.part-00', 8388608, '980942078bf5528e03b18101185fbb2539dd5bd8b97e64fee13eccc342ce476e'),
+                ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-01', 'adapter.gguf.part-01', 8388608, '5ab825c8edcb33bda411789ef5df035eb1235bcd3f511ee99dce7b972c61dc34'),
+                ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-02', 'adapter.gguf.part-02', 8388608, '5953fa9d0e515bc524953b2f9fecf1b19cd20950b419bfc04638c4fbacebb32b'),
+                ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-03', 'adapter.gguf.part-03', 8388608, '91f58156a55ec1e869c3441bcf106a51e114da7a01b38d633fdd553c4543a94d'),
+                ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-04', 'adapter.gguf.part-04', 8388608, 'e6f86ad3bdb33d68fc88b4430d7626782f8f01f7eeac2d59f51d249db61d8872'),
+                ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-05', 'adapter.gguf.part-05', 8388608, 'c13bd02cca6bba84241f4adbf6699186fadd6d7ba58f7c6e176ca3d8a2edcf01'),
+                ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-06', 'adapter.gguf.part-06', 8388608, 'f9ef9faf9330b9fa9c0fe2543241dcf85f405cfe63970ee8e9f70ceb89968602'),
+                ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-07', 'adapter.gguf.part-07', 8388608, '360baf7439b30a0a686bb65e28bc2e6ac7f97289fd2f92a206d1f98645921b21'),
+                ('https://github.com/Hearthplug/mosaic-erp/releases/download/assistant-model-exp5-c492/mosaic-exp5-c492-lora-bf16.gguf.part-08', 'adapter.gguf.part-08', 6777568, '4ebbe9cc64e616f44bd8fef1b05e9903288792acfcab03b9a970fd5918166049'),
+                ('__concat__', 'adapter.gguf', 73886432, '353fe1febb5b3adc03a3b8a0bf3aa4b86bea55a5d3dfce17b102d5a61c73cd55'),
+              ]
+              for url, name, size, sha in files:
+                target = pathlib.Path('/models') / name
+                if url == '__concat__':
+                  data = b''.join((pathlib.Path('/models') / ('adapter.gguf.part-%02d' % i)).read_bytes() for i in range(9))
+                  assert len(data) == size, name + ' size mismatch'
+                  assert hashlib.sha256(data).hexdigest() == sha, name + ' sha256 mismatch'
+                  target.write_bytes(data)
+                  for i in range(9):
+                    (pathlib.Path('/models') / ('adapter.gguf.part-%02d' % i)).unlink()
+                  continue
+                if target.exists() and target.stat().st_size == size and hashlib.sha256(target.read_bytes()).hexdigest() == sha:
+                  continue
+                tmp = target.with_suffix('.tmp')
+                with urllib.request.urlopen(url) as r, tmp.open('wb') as f:
+                  while True:
+                    chunk = r.read(1 << 20)
+                    if not chunk:
+                      break
+                    f.write(chunk)
+                assert tmp.stat().st_size == size, name + ' size mismatch'
+                assert hashlib.sha256(tmp.read_bytes()).hexdigest() == sha, name + ' sha256 mismatch'
+                tmp.replace(target)
+              print('assistant models pinned and verified')
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: assistant-models
+              mountPath: /models
+            - name: tmp
+              mountPath: /tmp
+      {{- end }}
       containers:
         - name: mosaic-erp
           image: "{{ .Values.image.repository }}{{ if .Values.image.digest }}@{{ .Values.image.digest }}{{ else }}:{{ .Values.image.tag }}{{ end }}"
@@ -64,6 +121,14 @@ spec:
             {{- if .Values.assistant.secretName }}
             - name: MOSAIC_ASSISTANT_MOUNTED_SECRET_FILE
               value: /run/mosaic-assistant-secrets/assistant-mounted.key
+            {{- end }}
+            {{- if .Values.assistant.local.enabled }}
+            - name: MOSAIC_ASSISTANT_LOCAL_URL
+              value: "http://127.0.0.1:8080"
+            {{- if .Values.assistant.local.availabilitySecretName }}
+            - name: MOSAIC_ASSISTANT_LOCAL_AVAILABILITY_FILE
+              value: /run/mosaic-assistant-availability/local-assistant-availability.json
+            {{- end }}
             {{- end }}
             - name: MOSAIC_DATABASE_URL
               valueFrom:
@@ -99,8 +164,42 @@ spec:
               mountPath: /run/mosaic-assistant-secrets
               readOnly: true
             {{- end }}
+            {{- if and .Values.assistant.local.enabled .Values.assistant.local.availabilitySecretName }}
+            - name: assistant-availability
+              mountPath: /run/mosaic-assistant-availability
+              readOnly: true
+            {{- end }}
             - name: tmp
               mountPath: /tmp
+        {{- if .Values.assistant.local.enabled }}
+        - name: assistant-local
+          image: {{ .Values.assistant.local.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args: ["-m", "/models/model.gguf", "--lora", "/models/adapter.gguf", "--host", "127.0.0.1", "--port", "8080", "-c", "2048", "-np", "1"]
+          readinessProbe:
+            httpGet: {path: /health, port: 8080}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          resources:
+            {{- toYaml .Values.assistant.local.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: assistant-models
+              mountPath: /models
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.assistant.local.availabilitySecretName }}
+            - name: assistant-availability
+              mountPath: /run/mosaic-assistant-availability
+              readOnly: true
+            {{- end }}
+        {{- end }}
       volumes:
         {{- if .Values.assistant.secretName }}
         - name: assistant-secret
@@ -111,6 +210,17 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 16Mi
+        {{- if .Values.assistant.local.enabled }}
+        - name: assistant-models
+          emptyDir:
+            sizeLimit: 2500Mi
+        {{- if .Values.assistant.local.availabilitySecretName }}
+        - name: assistant-availability
+          secret:
+            secretName: {{ .Values.assistant.local.availabilitySecretName | quote }}
+            items: [{key: local-assistant-availability.json, path: local-assistant-availability.json}]
+        {{- end }}
+        {{- end }}
       topologySpreadConstraints:
         {{- toYaml .Values.topologySpreadConstraints | nindent 8 }}
       {{- with .Values.nodeSelector }}
