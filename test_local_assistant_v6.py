@@ -49,5 +49,6 @@ class V6Tests(unittest.TestCase):
  def test_sentinel_gate(self):
   with tempfile.TemporaryDirectory() as d:
    ds=pathlib.Path(d)/'s.jsonl'; sent=gen.build_sentinel(); ds.write_text(''.join(json.dumps(x)+'\n' for x in sent)); ps=pathlib.Path(d)/'p.jsonl'; ps.write_text(''.join(json.dumps({'id':x['id'],'label':x['target']['label'],'slots':x['target']['slots']})+'\n' for x in sent))
-   r=subprocess.run([sys.executable,str(V6/'evaluate_sentinel.py'),'--step','20','--dataset',str(ds),'--predictions',str(ps)],capture_output=True,text=True);self.assertEqual(r.returncode,0,r.stderr)
+   r=subprocess.run([sys.executable,str(V6/'evaluate_sentinel.py'),'--step','40','--dataset',str(ds),'--predictions',str(ps)],capture_output=True,text=True);self.assertEqual(r.returncode,0,r.stderr)
+   r=subprocess.run([sys.executable,str(V6/'evaluate_sentinel.py'),'--step','20','--dataset',str(ds),'--predictions',str(ps)],capture_output=True,text=True);self.assertNotEqual(r.returncode,0,'retired step 20 must be rejected')
 if __name__=='__main__':unittest.main()
