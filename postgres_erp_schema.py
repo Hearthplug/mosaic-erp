@@ -12,6 +12,7 @@ from tax_verification_schema import TAX_VERIFICATION_SQLITE_SCHEMA
 from provisioning_schema import PROVISIONING_SQLITE_SCHEMA
 from artifact_builder_schema import ARTIFACT_BUILDER_SQLITE_SCHEMA
 from assistant_setup_schema import ASSISTANT_SETUP_SQLITE_SCHEMA
+from assistant_preview_schema import ASSISTANT_PREVIEW_SQLITE_SCHEMA
 
 DIRECT_TENANT_TABLES=('accounting_settings','accounts','fiscal_periods','parties','items','tax_rules','tax_transaction_facts','tax_codes','document_sequences','documents','journals','journal_lines','settlements','bank_transactions','inventory_movements','statutory_adapters','acceptance_runs','migration_batches','locations','retail_products','stock_ledger','purchase_orders','sales','tender_entries','retail_returns','cash_sessions','credit_policies','stock_counts','goods_receipts','three_way_matches','onboarding_sessions','operating_models','role_assignments','approval_requests','import_batches','tax_verifications','generated_artifacts','assistant_settings','provisioned_capabilities','verification_tasks','workspace_invitations')
 CHILD_POLICIES={
@@ -54,3 +55,5 @@ CREATE TRIGGER journal_lines_no_update BEFORE UPDATE OR DELETE ON journal_lines 
 '''
 POSTGRES_ERP_MIGRATION=BASE+'\n'+'\n'.join(RLS)+'\n'+IMMUTABLE
 ALL_ERP_TABLES=set(DIRECT_TENANT_TABLES)|set(CHILD_POLICIES)
+_preview_rls=['ALTER TABLE assistant_action_drafts ENABLE ROW LEVEL SECURITY;','ALTER TABLE assistant_action_drafts FORCE ROW LEVEL SECURITY;',"CREATE POLICY assistant_action_drafts_tenant ON assistant_action_drafts USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));"]
+ASSISTANT_PREVIEW_PG=_translate(ASSISTANT_PREVIEW_SQLITE_SCHEMA)+'\n'+'\n'.join(_preview_rls)

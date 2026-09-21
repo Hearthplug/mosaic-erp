@@ -11,7 +11,7 @@ from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from store import Store, MIGRATIONS, Conflict, NotFound
-from postgres_erp_schema import POSTGRES_ERP_MIGRATION, ALL_ERP_TABLES
+from postgres_erp_schema import POSTGRES_ERP_MIGRATION, ALL_ERP_TABLES, ASSISTANT_PREVIEW_PG
 
 SCHEMA_VERSION = 1
 PG_MIGRATIONS = [r'''
@@ -37,7 +37,7 @@ ALTER TABLE oauth_identities ENABLE ROW LEVEL SECURITY; ALTER TABLE oauth_identi
 CREATE POLICY oauth_identities_tenant ON oauth_identities USING (workspace_id=current_setting('mosaic.workspace_id',true)) WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));
 CREATE OR REPLACE FUNCTION mosaic_oauth_users(p_provider text,p_issuer text,p_subject text) RETURNS TABLE(id text,workspace_id text,email text,role text,name text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT u.id,u.workspace_id,u.email,u.role,w.name FROM oauth_identities i JOIN users u ON u.id=i.user_id JOIN workspaces w ON w.id=u.workspace_id WHERE i.provider=p_provider AND i.issuer=p_issuer AND i.subject=p_subject AND u.disabled_at IS NULL AND w.status='active' $$;
 REVOKE ALL ON FUNCTION mosaic_oauth_users(text,text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_oauth_users(text,text,text) TO CURRENT_USER;
-''' ]
+''', ASSISTANT_PREVIEW_PG ]
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
 RLS_SQL=r'''
