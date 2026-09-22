@@ -30,7 +30,7 @@ $('#notice-close').onclick=()=>{$('#notice').hidden=true;clearTimeout(noticeTime
 function select(name){if(!VIEWS[name])name='today';
   $$('.rail-item[data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===name));
   $$('.view').forEach(v=>v.hidden=v.id!=='view-'+name);
-  $('#page-title').textContent=VIEWS[name].title;$('#page-sub').textContent=VIEWS[name].sub;
+  $('#page-title').textContent=VIEWS[name].title;$('#page-crumb').textContent=VIEWS[name].title;$('#page-sub').textContent=VIEWS[name].sub;
   if(('#'+name)!==location.hash)history.replaceState(null,'','#'+name)}
 $$('.rail-item[data-view]').forEach(b=>b.onclick=()=>select(b.dataset.view));
 addEventListener('hashchange',()=>select(location.hash.slice(1)));
@@ -102,3 +102,13 @@ $('#close').onsubmit=e=>{e.preventDefault();run('/api/accounting/periods/lock',{
 
 select(location.hash.slice(1)||'today');
 connect();
+
+
+function tableRows(table){return [...table.tBodies[0].rows].filter(r=>!r.classList.contains('empty-row'))}
+$$('.toolbar').forEach(bar=>{
+  const table=$('#'+bar.dataset.table),input=bar.querySelector('input[type=search]');
+  const apply=()=>{const term=input.value.trim().toLowerCase(),filter=bar.querySelector('.filter-chip.on')?.dataset.filter||'all';tableRows(table).forEach(row=>{const text=row.textContent.toLowerCase();row.hidden=!(text.includes(term)&&(filter==='all'||text.includes(filter)))})};
+  input.addEventListener('input',apply);
+  bar.querySelectorAll('.filter-chip:not(:disabled)').forEach(btn=>btn.onclick=()=>{bar.querySelectorAll('.filter-chip').forEach(x=>x.classList.remove('on'));btn.classList.add('on');apply()});
+  bar.querySelector('.export-btn').onclick=()=>{const rows=[...table.rows].filter(r=>!r.hidden&&!r.classList.contains('empty-row'));const csv=rows.map(row=>[...row.cells].map(c=>'"'+c.innerText.trim().replaceAll('"','""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=table.id.replace('-table','')+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)};
+});
