@@ -437,7 +437,7 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,(ROOT/'invite.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p == '/signin':
             return self.out(200,(ROOT/'signin.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
-        if p in ('/auth.js','/signin.js','/signin.css','/invite.js','/google-signin.png','/microsoft-signin.svg'):
+        if p in ('/auth.js','/signin.js','/signin.css','/invite.js','/google-signin.png','/microsoft-signin.svg','/mosaic-logo.svg'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'image/png' if p.endswith('.png') else 'image/svg+xml' if p.endswith('.svg') else 'application/javascript; charset=utf-8'; raw=GOOGLE_SIGNIN if p.endswith('google-signin.png') else MICROSOFT_SIGNIN if p.endswith('microsoft-signin.svg') else (ROOT/p[1:]).read_text(encoding='utf-8'); return self.out(200,raw,kind,rid=rid) or 200
         if p == '/':
             return self.out(200, (ROOT / 'static.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
