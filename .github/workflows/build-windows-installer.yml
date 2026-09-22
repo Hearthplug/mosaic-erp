@@ -46,15 +46,13 @@ jobs:
           python -c 'import json; d=json.load(open("local-assistant-availability.json")); assert d["schema"]=="mosaic-local-availability-v1" and d["available"] is True, d'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Collect packaged data files
-        shell: pwsh
-        run: |
-          $data = (Get-ChildItem -Name *.html,*.css,*.js,mosaic-logo.svg | ForEach-Object { "--add-data=$_;." }) -join ' '
-          $data = "$data --add-data=local-assistant-availability.json;."
-          Set-Content -Path build-args.txt -Value $data
       - name: Build executable
         shell: pwsh
-        run: pyinstaller --noconfirm --onefile --console --name MosaicERP $(Get-Content build-args.txt) mosaic_launcher.py
+        run: |
+          $pyArgs = @('--noconfirm','--onefile','--console','--name','MosaicERP')
+          Get-ChildItem -Name *.html,*.css,*.js,mosaic-logo.svg | ForEach-Object { $pyArgs += "--add-data=${_};." }
+          $pyArgs += '--add-data=local-assistant-availability.json;.'
+          pyinstaller @pyArgs mosaic_launcher.py
       - name: Smoke-test the executable
         run: python scripts/smoke_exe.py dist\MosaicERP.exe
       - name: Upload build artifact
