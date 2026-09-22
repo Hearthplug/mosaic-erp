@@ -6,13 +6,13 @@ const VIEWS={
   buying:{title:'Buying',sub:'Orders, deliveries and supplier bills.'},
   money:{title:'Money',sub:'Till sessions and period locks.'}
 };
-let LISTS={stock:[],sales:[],buying:[],money:[]};
+let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='INR';
 
 function api(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}).then(r=>r.json().then(j=>{if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
 function get(path){return fetch(path,{headers:MosaicAuth.headers}).then(r=>{if(r.status===401){MosaicAuth.clear();throw Error('Signed out')}if(!r.ok)throw Error('Could not load');return r.json()})}
 function data(f){return Object.fromEntries(new FormData(f))}
 function esc(x){return String(x==null?'':x)}
-function fmtMoney(minor,currency){if(minor===null||minor===undefined||minor==='')return '—';try{return new Intl.NumberFormat(undefined,{style:'currency',currency:currency||'USD'}).format(minor/100)}catch(e){return (minor/100).toFixed(2)+' '+(currency||'')}}
+function fmtMoney(minor,currency){if(minor===null||minor===undefined||minor==='')return '—';try{return new Intl.NumberFormat(undefined,{style:'currency',currency:currency||CURRENCY}).format(minor/100)}catch(e){return (minor/100).toFixed(2)+' '+(currency||CURRENCY)}}
 function fmtQty(q){if(q===null||q===undefined)return '—';const n=Number(q);if(!isFinite(n))return esc(q);return n.toLocaleString(undefined,{maximumFractionDigits:2})}
 function fmtWhen(iso){if(!iso)return '—';const d=new Date(iso);if(isNaN(d))return esc(iso).slice(0,10);const now=new Date();
   if(d.toDateString()===now.toDateString())return d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
@@ -76,28 +76,28 @@ function connect(){if(!MosaicAuth.require())return;
   let identity=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');
   $('#company').textContent=identity.workspace_name||'Your company';
   $('#signout').onclick=()=>MosaicAuth.clear();
-  get('/api/operations/context').then(c=>{
+  Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'INR'}))]).then(([c,book])=>{CURRENCY=book.base_currency||'INR';
     $('#state').textContent='Ready · '+(identity.role||'your role');
     const fill=(id,rows,label)=>{$(id).innerHTML=rows.map(x=>'<option value="'+x.id+'">'+esc(label(x))+'</option>').join('')};
     fill('#locations',c.locations,x=>x.code+' · '+x.name);
     fill('#products',c.products,x=>x.sku+' · '+x.name);
     fill('#vendors',c.vendors,x=>x.name);
     fill('#orders',c.purchase_orders,x=>x.number+' · '+x.status);
-    fill('#bills',c.open_bills,x=>x.number+' · '+x.balance_minor);
+    fill('#bill-options',c.open_bills,x=>x.number+' · '+x.balance_minor);
     const ol=$('#next');ol.innerHTML='';
     c.next_steps.forEach(s=>{const li=document.createElement('li');li.textContent=s;ol.appendChild(li)});
     reload()
   }).catch(e=>{$('#state').textContent='Could not open workspace';notice(false,e.message)})}
 
 $('#stock').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/transfers',{product_id:d.product_id,from_location:d.from_location,to_location:d.to_location,quantity:d.quantity},'Stock transferred')};
-$('#sell').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/sales',{location_id:d.location_id,lines:[{product_id:d.product_id,quantity:d.quantity}],tenders:[{kind:'cash',amount_minor:+d.amount_minor}]},'Sale completed')};
+$('#sell').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/sales',{location_id:d.location_id,lines:[{product_id:d.product_id,quantity:d.quantity}],tenders:[{kind:'cash',amount_minor:Math.round(+d.amount_minor*100)}],currency:CURRENCY},'Sale completed')};
 $('#return').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/returns',{sale_id:d.sale_id,lines:{[d.line_id]:d.quantity},reason:d.reason,approved_by:'manager',refund_kind:'cash'},'Return refunded')};
-$('#buy').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/purchases',{vendor_id:d.vendor_id,location_id:d.location_id,ordered_on:d.ordered_on,lines:[{product_id:d.product_id,quantity:d.quantity,unit_cost_minor:+d.unit_cost_minor}]},'Purchase order saved')};
+$('#buy').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/purchases',{vendor_id:d.vendor_id,location_id:d.location_id,ordered_on:d.ordered_on,lines:[{product_id:d.product_id,quantity:d.quantity,unit_cost_minor:Math.round(+d.unit_cost_minor*100)}],currency:CURRENCY},'Purchase order saved')};
 $('#receive').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/purchases/receive',{purchase_order_id:d.purchase_order_id,received:{[d.line_id]:d.quantity}},'Stock received')};
-$('#bills').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/three-way-match',{purchase_order_id:d.purchase_order_id,bill_id:d.bill_id},'Match complete')};
+$('#bill-match').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/three-way-match',{purchase_order_id:d.purchase_order_id,bill_id:d.bill_id},'Match complete')};
 $('#cash').onsubmit=e=>e.preventDefault();
-$('#cash button[name=open]').onclick=()=>{let d=data($('#cash'));run('/api/retail/cash/open',{location_id:d.location_id,opening_minor:+d.amount_minor},'Till opened')};
-$('#cash button[name=close]').onclick=()=>{let d=data($('#cash'));run('/api/retail/cash/close',{session_id:d.session_id,actual_minor:+d.amount_minor},'Till closed')};
+$('#cash button[name=open]').onclick=()=>{let d=data($('#cash'));run('/api/retail/cash/open',{location_id:d.location_id,opening_minor:Math.round(+d.amount_minor*100)},'Till opened')};
+$('#cash button[name=close]').onclick=()=>{let d=data($('#cash'));run('/api/retail/cash/close',{session_id:d.session_id,actual_minor:Math.round(+d.amount_minor*100)},'Till closed')};
 $('#close').onsubmit=e=>{e.preventDefault();run('/api/accounting/periods/lock',{period_id:data(e.target).period_id},'Period locked')};
 
 select(location.hash.slice(1)||'today');

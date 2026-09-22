@@ -90,7 +90,7 @@
           <label>Item<input name="product_id" list="products" required></label>
           <div class="fieldrow">
             <label>Quantity<input name="quantity" type="number" min="0" step="any" required></label>
-            <label>Cash received · minor units<input name="amount_minor" type="number" min="0" required></label>
+            <label>Cash received (₹)<input name="amount_minor" type="number" min="0" required></label>
           </div>
           <div class="actionrow"><button class="btn primary" type="submit">Complete sale</button></div>
         </form>
@@ -99,7 +99,7 @@
           <p class="hint">Refunds a checked return and restocks the item.</p>
           <div class="fieldrow">
             <label>Sale ID<input name="sale_id" required></label>
-            <label>Sale line ID<input name="line_id" required></label>
+            <label>Item line from the bill<input name="line_id" required></label>
           </div>
           <div class="fieldrow">
             <label>Quantity<input name="quantity" type="number" min="0" step="any" required></label>
@@ -120,7 +120,7 @@
           </table>
         </div>
       </div>
-      <div class="actions">
+      <div class="actions buying-actions">
         <form class="card actioncard" id="buy">
           <h3>Order from a supplier</h3>
           <p class="hint">Creates a draft order. Approve it before receiving.</p>
@@ -132,7 +132,7 @@
           <label>Item<input name="product_id" list="products" required></label>
           <div class="fieldrow">
             <label>Quantity<input name="quantity" type="number" min="0" step="any" required></label>
-            <label>Unit cost · minor units<input name="unit_cost_minor" type="number" min="0" required></label>
+            <label>Unit cost (₹)<input name="unit_cost_minor" type="number" min="0" required></label>
           </div>
           <div class="actionrow"><button class="btn primary" type="submit">Save purchase order</button></div>
         </form>
@@ -141,19 +141,19 @@
           <p class="hint">Receiving adds the stock to your register.</p>
           <label>Purchase order<input name="purchase_order_id" list="orders" required></label>
           <div class="fieldrow">
-            <label>Order line ID<input name="line_id" required></label>
+            <label>Item line from the order<input name="line_id" required></label>
             <label>Quantity received<input name="quantity" type="number" min="0" step="any" required></label>
           </div>
           <div class="actionrow"><button class="btn primary" type="submit">Receive stock</button></div>
         </form>
-        <form class="card actioncard" id="bills">
+        <form class="card actioncard" id="bill-match">
           <h3>Match supplier paperwork</h3>
-          <p class="hint">Three-way match: order, delivery and bill.</p>
+          <p class="hint">Checks the order, delivery and supplier bill agree.</p>
           <div class="fieldrow">
             <label>Purchase order<input name="purchase_order_id" list="orders"></label>
-            <label>Supplier bill<input name="bill_id" list="bills"></label>
+            <label>Supplier bill<input name="bill_id" list="bill-options"></label>
           </div>
-          <div class="actionrow"><button class="btn primary" type="submit">Run three-way match</button></div>
+          <div class="actionrow"><button class="btn primary" type="submit">Check supplier paperwork</button></div>
         </form>
       </div>
     </section>
@@ -176,7 +176,7 @@
             <label>Store<input name="location_id" list="locations"></label>
             <label>Cash session ID<input name="session_id"></label>
           </div>
-          <label>Amount · minor units<input name="amount_minor" type="number" min="0" required></label>
+          <label>Amount (₹)<input name="amount_minor" type="number" min="0" required></label>
           <div class="actionrow">
             <button class="btn primary" type="button" name="open">Open till</button>
             <button class="btn" type="button" name="close">Close till</button>
@@ -201,7 +201,7 @@
   </div>
   <details id="notice-details"><summary>Details</summary><pre id="notice-json"></pre></details>
 </div>
-<datalist id="locations"></datalist><datalist id="products"></datalist><datalist id="vendors"></datalist><datalist id="orders"></datalist><datalist id="bills"></datalist>
+<datalist id="locations"></datalist><datalist id="products"></datalist><datalist id="vendors"></datalist><datalist id="orders"></datalist><datalist id="bill-options"></datalist>
 <script src="/auth.js"></script>
 <script src="/operations.js"></script>
 </body>
