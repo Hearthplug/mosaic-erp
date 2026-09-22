@@ -40,9 +40,16 @@ try:
     for path, want in (('/', b'Mosaic ERP'), ('/signin', b'MOSAIC'),
                        ('/mosaic-logo.svg', b'<svg'), ('/interview', b'Build my Mosaic'),
                        ('/assistant', b'Set it up by talking')):
-        with urllib.request.urlopen(base + path, timeout=5) as r:
-            body = r.read()
-            assert r.status == 200 and want in body, (path, r.status)
+        try:
+            with urllib.request.urlopen(base + path, timeout=5) as r:
+                body = r.read()
+                assert r.status == 200 and want in body, (path, r.status)
+        except Exception:
+            log.flush()
+            log.seek(0)
+            print('--- executable output tail (failure on ' + path + ') ---')
+            print(log.read()[-4000:])
+            raise
     # Assistant API must refuse unauthenticated calls (fail closed), and the
     # availability gate bundled into the exe must be the CI verdict schema.
     import json as _json

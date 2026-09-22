@@ -58,6 +58,9 @@ jobs:
           pyinstaller @pyArgs mosaic_launcher.py
       - name: Smoke-test the executable
         run: python scripts/smoke_exe.py dist\MosaicERP.exe
+      - if: failure()
+        uses: actions/upload-artifact@e454baaac2be505c9450e11b8f3215c6fc023ce8
+        with: {name: smoke-exe-log, path: smoke-exe.log, if-no-files-found: ignore, retention-days: 14}
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
