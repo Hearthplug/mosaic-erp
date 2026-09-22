@@ -6,7 +6,7 @@ const VIEWS={
   buying:{title:'Buying',sub:'Orders, deliveries and supplier bills.'},
   money:{title:'Money',sub:'Till sessions and period locks.'}
 };
-let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='INR';
+let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='USD';
 
 function api(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}).then(r=>r.json().then(j=>{if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
 function get(path){return fetch(path,{headers:MosaicAuth.headers}).then(r=>{if(r.status===401){MosaicAuth.clear();throw Error('Signed out')}if(!r.ok)throw Error('Could not load');return r.json()})}
@@ -72,11 +72,12 @@ function reload(){return Promise.all([
 
 function run(path,body,okText){api(path,body).then(x=>{notice(true,okText,JSON.stringify(x,null,2));reload()}).catch(e=>notice(false,e.message))}
 
+function updateMoneyLabels(){document.querySelectorAll('label').forEach(l=>{if(['Cash received','Unit cost','Amount'].includes(l.childNodes[0].textContent.trim()))l.childNodes[0].textContent=l.childNodes[0].textContent.trim()+' ('+CURRENCY+')'})}
 function connect(){if(!MosaicAuth.require())return;
   let identity=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');
   $('#company').textContent=identity.workspace_name||'Your company';
   $('#signout').onclick=()=>MosaicAuth.clear();
-  Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'INR'}))]).then(([c,book])=>{CURRENCY=book.base_currency||'INR';
+  Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
     const fill=(id,rows,label)=>{$(id).innerHTML=rows.map(x=>'<option value="'+x.id+'">'+esc(label(x))+'</option>').join('')};
     fill('#locations',c.locations,x=>x.code+' · '+x.name);
