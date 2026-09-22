@@ -1,25 +1,32 @@
 """Background provisioning of the local assistant Preview for desktop builds.
 
-The desktop exe stays small; on first run it downloads the pinned base
+The desktop app stays small; on first run it downloads the pinned base
 model, the Mosaic adapter, and the pinned llama.cpp server into the
 per-user data dir. Every byte is verified against the same sha256 pins
 the Docker assistant-model-fetch flow uses. While provisioning runs,
 the rest of Mosaic (including deterministic chat) works normally.
+Windows and Apple Silicon Mac desktop builds are supported.
 """
 import hashlib
 import os
 import subprocess
 import sys
+import tarfile
 import threading
 import time
 import urllib.request
 import zipfile
 from pathlib import Path
 
-LLAMA_ZIP = (
+LLAMA_WIN_ZIP = (
     'https://github.com/ggml-org/llama.cpp/releases/download/b11065/llama-b11065-bin-win-cpu-x64.zip',
     18466663,
     '33f941a74b8db38e92690f5f151a770ef5a66481c07dabfe2e505b57e3546807',
+)
+LLAMA_MAC_TGZ = (
+    'https://github.com/ggml-org/llama.cpp/releases/download/b11065/llama-b11065-bin-macos-arm64.tar.gz',
+    11179577,
+    '373ec166e1f40a4b3be1da6c9a2765a01195816fabb869851129ba9c02393d4a',
 )
 MODEL_FILES = [
     ('https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_k_m.gguf', 'model.gguf', 1117320736, '6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e'),
@@ -62,16 +69,24 @@ def _download(url, target, size, sha, log):
     log(f'downloaded {target.name} ({size:,} bytes, verified)')
 
 
+def _server_exe(data):
+    if os.name == 'nt':
+        return data / 'llama' / 'llama-server.exe'
+    return data / 'llama' / 'llama-b11065' / 'llama-server'
+
+
 def _start_server(data, log):
-    exe = data / 'llama' / 'llama-server.exe'
+    exe = _server_exe(data)
     model = data / 'models' / 'model.gguf'
     adapter = data / 'models' / 'adapter.gguf'
     server_log = open(data / 'assistant-server.log', 'ab', buffering=0)
+    kwargs = {}
+    if os.name == 'nt':
+        kwargs['creationflags'] = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     subprocess.Popen(
         [str(exe), '-m', str(model), '--lora', str(adapter),
          '--host', '127.0.0.1', '--port', str(SERVER_PORT), '-c', '2048', '-np', '1'],
-        stdout=server_log, stderr=subprocess.STDOUT,
-        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        stdout=server_log, stderr=subprocess.STDOUT, **kwargs)
     log('local assistant server starting on 127.0.0.1:' + str(SERVER_PORT))
 
 
@@ -92,12 +107,20 @@ def _provision(data):
             log('downloading the local assistant model (about 1.2 GB, one time only)')
             (data / 'models').mkdir(parents=True, exist_ok=True)
             (data / 'llama').mkdir(parents=True, exist_ok=True)
-            url, size, sha = LLAMA_ZIP
-            zip_path = data / 'llama' / 'llama-win.zip'
-            _download(url, zip_path, size, sha, log)
-            with zipfile.ZipFile(zip_path) as z:
-                z.extractall(data / 'llama')
-            zip_path.unlink()
+            if os.name == 'nt':
+                url, size, sha = LLAMA_WIN_ZIP
+                archive = data / 'llama' / 'llama-win.zip'
+            else:
+                url, size, sha = LLAMA_MAC_TGZ
+                archive = data / 'llama' / 'llama-mac.tar.gz'
+            _download(url, archive, size, sha, log)
+            if os.name == 'nt':
+                with zipfile.ZipFile(archive) as z:
+                    z.extractall(data / 'llama')
+            else:
+                with tarfile.open(archive) as t:
+                    t.extractall(data / 'llama')
+            archive.unlink()
             for url, name, size, sha in MODEL_FILES:
                 if url == '__concat__':
                     parts = [(data / 'models' / f'adapter.gguf.part-{i:02d}').read_bytes() for i in range(9)]
@@ -111,7 +134,7 @@ def _provision(data):
                     continue
                 _download(url, data / 'models' / name, size, sha, log)
             ready.write_text('ok\n')
-        if (data / 'llama' / 'llama-server.exe').exists():
+        if _server_exe(data).exists():
             _start_server(data, log)
             log('local assistant Preview is ready')
     except Exception as exc:  # never take the ERP down with provisioning
@@ -120,9 +143,9 @@ def _provision(data):
 
 
 def start_background(data):
-    """Kick off first-run provisioning. Frozen Windows builds only."""
+    """Kick off first-run provisioning. Frozen Windows/macOS desktop builds."""
     if os.environ.get('MOSAIC_SKIP_ASSISTANT_PROVISION'):
         return
-    if os.name != 'nt':
+    if os.name != 'nt' and sys.platform != 'darwin':
         return
     threading.Thread(target=_provision, args=(Path(data),), daemon=True).start()
