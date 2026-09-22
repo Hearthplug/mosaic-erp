@@ -434,46 +434,46 @@ class H(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         qs = parse_qs(urlparse(self.path).query)
         if p == '/invite':
-            return self.out(200,(ROOT/'invite.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT/'invite.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p == '/signin':
-            return self.out(200,(ROOT/'signin.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT/'signin.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p in ('/auth.js','/signin.js','/signin.css','/invite.js','/google-signin.png','/microsoft-signin.svg','/mosaic-logo.svg'):
-            kind='text/css; charset=utf-8' if p.endswith('.css') else 'image/png' if p.endswith('.png') else 'image/svg+xml' if p.endswith('.svg') else 'application/javascript; charset=utf-8'; raw=GOOGLE_SIGNIN if p.endswith('google-signin.png') else MICROSOFT_SIGNIN if p.endswith('microsoft-signin.svg') else (ROOT/p[1:]).read_text(); return self.out(200,raw,kind,rid=rid) or 200
+            kind='text/css; charset=utf-8' if p.endswith('.css') else 'image/png' if p.endswith('.png') else 'image/svg+xml' if p.endswith('.svg') else 'application/javascript; charset=utf-8'; raw=GOOGLE_SIGNIN if p.endswith('google-signin.png') else MICROSOFT_SIGNIN if p.endswith('microsoft-signin.svg') else (ROOT/p[1:]).read_text(encoding='utf-8'); return self.out(200,raw,kind,rid=rid) or 200
         if p == '/':
-            return self.out(200, (ROOT / 'static.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+            return self.out(200, (ROOT / 'static.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/migration':
-            return self.out(200,(ROOT/'migration.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT/'migration.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p == '/migration.css':
-            return self.out(200,(ROOT/'migration.css').read_text(),'text/css; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT/'migration.css').read_text(encoding='utf-8'),'text/css; charset=utf-8',rid=rid) or 200
         if p == '/migration.js':
-            return self.out(200,(ROOT/'migration.js').read_text(),'application/javascript; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT/'migration.js').read_text(encoding='utf-8'),'application/javascript; charset=utf-8',rid=rid) or 200
         if p == '/interview':
-            return self.out(200, (ROOT / 'interview.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+            return self.out(200, (ROOT / 'interview.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/assistant':
-            return self.out(200,(ROOT/'assistant.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT/'assistant.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p in ('/assistant.css','/assistant.js'):
-            kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(),kind,rid=rid) or 200
+            kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p in ('/interview.css','/retail.css','/accounting.css'):
-            return self.out(200,(ROOT / p[1:]).read_text(),'text/css; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT / p[1:]).read_text(encoding='utf-8'),'text/css; charset=utf-8',rid=rid) or 200
         if p == '/interview.js':
-            return self.out(200, (ROOT / 'interview.js').read_text(), 'application/javascript; charset=utf-8', rid=rid) or 200
+            return self.out(200, (ROOT / 'interview.js').read_text(encoding='utf-8'), 'application/javascript; charset=utf-8', rid=rid) or 200
         if p == '/operations':
-            return self.out(200,(ROOT/'operations.html').read_text(),'text/html; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT/'operations.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p == '/operations.css':
-            return self.out(200,(ROOT/'operations.css').read_text(),'text/css; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT/'operations.css').read_text(encoding='utf-8'),'text/css; charset=utf-8',rid=rid) or 200
         if p == '/operations.js':
-            return self.out(200,(ROOT/'operations.js').read_text(),'application/javascript; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT/'operations.js').read_text(encoding='utf-8'),'application/javascript; charset=utf-8',rid=rid) or 200
         if p == '/retail':
-            return self.out(200, (ROOT / 'retail.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+            return self.out(200, (ROOT / 'retail.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/accounting':
-            return self.out(200, (ROOT / 'accounting.html').read_text(), 'text/html; charset=utf-8', rid=rid) or 200
+            return self.out(200, (ROOT / 'accounting.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/retail.js':
-            return self.out(200,(ROOT / 'retail.js').read_text(),'application/javascript; charset=utf-8',rid=rid) or 200
+            return self.out(200,(ROOT / 'retail.js').read_text(encoding='utf-8'),'application/javascript; charset=utf-8',rid=rid) or 200
         if p == '/accounting.js':
-            return self.out(200, (ROOT / 'accounting.js').read_text(), 'application/javascript; charset=utf-8', rid=rid) or 200
+            return self.out(200, (ROOT / 'accounting.js').read_text(encoding='utf-8'), 'application/javascript; charset=utf-8', rid=rid) or 200
         if p in ('/static.css', '/static.js'):
             kind = 'text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8'
-            return self.out(200, (ROOT / p[1:]).read_text(), kind, hdrs={'Cache-Control': 'public, max-age=3600'}, rid=rid) or 200
+            return self.out(200, (ROOT / p[1:]).read_text(encoding='utf-8'), kind, hdrs={'Cache-Control': 'public, max-age=3600'}, rid=rid) or 200
         if p == '/api/invitations/inspect':
             x=STORE.invitation(qs.get('token',[''])[0]); return self.out(200 if x else 404,({'invitation':x} if x else {'error':'Invitation is invalid or expired'}),rid=rid) or (200 if x else 404)
         if p == '/api/oauth/providers':
