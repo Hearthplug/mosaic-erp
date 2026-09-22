@@ -2,9 +2,9 @@
 
 Mosaic is an interview-native operational ERP for core retailer work. An owner describes the business in plain language; Mosaic provisions the relevant workflows, reports, branding, verification tasks and fine-grained staff roles. The same system then runs persistent buying, receiving, selling, returns/refunds, stock, cash, supplier bills/payments, reconciliation, period close and core accounting reports.
 
-## Scope of v1.2.0
+## Scope of v1.3.2
 
-v1.2.0 is an evidence-backed **production-core retailer ERP release candidate**. It is not a claim of complete advanced-retail or enterprise-suite breadth.
+v1.3.2 is an evidence-backed **production-core retailer ERP release**. It is not a claim of complete advanced-retail or enterprise-suite breadth. Since v1.2.0: the Modern Ledger app UI, the fine-tuned local assistant in Preview, one-download Windows and Mac desktop apps, and a hardened hosted HTTPS path.
 
 Implemented and source-tested:
 
@@ -23,9 +23,14 @@ Explicitly excluded:
 - advanced modules such as held carts, promotions, printable fiscal receipts, deep batch/expiry/serial operations, landed cost, manufacturing, payroll and broad enterprise-suite replacement
 - managed hosting, database HA/PITR, target-cluster failover/capacity evidence or an operator restore certificate
 
-## Shop PC or anywhere access
+## Download the desktop app
 
-Use the Windows desktop installer or local Python path when Mosaic should stay on the shop PC. Use the hosted Docker/Helm path when the owner and staff need to check the same shop from a phone or another computer. The hosted UI runs in the phone browser; there is no separate mobile app. Hosted access requires HTTPS and external PostgreSQL. See [check your shop from anywhere](docs/HOSTED_ACCESS.md).
+- **Windows:** [MosaicERP-windows-x64.exe](https://github.com/Hearthplug/mosaic-erp/releases/download/v1.3.2/MosaicERP-windows-x64.exe) - run it and Mosaic opens in your browser at a private localhost address. The app is not code-signed yet; if SmartScreen shows "Windows protected your PC", choose **More info**, then **Run anyway**.
+- **Mac (Apple Silicon):** [MosaicERP-macos-arm64.dmg](https://github.com/Hearthplug/mosaic-erp/releases/download/v1.3.2/MosaicERP-macos-arm64.dmg) - open the dmg, drag Mosaic ERP to Applications, then right-click the app and choose **Open** on first run (the app is not signed with an Apple Developer ID yet). On an Intel Mac, use the guided install below.
+
+Both desktop apps include the optional local assistant Preview: on first run the app downloads the assistant model (about 1.2 GB, sha256-verified) in the background, and everything else works while it downloads.
+
+To check the same shop from a phone or another computer, use the hosted path instead: [check your shop from anywhere](docs/HOSTED_ACCESS.md). The hosted UI runs in the phone browser over HTTPS; there is no separate mobile app.
 
 ## Start locally
 
@@ -42,7 +47,7 @@ SQLite is for evaluation and simple single-process use. It includes an integrity
 
 Use an external PostgreSQL 16+ service and the supplied Compose or Helm path. Runtime and schema-migration credentials are separate. Operators must provide TLS/DNS, secret management, managed database HA/PITR, monitoring, capacity testing and an isolated restore drill against the exact target environment. See [hosted access](docs/HOSTED_ACCESS.md), [deployment](docs/DEPLOYMENT.md), [PostgreSQL operations](docs/POSTGRESQL.md), and [identity-provider deployment](docs/DEPLOYMENT.md#google-and-microsoft-sign-in).
 
-The reviewed v1.2.0 product tree is [`8235d04bd53ed402e862bc2b77d832e7adc382de`](https://api.github.com/repos/Hearthplug/mosaic-erp/git/trees/8235d04bd53ed402e862bc2b77d832e7adc382de?recursive=1). Release-infrastructure commit [`5d6c3fc94a4c55ef2f8add3a0bf17b0732b0f91b`](https://github.com/Hearthplug/mosaic-erp/commit/5d6c3fc94a4c55ef2f8add3a0bf17b0732b0f91b) adds the independent publication gate without changing that reviewed product tree; its successful [source/deployment and PostgreSQL CI](https://github.com/Hearthplug/mosaic-erp/actions/runs/35393974456) verifies the product plus publication-workflow parent on September 19, 2026. This documentation update cites those prior verified inputs and does not claim that run tested this docs-only commit. Fresh v1.2.0 archives, checksums, image digests, signatures, SBOM/provenance and vulnerability-scan evidence must still be generated and verified before publication. No v1.1.0 artifact is evidence for v1.2.0.
+Current release: [v1.3.2](https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.3.2), with honest per-release notes and the evidence each gate produced. Earlier releases (v1.1.0 blueprint/configuration, v1.2.0 production-core candidate, v1.3.0 assistant Preview, v1.3.1 Windows desktop app) keep their own artifacts and evidence; no earlier release's evidence is reused for a later one.
 
 Google and Microsoft controls use provider-published sign-in assets and real configuration-aware OIDC routes. Live activation remains deployment-owned: the operator must provide a canonical HTTPS domain, register exact callbacks with each provider, select the Microsoft account type, complete required consent/domain review and provision rotated secrets. Unconfigured controls remain disabled.
 
@@ -52,6 +57,11 @@ Candidate jurisdiction packs are sourced and versioned inputs. Calculations stay
 
 ## History
 
-v1.1.0 remains the earlier blueprint/configuration release: <https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.1.0>. Its artifacts and evidence apply only to that release.
+- v1.3.1: one-download Windows desktop app with the assistant Preview bundled, Mosaic logo across the UI, download section on the product page.
+- v1.3.0: fine-tuned local assistant in Preview (owner-confirmed drafts, measured frozen-contract evidence) on top of the production-core release.
+- v1.2.0: production-core retailer ERP release candidate.
+- v1.1.0: earlier blueprint/configuration release: <https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.1.0>.
+
+Each release's artifacts and evidence apply only to that release.
 
 MIT licensed.

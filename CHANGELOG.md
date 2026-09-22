@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.3.2
+
+- One-download Mac desktop app for Apple Silicon (unsigned, right-click > Open on first run) with the same bundled assistant Preview as Windows
+- Hardened hosted HTTPS path: Helm fails closed without a single canonical https publicOrigin plus TLS; Compose requires MOSAIC_PUBLIC_ORIGIN with the app port private behind Caddy
+- Modern Ledger app UI merged
+- Windows desktop app refreshed on the same release
+
+## 1.3.1
+
+- One-download Windows desktop app (unsigned; SmartScreen guidance applies): onefile exe, per-user data dir, assistant Preview provisioned on first run with sha256-verified downloads, CI-built and smoke-tested
+- Mosaic logo across the app UI; download section on the product page
+
+## 1.3.0
+
+- Fine-tuned local assistant in Preview: understands, drafts and explains ERP actions on the shop's own machine; every action requires the owner's explicit confirmation of the exact rendered payload. Measured on the frozen development contract: all constrained outputs schema-valid, every tested unsafe request failed closed, label accuracy 84 to 86 percent
+- Evidence-backed production-core retailer release; boundaries unchanged from 1.2.0
+
 ## 1.2.0 - release candidate
 
 Production-core retailer ERP candidate:

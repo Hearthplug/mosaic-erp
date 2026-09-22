@@ -1,6 +1,6 @@
 # Check your shop from anywhere
 
-The Windows installer is the simplest choice for one shop computer. It runs only on that computer. Choose a hosted install when the owner or staff need to open the same shop from a phone or another computer.
+The Windows or Mac desktop app is the simplest choice for one shop computer. It runs only on that computer. Choose a hosted install when the owner or staff need to open the same shop from a phone or another computer.
 
 Mosaic does not need a mobile app. Its web screens adapt to a phone browser. A hosted install must use HTTPS, a private database, and normal Mosaic sign-in. Never publish port 8000 directly to the internet.
 
