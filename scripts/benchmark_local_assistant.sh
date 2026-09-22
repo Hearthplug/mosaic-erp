@@ -32,13 +32,12 @@ started=$(date +%s.%N)
 trap 'kill ${sampler:-} $pid 2>/dev/null || true' EXIT
 : > resource-samples.txt
 # Measure the actual llama-server process (child of /usr/bin/time), never the wrapper.
-(for i in $(seq 1 100); do
-  spid=$(pgrep -P "$pid" | head -1)
-  test -n "$spid" && break
-  sleep 0.2
-done
-spid=${spid:-$pid}
-while kill -0 "$pid" 2>/dev/null; do ps -o rss=,%cpu= -p "$spid" >> resource-samples.txt || true; sleep 0.1; done) & sampler=$!
+(spid=''
+while curl -fsS http://127.0.0.1:18080/health >/dev/null 2>&1 || kill -0 "$pid" 2>/dev/null; do
+  if test -z "$spid"; then spid=$(pgrep -f 'llama-server' | head -1); fi
+  if test -n "$spid"; then ps -o rss=,%cpu= -p "$spid" >> resource-samples.txt 2>/dev/null || true; fi
+  sleep 0.1
+done) & sampler=$!
 ready=0
 for i in $(seq 1 60); do
   if curl -fsS http://127.0.0.1:18080/health >/dev/null; then ready=1; break; fi
@@ -46,6 +45,11 @@ for i in $(seq 1 60); do
 done
 test "$ready" = 1
 startup_s=$(python3 -c 'import sys; print(float(sys.argv[1])-float(sys.argv[2]))' "$(date +%s.%N)" "$started")
+if ! test -s resource-samples.txt; then
+  spid=$(pgrep -f 'llama-server' | head -1)
+  if test -n "$spid"; then ps -o rss=,%cpu= -p "$spid" >> resource-samples.txt 2>/dev/null || true; fi
+fi
+echo "resource samples: $(wc -l < resource-samples.txt)"
 python3 scripts/evaluate_local_assistant.py "$arch" resource-samples.txt "$startup_s" > "benchmark-${arch}.json"
 test -s "benchmark-${arch}.json"
 python3 -m json.tool "benchmark-${arch}.json" >/dev/null
