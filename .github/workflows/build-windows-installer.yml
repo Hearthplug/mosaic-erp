@@ -25,6 +25,7 @@ on:
       - mosaic-logo.svg
 permissions:
   contents: write
+  actions: read
 jobs:
   build:
     runs-on: windows-latest
@@ -35,10 +36,19 @@ jobs:
           python-version: '3.12'
       - name: Install build dependencies
         run: pip install -r requirements.txt pyinstaller
+      - name: Fetch CI availability verdict for the local assistant
+        run: |
+          RUN_ID=$(gh run list --workflow assistant-validation.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          test -n "$RUN_ID"
+          gh run download "$RUN_ID" --name local-assistant-availability
+          python3 -c 'import json; d=json.load(open("local-assistant-availability.json")); assert d["schema"]=="mosaic-local-availability-v1" and d["available"] is True, d'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Collect packaged data files
         shell: pwsh
         run: |
           $data = (Get-ChildItem -Name *.html,*.css,*.js,mosaic-logo.svg | ForEach-Object { "--add-data=$_;." }) -join ' '
+          $data = "$data --add-data=local-assistant-availability.json;."
           Set-Content -Path build-args.txt -Value $data
       - name: Build executable
         shell: pwsh

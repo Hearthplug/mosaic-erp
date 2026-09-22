@@ -30,6 +30,16 @@ def main():
     data.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault('MOSAIC_DB_PATH', str(data / 'mosaic.db'))
     os.environ['MOSAIC_HOST'] = '127.0.0.1'
+    if getattr(sys, 'frozen', False):
+        # Local assistant Preview: loopback llama.cpp server, provisioned on
+        # first run into the per-user data dir. The availability gate file is
+        # the CI-produced verdict bundled into the exe at build time.
+        os.environ.setdefault('MOSAIC_ASSISTANT_LOCAL_URL', 'http://127.0.0.1:18080')
+        gate = Path(getattr(sys, '_MEIPASS', '.')) / 'local-assistant-availability.json'
+        if gate.exists():
+            os.environ.setdefault('MOSAIC_ASSISTANT_LOCAL_AVAILABILITY_FILE', str(gate))
+        from scripts.assistant_provision import start_background
+        start_background(data)
     port = int(os.getenv('PORT', '0')) or _free_port()
     os.environ['PORT'] = str(port)
 
