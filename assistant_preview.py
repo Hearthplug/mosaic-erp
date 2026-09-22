@@ -8,7 +8,7 @@ its hash; changed parameters are a new draft and need a new approval.
 High-risk, unsupported, invalid, or fail-closed outputs can never use it.
 """
 from __future__ import annotations
-import hashlib, importlib.util, ipaddress, json, os, secrets, socket, urllib.parse, urllib.request
+import hashlib, importlib.util, ipaddress, json, os, re, secrets, socket, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from store import Store, canon, utcnow, Conflict, NotFound
@@ -201,6 +201,53 @@ EXPLAIN_ONLY = {
 GUIDANCE_KINDS = {'guidance', 'guidance.docker', 'guidance.kubernetes'}
 
 
+_SLOT_TOKEN_SPLIT = re.compile(r'[^a-z0-9]+')
+
+
+def _stem(token):
+    for suffix in ('ally', 'ly', 'ies', 'es', 's'):
+        if token.endswith(suffix) and len(token) - len(suffix) >= 3:
+            return token[:-len(suffix)]
+    return token
+
+
+def _stemmed_tokens(text):
+    return {_stem(t) for t in _SLOT_TOKEN_SPLIT.split(text.lower()) if t}
+
+
+def _flat_text(text):
+    return ' '.join(_SLOT_TOKEN_SPLIT.split(text.lower())).strip()
+
+
+def _slot_value_grounded(prop_schema, value, message_stems, flat):
+    """Every drafted slot value must come from the owner's own words."""
+    if 'const' in prop_schema:
+        return True
+    text = str(value)
+    if 'pattern' in prop_schema:
+        return _flat_text(text).replace(' ', '-') in flat.replace(' ', '-')
+    value_stems = _stemmed_tokens(text)
+    if not value_stems:
+        return False
+    if 'enum' in prop_schema:
+        return bool(value_stems & message_stems)
+    return value_stems <= message_stems
+
+
+def _grounded_slots(label, slots, message):
+    """Fail closed to clarify when any drafted slot value is invented."""
+    if not slots:
+        return True
+    schema = CONTRACT['schemas'][CONTRACT['labels'][label]]
+    properties = schema.get('properties', {})
+    message_stems = _stemmed_tokens(message)
+    flat = _flat_text(message)
+    for prop, value in slots.items():
+        if isinstance(value, str) and value and not _slot_value_grounded(properties.get(prop, {}), value, message_stems, flat):
+            return False
+    return True
+
+
 class AssistantPreview:
     """Preview runtime: draft -> explicit confirmation or Approve once -> execute once."""
 
@@ -221,6 +268,8 @@ class AssistantPreview:
         client = self.client or LocalModelClient()
         label = client.classify(message)
         slots = client.fill_slots(message, label)
+        if label not in ('CLARIFY', 'REJECT') and not _grounded_slots(label, slots, message):
+            label, slots = 'CLARIFY', {}
         rendered = _RUNTIME.render_typed_intent(label, slots, 1.0, CONTRACT)
         return rendered['kind'], rendered['slots']
 
