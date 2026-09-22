@@ -1,12 +1,364 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mosaic ERP | A retail business system shaped around your shop</title><meta name="description" content="Set up and run evidence-backed core retail work: buying, receiving, selling, returns, stock, cash, bills, reconciliation and core accounts."><link rel="canonical" href="https://hearthplug.github.io/mosaic-erp/"><meta property="og:type" content="website"><meta property="og:site_name" content="Mosaic ERP"><meta property="og:title" content="Mosaic ERP | A retail business system shaped around your shop"><meta property="og:description" content="A guided business interview turns how your shop works into real controls for tested core retail operations and accounts."><meta property="og:url" content="https://hearthplug.github.io/mosaic-erp/"><meta property="og:image" content="https://hearthplug.github.io/mosaic-erp/assets/mosaic-overview.svg"><meta property="og:image:alt" content="Mosaic ERP retail blueprint showing sales, inventory, tax settings and guided questions"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Mosaic ERP | Shaped around your shop"><meta name="twitter:description" content="Turn a simple retail business interview into real controls for tested core retail work."><meta name="twitter:image" content="https://hearthplug.github.io/mosaic-erp/assets/mosaic-overview.svg"><script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Mosaic ERP","applicationCategory":"BusinessApplication","operatingSystem":"Linux, macOS, Windows with Python; Linux containers","description":"Operational ERP for evidence-backed core retailer work, with built-in deterministic chat by default and an optional bring-your-own AI provider, and a confirmation-gated local assistant in Preview.","softwareVersion":"1.3.0","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/Hearthplug/mosaic-erp","downloadUrl":"https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0","url":"https://hearthplug.github.io/mosaic-erp/","isAccessibleForFree":true}</script><style>
-:root{--ink:#10221c;--muted:#5d6c66;--paper:#f6f7f2;--card:#fff;--green:#14b88a;--deep:#09251d;--orange:#f58a18;--line:#dfe5df}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}a{color:inherit}.wrap{width:min(1160px,calc(100% - 40px));margin:auto}nav{min-height:72px;display:flex;align-items:center;justify-content:space-between}.brand{font-weight:850;font-size:21px;text-decoration:none}.mark{color:var(--green);margin-right:9px}.navlinks{display:flex;gap:20px;align-items:center}.navlinks a{text-decoration:none;font-weight:700}.button{display:inline-block;border-radius:12px;padding:12px 18px;background:var(--green);color:#062118;text-decoration:none;font-weight:850;border:0}.button.alt{background:white;border:1px solid var(--line)}.hero{padding:60px 0 76px;display:grid;grid-template-columns:1.05fr .95fr;gap:50px;align-items:center}.eyebrow{text-transform:uppercase;letter-spacing:.12em;color:#087a5d;font-size:13px;font-weight:850}.hero h1{font-size:clamp(48px,7vw,82px);line-height:.98;letter-spacing:-.05em;margin:14px 0 22px}.hero h1 span{color:var(--green)}.lede{font-size:20px;color:var(--muted);max-width:670px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.hero img{width:100%;border-radius:22px;box-shadow:0 24px 70px #0c2f2428}.statbar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:18px;overflow:hidden}.stat{background:white;padding:24px}.stat b{font-size:26px;display:block}.stat span{color:var(--muted);font-size:14px}section{padding:80px 0}.sectionhead{max-width:800px;margin-bottom:34px}.sectionhead h2{font-size:clamp(34px,5vw,55px);line-height:1.05;letter-spacing:-.04em;margin:0 0 15px}.sectionhead p{color:var(--muted);font-size:19px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:white;border:1px solid var(--line);border-radius:18px;padding:24px}.card h3{margin:5px 0 8px}.card p{color:var(--muted);margin:0}.step{color:var(--orange);font-size:13px;font-weight:900;letter-spacing:.1em}.dark{background:var(--deep);color:white}.dark .sectionhead p,.dark .card p{color:#bfd0c9}.dark .card{background:#123329;border-color:#275045}.taxes{display:flex;flex-wrap:wrap;gap:10px}.taxes span{background:white;border:1px solid var(--line);padding:8px 12px;border-radius:999px;font-weight:650}.notice{border-left:4px solid var(--orange);background:#fff;padding:20px 24px;border-radius:0 16px 16px 0}.tech{background:#eef2ed}.tech details{background:white;border:1px solid var(--line);border-radius:16px;padding:20px;margin:12px 0}.tech summary{font-weight:850;cursor:pointer}.tech p,.tech li{color:var(--muted)}.faq{display:grid;grid-template-columns:1fr 1fr;gap:14px}.faq article{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px}.faq h3{margin:0 0 6px;font-size:18px}.faq p{margin:0;color:var(--muted)}.cta{text-align:center;background:white;border:1px solid var(--line);border-radius:24px;padding:50px 25px}.cta h2{font-size:42px;margin:0 0 12px}footer{padding:38px 0;color:var(--muted);display:flex;justify-content:space-between;gap:20px}@media(max-width:800px){.wrap{width:min(100% - 24px,1160px)}.navlinks a:not(.button){display:none}.hero{grid-template-columns:1fr;padding:35px 0 55px;gap:30px}.hero h1{font-size:55px}.statbar,.grid,.faq{grid-template-columns:1fr}.sectionhead h2{font-size:38px}section{padding:58px 0}footer{flex-direction:column}}
-</style></head><body><header class="wrap"><nav><a class="brand" href="https://hearthplug.github.io/mosaic-erp/"><span class="mark">▦</span>Mosaic ERP</a><div class="navlinks"><a href="#benefits">Benefits</a><a href="#start">How to start</a><a href="#faq">Questions</a><a class="button" href="https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0">Review the v1.3.0 product tree</a></div></nav></header><main>
-<div class="wrap hero"><div><div class="eyebrow">A business system shaped around your shop</div><h1>Your shop.<br><span>One working system.</span></h1><p class="lede">Answer simple questions about how your shop works. Mosaic sets up the tested core you need to buy, receive, sell, take exact payments, handle returns, control stock and cash, pay suppliers, reconcile the bank and close the period.</p><div class="actions"><a class="button" href="https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0">Review the v1.3.0 product tree</a><a class="button alt" href="#start">See how it works</a></div></div><img src="assets/mosaic-overview.svg" alt="Mosaic ERP retail blueprint showing sales, inventory, tax settings and guided questions"></div>
-<div class="wrap statbar"><div class="stat"><b>One question</b><span>at a time</span></div><div class="stat"><b>22</b><span>tax jurisdiction guides</span></div><div class="stat"><b>2 commands</b><span>for the simple local trial</span></div><div class="stat"><b>Your data</b><span>exportable and self-hosted</span></div></div>
-<section id="benefits"><div class="wrap"><div class="sectionhead"><h2>Run the core of the shop in one explainable system.</h2><p>Mosaic connects everyday retail work to the core accounts while keeping access, changes and exceptions visible.</p></div><div class="grid"><article class="card"><h3>Fit the system to the shop</h3><p>Grocery, fashion, electronics, pharmacy, beauty, specialty retail, services, multiple stores, online channels, credit, expiry, and warranty needs change the blueprint.</p></article><article class="card"><h3>Choose how chat works</h3><p>Built-in deterministic chat is the default. You can connect your own AI provider, with setup and configuration guided in chat. Secrets use a masked secure step and never enter chat, logs, exports, or audit detail.</p></article><article class="card"><h3>Build dashboards in chat</h3><p>Ask for dashboards and supported reports in plain language. Mosaic creates a reviewable definition from allowlisted business data, never unrestricted SQL.</p></article><article class="card"><h3>Give staff safer access</h3><p>Give staff only the actions, locations, amounts and record states they need. Sessions and invitations are revocable, and changes are audited.</p></article><article class="card"><h3>Reduce repeated handoffs</h3><p>Carry approved purchases, sales, returns, supplier bills, payments and bank matches into an immutable double-entry record and core reports.</p></article><article class="card"><h3>Handle tax questions carefully</h3><p>Country-specific questions, source links, dates, and warnings help uncover facts that cannot safely be guessed. Professional review still matters.</p></article><article class="card"><h3>Keep control of the information</h3><p>Export your workspace, self-host the software and use the included local backup/restore path. Production recovery and availability remain the operator’s job.</p></article></div></div></section>
-<section id="start" class="dark"><div class="wrap"><div class="sectionhead"><h2>How a business owner starts.</h2><p>Start locally with the separate Docker Desktop guide. Kubernetes is a professional production path and uses external PostgreSQL.</p></div><div class="grid"><article class="card"><span class="step">1 · OPEN</span><h3>Run the local trial</h3><p>Follow the <a href="https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DOCKER_DESKTOP.md">Docker Desktop guide</a>, start Mosaic, then open it in the browser. Create the owner account in the browser; no workspace or API key is shown to ordinary users.</p></article><article class="card"><span class="step">2 · ANSWER</span><h3>Describe the business</h3><p>Work through plain questions about products, stores, sales channels, stock, credit, returns, services, staff, tax registration, and optional AI-provider setup. Configuration stays chat-guided; provider secrets are entered only in a masked secure step.</p></article><article class="card"><span class="step">3 · PREVIEW</span><h3>Watch the sample business change</h3><p>See Mosaic select real workflows, reports, roles, verification tasks and business terms from each answer.</p></article><article class="card"><span class="step">4 · REVIEW</span><h3>Bring in the right people</h3><p>Review the planned controls with staff. The owner can verify tax and generated reports in one click; professional review is recommended.</p></article><article class="card"><span class="step">5 · CONTROL</span><h3>Save, explain, and undo</h3><p>Keep configuration versions and audit history, and roll back configuration when a reviewed choice needs to be reversed.</p></article><article class="card"><span class="step">6 · EXPORT</span><h3>Take the plan with you</h3><p>Use the configured system for its tested core retailer work and export the workspace when needed. Stay within the stated release boundaries.</p></article></div></div></section>
-<section><div class="wrap"><div class="sectionhead"><h2>What a normal day can cover.</h2><p>Mosaic runs the tested core retailer flow, with plain screens for the owner and team.</p></div><div class="grid"><article class="card"><h3>Morning</h3><p>See the core numbers that matter: stock, cash, supplier bills, aging, trial balance, profit and loss, and balance sheet.</p></article><article class="card"><h3>During the day</h3><p>Raise and approve purchases, receive stock, sell with exact tenders, process returns, move and count stock, and close cash.</p></article><article class="card"><h3>When the business changes</h3><p>Add a store, staff role or reviewed configuration change with an audit trail. Reconcile bills, payments and the bank, then lock a closed period.</p></article></div><div class="notice" style="margin-top:24px"><strong>Release boundary:</strong> v1.3.0 covers the tested production core for retailer operations and core accounts. It does not claim statutory invoice formats or filing, advanced retail/manufacturing/payroll modules, managed hosting, or certified operator recovery and availability.</div></div></section>
-<section><div class="wrap"><div class="sectionhead"><h2>Guidance for 22 tax jurisdictions.</h2><p>Mosaic asks the business facts each location needs and keeps official source links and dates with the configuration.</p></div><div class="taxes"><span>India</span><span>UAE</span><span>Singapore</span><span>China</span><span>Vietnam</span><span>Malaysia</span><span>UK</span><span>USA</span><span>Canada</span><span>European Union</span><span>Australia</span><span>New Zealand</span><span>Japan</span><span>South Korea</span><span>Saudi Arabia</span><span>South Africa</span><span>Brazil</span><span>Mexico</span><span>Indonesia</span><span>Philippines</span><span>Thailand</span><span>Switzerland</span></div><div class="notice" style="margin-top:24px">These are configuration guides, not tax filings, certification, legal advice, or tax advice. The owner can verify the reviewed configuration; professional review is recommended.</div></div></section>
-<section id="faq"><div class="wrap"><div class="sectionhead"><h2>Questions a business owner may ask.</h2><p>Straight answers about what Mosaic can do today and where production help may be needed.</p></div><div class="faq"><article><h3>Can I try it without an IT team?</h3><p>Yes. The local trial needs Python 3.10+ and two commands. Use the Docker Desktop guide for a local trial. Kubernetes production deployment needs professional help.</p></article><article><h3>Will it fit my type of shop?</h3><p>The blueprint changes for major retail types, stores, online channels, credit, returns, expiry, warranty, services, and staff patterns.</p></article><article><h3>Can it bring in my existing products and parties?</h3><p>The validated migration flow supports products, customers, vendors, stock and reviewed open documents. Mapping, reconciliation and opening balances still need review before applying.</p></article><article><h3>Can stores and staff have different access?</h3><p>Yes. Operational access can be limited by action, location, amount and record state, with revocable sessions and an audit trail.</p></article><article><h3>What accounting work is included?</h3><p>The tested core includes supplier bills and payments, bank matching, immutable double-entry journals, period locks, aging, trial balance, profit and loss, and balance sheet. Chat can create reviewed draft statutory invoice definitions and other reports from allowlisted business data. Statutory output remains review-gated and filing is excluded.</p></article><article><h3>How does it handle tax?</h3><p>Candidate calculation packs stay disabled until the owner or a named professional verifies the exact jurisdiction, dates, sources, rules and regression cases. Statutory outputs and filing remain disabled separately.</p></article><article><h3>What if the internet fails?</h3><p>The core local Mosaic app and its built-in deterministic chat run on the same computer without internet after download. This is not an offline AI claim: the optional local assistant Preview also runs on the same computer once its pinned model is downloaded (about 1.2GB, peak memory about 2.1GB). A connected AI provider, hosted setup, or multi-store setup depends on the chosen provider, network, and infrastructure.</p></article><article><h3>Who owns the data?</h3><p>In a self-hosted setup, the business controls its environment. Mosaic supports blueprint export, workspace export, backups, and confirmed deletion.</p></article><article><h3>How do backups, upgrades, and support work?</h3><p>Backup/restore tools and runbooks are included. There is no promised managed support service. The business owns operations and should use professional platform help for production.</p></article><article><h3>Which version should I start with?</h3><p>Use the simple local trial to evaluate it. A hosted production setup uses external PostgreSQL with Docker or Kubernetes and needs professional platform help.</p></article><article><h3>Should a professional be involved?</h3><p>Professional review is recommended for tax and accounting. Kubernetes production deployment needs professional platform help; owners can run the Docker Desktop trial themselves.</p></article><article><h3>How much migration work is required?</h3><p>It depends on current systems and data quality. Mosaic stages and validates supported core records, but mapping, reconciliation and reviewed opening balances still need implementation work before a switch.</p></article><article><h3>What does it cost?</h3><p>The source is MIT licensed with no software licence fee. Hosting, implementation, migration, operations, and professional advice can still cost money.</p></article><article><h3>What is complete today?</h3><p>The source-tested v1.3.0 candidate covers guided setup, built-in deterministic chat, optional bring-your-own AI-provider setup, core purchases, receiving, sales, exact payments, returns, stock, cash, supplier bills/payments, bank matching, period close and core accounting reports. New in Preview: the fine-tuned local assistant can understand, draft and explain ERP actions, and every action stays behind the owner's explicit confirmation of the exact rendered payload. Preview quality is bounded and measured on the frozen development contract: all constrained outputs were schema-valid and every tested unsafe request failed closed, while label accuracy was 84 to 86 percent, so drafts must be read before approval. Its other explicit exclusions still apply.</p></article></div></div></section>
-<section class="tech"><div class="wrap"><div class="sectionhead"><h2>Details for a production team.</h2><p>Business owners can stop above. These links and checks help a technical evaluator plan a production environment.</p></div><details><summary>Deployment choices and verified checks</summary><p>The local trial uses SQLite. Production packages use an external PostgreSQL service through Docker Compose or Kubernetes/Helm. The v1.3.0 source candidate passed fresh application/security, PostgreSQL 17 tenant-isolation, strict Helm, deployment-validation and live container-readiness checks, plus native amd64/arm64 availability benchmarks for the local assistant Preview (two-stage constrained decoding against the frozen intent contract). Fresh tagged images, signatures, software inventory/provenance and vulnerability results remain required before publication.</p><p><a href="https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DEPLOYMENT.md">Deployment guide</a> · <a href="https://github.com/Hearthplug/mosaic-erp/blob/main/ARCHITECTURE.md">Architecture and limits</a> · <a href="https://github.com/Hearthplug/mosaic-erp/actions/runs/35393974456">Product and publication-parent checks</a> · <a href="https://github.com/Hearthplug/mosaic-erp/actions/runs/35393973681">Pages deployment</a></p></details><details><summary>What remains the operator's responsibility</summary><p>Real DNS and encrypted connections, managed PostgreSQL availability and recovery, offsite backups and restore drills, load and failover testing, identity-provider setup, monitoring, incident response, and an independent security assessment before real financial-data use.</p></details></div></section>
-<section><div class="wrap cta"><h2>Review the v1.3.0 production-core candidate.</h2><p class="lede" style="margin:0 auto 24px">Start with the two-command local evaluation. Use the source and evidence to plan a properly operated PostgreSQL production rollout.</p><a class="button" href="https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0">Review the v1.3.0 product tree</a> <a class="button alt" href="https://github.com/Hearthplug/mosaic-erp">Read the source and guides</a></div></section></main><footer class="wrap"><span>© 2026 Hearthplug · Mosaic ERP · MIT licensed</span><span><a href="https://github.com/Hearthplug/mosaic-erp">GitHub</a> · <a href="https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0">v1.3.0 product tree</a></span></footer></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mosaic ERP | A retail business system shaped around your shop</title>
+<meta name="description" content="Set up and run evidence-backed core retail work: buying, receiving, selling, returns, stock, cash, bills, reconciliation and core accounts.">
+<link rel="canonical" href="https://hearthplug.github.io/mosaic-erp/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Mosaic ERP">
+<meta property="og:title" content="Mosaic ERP | A retail business system shaped around your shop">
+<meta property="og:description" content="A guided business interview turns how your shop works into real controls for tested core retail operations and accounts.">
+<meta property="og:url" content="https://hearthplug.github.io/mosaic-erp/">
+<meta property="og:image" content="https://hearthplug.github.io/mosaic-erp/assets/ui-workspace.png">
+<meta property="og:image:alt" content="The Mosaic ERP workspace configured for a retail business">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mosaic ERP | Shaped around your shop">
+<meta name="twitter:description" content="Turn a simple retail business interview into real controls for tested core retail work.">
+<meta name="twitter:image" content="https://hearthplug.github.io/mosaic-erp/assets/ui-workspace.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Mosaic ERP","applicationCategory":"BusinessApplication","operatingSystem":"Linux, macOS, Windows with Python; Linux containers","description":"Operational ERP for evidence-backed core retailer work, with built-in deterministic chat by default and an optional bring-your-own AI provider, and a confirmation-gated local assistant in Preview.","softwareVersion":"1.3.0","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/Hearthplug/mosaic-erp","downloadUrl":"https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0","url":"https://hearthplug.github.io/mosaic-erp/","isAccessibleForFree":true}</script>
+<style>
+:root{
+  --ink:#0c1f19;
+  --muted:#55665f;
+  --faint:#84948e;
+  --paper:#f6f7f4;
+  --white:#ffffff;
+  --green:#0fa37e;
+  --green-deep:#0a6b52;
+  --deep:#07211a;
+  --line:#e3e8e3;
+  --radius:20px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.65 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{width:min(1120px,calc(100% - 48px));margin:auto}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:50;background:rgba(246,247,244,.82);backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px);border-bottom:1px solid rgba(12,31,25,.06)}
+.nav .wrap{min-height:60px;display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:700;font-size:18px;letter-spacing:-.02em;text-decoration:none}
+.brand .mark{color:var(--green);margin-right:8px}
+.navlinks{display:flex;gap:26px;align-items:center}
+.navlinks a{text-decoration:none;font-size:14px;font-weight:500;color:var(--muted)}
+.navlinks a:hover{color:var(--ink)}
+.navlinks .cta-nav{background:var(--ink);color:#fff;padding:7px 14px;border-radius:999px;font-weight:600}
+.navlinks .cta-nav:hover{background:#000}
+
+/* type */
+h1,h2,h3{letter-spacing:-.035em;line-height:1.06;margin:0}
+.eyebrow{font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--green-deep)}
+.lede{font-size:clamp(19px,2.2vw,22px);line-height:1.5;color:var(--muted)}
+
+/* hero */
+.hero{padding:96px 0 0;text-align:center}
+.hero h1{font-size:clamp(52px,8vw,96px);font-weight:700;margin:18px auto 24px;max-width:14ch}
+.hero h1 em{font-style:normal;color:var(--green)}
+.hero .lede{max-width:640px;margin:0 auto}
+.hero .actions{display:flex;gap:14px;justify-content:center;margin-top:34px;flex-wrap:wrap}
+.btn{display:inline-block;border-radius:999px;padding:13px 26px;font-weight:600;font-size:16px;text-decoration:none;background:var(--green);color:#fff;transition:transform .2s ease,box-shadow .2s ease}
+.btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(15,163,126,.28)}
+.btn.alt{background:transparent;color:var(--green-deep);border:1px solid var(--line)}
+.btn.alt:hover{box-shadow:0 8px 20px rgba(12,31,25,.08)}
+.shot{position:relative;margin:72px auto 0;max-width:1080px}
+.shot .frame{background:var(--white);border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0;padding:10px 10px 0;box-shadow:0 40px 90px -30px rgba(7,33,26,.28)}
+.shot img{display:block;width:100%;border-radius:12px 12px 0 0}
+
+/* sections */
+section{padding:110px 0}
+.sectionhead{max-width:680px;margin-bottom:56px}
+.sectionhead.center{margin-left:auto;margin-right:auto;text-align:center}
+.sectionhead h2{font-size:clamp(38px,5.4vw,60px);font-weight:700;margin:16px 0 18px}
+.sectionhead p{font-size:19px;color:var(--muted);margin:0}
+.split{display:grid;grid-template-columns:1fr 1.15fr;gap:64px;align-items:center}
+.split.flip{grid-template-columns:1.15fr 1fr}
+.split .shot{margin:0}
+.split .frame{border-radius:var(--radius);padding:10px}
+.split .frame img{border-radius:12px}
+.figure-note{font-size:13px;color:var(--faint);margin-top:14px;text-align:center}
+
+/* stat band */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;text-align:center;padding:56px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.stats b{display:block;font-size:clamp(30px,3.6vw,42px);font-weight:700;letter-spacing:-.03em}
+.stats span{font-size:14px;color:var(--muted)}
+
+/* benefits: quiet list */
+.benefits{display:grid;grid-template-columns:repeat(2,1fr);column-gap:72px}
+.benefit{padding:30px 0;border-top:1px solid var(--line)}
+.benefit h3{font-size:20px;font-weight:650;margin-bottom:8px}
+.benefit p{margin:0;color:var(--muted);font-size:16px}
+
+/* day trio */
+.day{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+.day article{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:34px}
+.day .when{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--green-deep)}
+.day h3{font-size:22px;margin:12px 0 10px}
+.day p{margin:0;color:var(--muted);font-size:16px}
+
+/* dark */
+.dark{background:var(--deep);color:#eaf2ee}
+.dark .eyebrow{color:#4fd3aa}
+.dark .sectionhead p{color:#a9bdb4}
+.dark h2{color:#fff}
+
+/* taxes */
+.taxes{display:flex;flex-wrap:wrap;gap:10px}
+.taxes span{background:var(--white);border:1px solid var(--line);padding:8px 14px;border-radius:999px;font-size:14px;font-weight:550;color:var(--muted)}
+
+/* faq */
+.faq{max-width:780px;margin:auto}
+.faq details{border-top:1px solid var(--line);padding:24px 0}
+.faq details:last-child{border-bottom:1px solid var(--line)}
+.faq summary{font-size:18px;font-weight:650;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:20px}
+.faq summary::after{content:"+";font-size:24px;font-weight:400;color:var(--faint);transition:transform .25s ease}
+.faq details[open] summary::after{transform:rotate(45deg)}
+.faq details p{color:var(--muted);margin:14px 0 0;max-width:68ch}
+
+/* tech */
+.tech details{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:22px 26px;margin:14px 0}
+.tech summary{font-weight:650;cursor:pointer}
+.tech p,.tech li{color:var(--muted)}
+.tech a{color:var(--green-deep);font-weight:600}
+
+/* notice */
+.notice{font-size:15px;color:var(--muted);border-top:1px solid var(--line);margin-top:40px;padding-top:24px}
+.notice b{color:var(--ink)}
+
+/* cta */
+.cta{text-align:center;padding:120px 0}
+.cta h2{font-size:clamp(40px,5.6vw,64px);max-width:16ch;margin:0 auto 20px}
+.cta .lede{margin:0 auto 36px;max-width:560px}
+
+footer{padding:44px 0;color:var(--faint);font-size:14px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+footer a{text-decoration:none;color:var(--muted)}
+footer a:hover{color:var(--ink)}
+
+/* motion */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+
+@media(max-width:860px){
+  .wrap{width:min(100% - 32px,1120px)}
+  .navlinks a:not(.cta-nav){display:none}
+  .hero{padding:64px 0 0}
+  .hero h1{font-size:clamp(44px,12vw,60px)}
+  section{padding:72px 0}
+  .split,.split.flip{grid-template-columns:1fr;gap:40px}
+  .split.flip .shot{order:2}
+  .stats{grid-template-columns:repeat(2,1fr);gap:24px}
+  .benefits{grid-template-columns:1fr}
+  .day{grid-template-columns:1fr}
+  .cta{padding:80px 0}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav"><div class="wrap">
+  <a class="brand" href="#top"><span class="mark">▦</span>Mosaic ERP</a>
+  <div class="navlinks">
+    <a href="#story">How it works</a>
+    <a href="#benefits">Benefits</a>
+    <a href="#faq">Questions</a>
+    <a class="cta-nav" href="https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0">Review v1.3.0</a>
+  </div>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap">
+  <div class="eyebrow reveal">A business system shaped around your shop</div>
+  <h1 class="reveal">Your shop.<br><em>One working system.</em></h1>
+  <p class="lede reveal">Answer simple questions about how your shop works. Mosaic sets up the tested core you need to buy, receive, sell, take exact payments, handle returns, control stock and cash, pay suppliers, reconcile the bank and close the period.</p>
+  <div class="actions reveal">
+    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0">Review the v1.3.0 product tree</a>
+    <a class="btn alt" href="#story">See how it works</a>
+  </div>
+  <div class="shot reveal">
+    <div class="frame"><img src="assets/ui-workspace.png" alt="The real Mosaic owner interview asking which numbers the owner checks first, with Sales, Cash counted, Money I owe suppliers and Low stock selected"></div>
+  </div>
+</div></header>
+
+<div class="wrap"><div class="stats reveal">
+  <div><b>One question</b><span>at a time</span></div>
+  <div><b>22</b><span>tax jurisdiction guides</span></div>
+  <div><b>2 commands</b><span>for the simple local trial</span></div>
+  <div><b>Your data</b><span>exportable and self-hosted</span></div>
+</div></div>
+
+<div id="story"></div>
+<section><div class="wrap split">
+  <div class="reveal">
+    <div class="eyebrow">Step one</div>
+    <h2 style="font-size:clamp(36px,4.6vw,54px);font-weight:700;margin:16px 0 18px">It starts with a conversation.</h2>
+    <p class="lede" style="font-size:19px">No forms to decode, no consultant required. Mosaic asks plain questions about your products, stores, channels, stock, credit, returns, staff and tax registration, one at a time, with the reason for every question explained.</p>
+  </div>
+  <div class="shot reveal">
+    <div class="frame" style="max-width:340px;margin-left:auto"><img src="assets/ui-interview.png" alt="The real Mosaic owner interview on a phone, asking which numbers the owner checks first, with several answers selected"></div>
+    <div class="figure-note" style="text-align:center">The real owner interview in Mosaic v1.3.0, on a phone</div>
+  </div>
+</div></section>
+
+<section style="background:var(--white)"><div class="wrap split flip">
+  <div class="shot reveal">
+    <div class="frame"><img src="assets/ui-summary.png" alt="Mosaic summarizing the business and explaining why each feature is enabled"></div>
+    <div class="figure-note">Every enabled feature comes with its reason</div>
+  </div>
+  <div class="reveal">
+    <div class="eyebrow">Step two</div>
+    <h2 style="font-size:clamp(36px,4.6vw,54px);font-weight:700;margin:16px 0 18px">Watch it become your system.</h2>
+    <p class="lede" style="font-size:19px">Each answer configures the real thing: modules, workflows, roles, controls, reports, terminology, even branding, in the running ERP rather than a plan for one. Mosaic shows you the summary and explains why every feature is enabled before anything goes live, and configuration versions can be reviewed, explained and rolled back.</p>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sectionhead center reveal">
+    <div class="eyebrow">Step three</div>
+    <h2>Run the day from one place.</h2>
+    <p>Mosaic connects everyday retail work to the core accounts while keeping access, changes and exceptions visible.</p>
+  </div>
+  <div class="shot reveal" style="margin-top:0">
+    <div class="frame" style="border-radius:var(--radius);padding:10px"><img src="assets/ui-retail.png" alt="The configured Mosaic retail workspace for Willow &amp; Main, with the owner asking show low stock in plain English and Mosaic answering from live stock data" style="border-radius:12px"></div>
+    <div class="figure-note">The configured workspace, shaped by the interview - and a plain-English question answered from live stock data</div>
+  </div>
+</div></section>
+
+<section style="background:var(--white)"><div class="wrap split">
+  <div class="reveal">
+    <div class="eyebrow">Step four</div>
+    <h2 style="font-size:clamp(36px,4.6vw,54px);font-weight:700;margin:16px 0 18px">Change things by asking.</h2>
+    <p class="lede" style="font-size:19px">Later changes do not need a settings maze. Built-in chat handles configuration in plain words, shows the exact change for review, and applies it only after you confirm. Nothing changes on its own, and applied versions can be explained and rolled back.</p>
+  </div>
+  <div class="shot reveal">
+    <div class="frame"><img src="assets/ui-chat.png" alt="Mosaic built-in chat previewing a requested change and applying it only after the owner says confirm"></div>
+    <div class="figure-note">A change requested in plain words, reviewed, then applied only after "confirm"</div>
+  </div>
+</div></section>
+
+<section class="dark" style="padding:110px 0"><div class="wrap">
+  <div class="sectionhead center reveal">
+    <div class="eyebrow">A normal day</div>
+    <h2>What a normal day can cover.</h2>
+    <p>Mosaic runs the tested core retailer flow, with plain screens for the owner and team.</p>
+  </div>
+  <div class="day">
+    <article class="reveal"><div class="when">Morning</div><h3>See what matters</h3><p>See the core numbers that matter: stock, cash, supplier bills, aging, trial balance, profit and loss, and balance sheet.</p></article>
+    <article class="reveal"><div class="when">During the day</div><h3>Keep work moving</h3><p>Raise and approve purchases, receive stock, sell with exact tenders, process returns, move and count stock, and close cash.</p></article>
+    <article class="reveal"><div class="when">When things change</div><h3>Stay in control</h3><p>Add a store, staff role or reviewed configuration change with an audit trail. Reconcile bills, payments and the bank, then lock a closed period.</p></article>
+  </div>
+  <div class="notice reveal" style="border-color:#275045;color:#a9bdb4"><b style="color:#fff">Release boundary:</b> v1.3.0 covers the tested production core for retailer operations and core accounts. It does not claim statutory invoice formats or filing, advanced retail/manufacturing/payroll modules, managed hosting, or certified operator recovery and availability.</div>
+</div></section>
+
+<section id="benefits"><div class="wrap">
+  <div class="sectionhead reveal">
+    <div class="eyebrow">Why owners choose it</div>
+    <h2>Run the core of the shop in one explainable system.</h2>
+  </div>
+  <div class="benefits">
+    <div class="benefit reveal"><h3>Fit the system to the shop</h3><p>Grocery, fashion, electronics, pharmacy, beauty, specialty retail, services, multiple stores, online channels, credit, expiry, and warranty needs change how Mosaic configures your system.</p></div>
+    <div class="benefit reveal"><h3>Choose how chat works</h3><p>Built-in deterministic chat is the default. You can connect your own AI provider, with setup and configuration guided in chat. Secrets use a masked secure step and never enter chat, logs, exports, or audit detail.</p></div>
+    <div class="benefit reveal"><h3>Build dashboards in chat</h3><p>Ask for dashboards and supported reports in plain language. Mosaic creates a reviewable definition from allowlisted business data, never unrestricted SQL.</p></div>
+    <div class="benefit reveal"><h3>Give staff safer access</h3><p>Give staff only the actions, locations, amounts and record states they need. Sessions and invitations are revocable, and changes are audited.</p></div>
+    <div class="benefit reveal"><h3>Reduce repeated handoffs</h3><p>Carry approved purchases, sales, returns, supplier bills, payments and bank matches into an immutable double-entry record and core reports.</p></div>
+    <div class="benefit reveal"><h3>Handle tax questions carefully</h3><p>Country-specific questions, source links, dates, and warnings help uncover facts that cannot safely be guessed. Professional review still matters.</p></div>
+    <div class="benefit reveal"><h3>Keep control of the information</h3><p>Export your workspace, self-host the software and use the included local backup/restore path. Production recovery and availability remain the operator's job.</p></div>
+    <div class="benefit reveal"><h3>Start without a licence fee</h3><p>The source is MIT licensed. Hosting, implementation, migration, operations, and professional advice can still cost money.</p></div>
+  </div>
+</div></section>
+
+<section style="background:var(--white)"><div class="wrap">
+  <div class="sectionhead center reveal">
+    <div class="eyebrow">Tax guidance</div>
+    <h2>Guidance for 22 tax jurisdictions.</h2>
+    <p>Mosaic asks the business facts each location needs and keeps official source links and dates with the configuration.</p>
+  </div>
+  <div class="taxes reveal" style="justify-content:center">
+    <span>India</span><span>UAE</span><span>Singapore</span><span>China</span><span>Vietnam</span><span>Malaysia</span><span>UK</span><span>USA</span><span>Canada</span><span>European Union</span><span>Australia</span><span>New Zealand</span><span>Japan</span><span>South Korea</span><span>Saudi Arabia</span><span>South Africa</span><span>Brazil</span><span>Mexico</span><span>Indonesia</span><span>Philippines</span><span>Thailand</span><span>Switzerland</span>
+  </div>
+  <div class="notice reveal" style="max-width:680px;margin-left:auto;margin-right:auto;text-align:center;border-top:0;padding-top:24px">These are configuration guides, not tax filings, certification, legal advice, or tax advice. The owner can verify the reviewed configuration; professional review is recommended.</div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="sectionhead center reveal">
+    <div class="eyebrow">How a business owner starts</div>
+    <h2>From download to a working system in six steps.</h2>
+    <p>Start locally with the separate Docker Desktop guide. Kubernetes is a professional production path and uses external PostgreSQL.</p>
+  </div>
+  <div class="benefits" style="grid-template-columns:repeat(2,1fr)">
+    <div class="benefit reveal"><h3>1 · Run the local trial</h3><p>Follow the Docker Desktop guide, start Mosaic, then open it in the browser. Create the owner account in the browser; no workspace or API key is shown to ordinary users.</p></div>
+    <div class="benefit reveal"><h3>2 · Describe the business</h3><p>Work through plain questions about products, stores, sales channels, stock, credit, returns, services, staff, tax registration, and optional AI-provider setup. Configuration stays chat-guided; provider secrets are entered only in a masked secure step.</p></div>
+    <div class="benefit reveal"><h3>3 · Watch each answer change the system</h3><p>See Mosaic configure real workflows, reports, roles, verification tasks and business terms from every answer.</p></div>
+    <div class="benefit reveal"><h3>4 · Bring in the right people</h3><p>Review the planned controls with staff. The owner can verify tax and generated reports in one click; professional review is recommended.</p></div>
+    <div class="benefit reveal"><h3>5 · Save, explain, and undo</h3><p>Keep configuration versions and audit history, and roll back configuration when a reviewed choice needs to be reversed.</p></div>
+    <div class="benefit reveal"><h3>6 · Export and keep control</h3><p>Use the configured system for its tested core retailer work and export the workspace when needed. Stay within the stated release boundaries.</p></div>
+  </div>
+</div></section>
+
+<section id="faq" style="background:var(--white)"><div class="wrap">
+  <div class="sectionhead center reveal">
+    <div class="eyebrow">Questions</div>
+    <h2>Questions a business owner may ask.</h2>
+    <p>Straight answers about what Mosaic can do today and where production help may be needed.</p>
+  </div>
+  <div class="faq reveal">
+    <details><summary>Can I try it without an IT team?</summary><p>Yes. The local trial needs Python 3.10+ and two commands. Use the Docker Desktop guide for a local trial. Kubernetes production deployment needs professional help.</p></details>
+    <details><summary>Will it fit my type of shop?</summary><p>The configured system changes for major retail types, stores, online channels, credit, returns, expiry, warranty, services, and staff patterns.</p></details>
+    <details><summary>Can it bring in my existing products and parties?</summary><p>The validated migration flow supports products, customers, vendors, stock and reviewed open documents. Mapping, reconciliation and opening balances still need review before applying.</p></details>
+    <details><summary>Can stores and staff have different access?</summary><p>Yes. Operational access can be limited by action, location, amount and record state, with revocable sessions and an audit trail.</p></details>
+    <details><summary>What accounting work is included?</summary><p>The tested core includes supplier bills and payments, bank matching, immutable double-entry journals, period locks, aging, trial balance, profit and loss, and balance sheet. Chat can create reviewed draft statutory invoice definitions and other reports from allowlisted business data. Statutory output remains review-gated and filing is excluded.</p></details>
+    <details><summary>How does it handle tax?</summary><p>Candidate calculation packs stay disabled until the owner or a named professional verifies the exact jurisdiction, dates, sources, rules and regression cases. Statutory outputs and filing remain disabled separately.</p></details>
+    <details><summary>What if the internet fails?</summary><p>The core local Mosaic app and its built-in deterministic chat run on the same computer without internet after download. This is not an offline AI claim: the optional local assistant Preview also runs on the same computer once its pinned model is downloaded (about 1.2GB, peak memory about 2.1GB). A connected AI provider, hosted setup, or multi-store setup depends on the chosen provider, network, and infrastructure.</p></details>
+    <details><summary>Who owns the data?</summary><p>In a self-hosted setup, the business controls its environment. Mosaic supports configuration export, workspace export, backups, and confirmed deletion.</p></details>
+    <details><summary>How do backups, upgrades, and support work?</summary><p>Backup/restore tools and runbooks are included. There is no promised managed support service. The business owns operations and should use professional platform help for production.</p></details>
+    <details><summary>Which version should I start with?</summary><p>Use the simple local trial to evaluate it. A hosted production setup uses external PostgreSQL with Docker or Kubernetes and needs professional platform help.</p></details>
+    <details><summary>Should a professional be involved?</summary><p>Professional review is recommended for tax and accounting. Kubernetes production deployment needs professional platform help; owners can run the Docker Desktop trial themselves.</p></details>
+    <details><summary>How much migration work is required?</summary><p>It depends on current systems and data quality. Mosaic stages and validates supported core records, but mapping, reconciliation and reviewed opening balances still need implementation work before a switch.</p></details>
+    <details><summary>What does it cost?</summary><p>The source is MIT licensed with no software licence fee. Hosting, implementation, migration, operations, and professional advice can still cost money.</p></details>
+    <details><summary>What is complete today?</summary><p>The source-tested v1.3.0 candidate covers guided setup, built-in deterministic chat, optional bring-your-own AI-provider setup, core purchases, receiving, sales, exact payments, returns, stock, cash, supplier bills/payments, bank matching, period close and core accounting reports. New in Preview: the fine-tuned local assistant can understand, draft and explain ERP actions, and every action stays behind the owner's explicit confirmation of the exact rendered payload. Preview quality is bounded and measured on the frozen development contract: all constrained outputs were schema-valid and every tested unsafe request failed closed, while label accuracy was 84 to 86 percent, so drafts must be read before approval. Its other explicit exclusions still apply.</p></details>
+  </div>
+</div></section>
+
+<section class="tech" style="background:var(--paper);padding-top:80px"><div class="wrap">
+  <div class="sectionhead reveal">
+    <div class="eyebrow">For a production team</div>
+    <h2 style="font-size:clamp(30px,4vw,44px)">Details for a production team.</h2>
+    <p>Business owners can stop above. These links and checks help a technical evaluator plan a production environment.</p>
+  </div>
+  <details class="reveal"><summary>Deployment choices and verified checks</summary>
+    <p>The local trial uses SQLite. Production packages use an external PostgreSQL service through Docker Compose or Kubernetes/Helm. The v1.3.0 source candidate passed fresh application/security, PostgreSQL 17 tenant-isolation, strict Helm, deployment-validation and live container-readiness checks, plus native amd64/arm64 availability benchmarks for the local assistant Preview (two-stage constrained decoding against the frozen intent contract). Fresh tagged images, signatures, software inventory/provenance and vulnerability results remain required before publication.</p>
+    <p><a href="https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DEPLOYMENT.md">Deployment guide</a> · <a href="https://github.com/Hearthplug/mosaic-erp/blob/main/ARCHITECTURE.md">Architecture and limits</a> · <a href="https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.3.0">Product and publication-parent checks</a> · <a href="https://github.com/Hearthplug/mosaic-erp/settings/pages">Pages deployment</a></p>
+  </details>
+  <details class="reveal"><summary>What remains the operator's responsibility</summary>
+    <p>Real DNS and encrypted connections, managed PostgreSQL availability and recovery, offsite backups and restore drills, load and failover testing, identity-provider setup, monitoring, incident response, and an independent security assessment before real financial-data use.</p>
+  </details>
+</div></section>
+
+<section class="cta"><div class="wrap reveal">
+  <h2>Review the v1.3.0 production-core candidate.</h2>
+  <p class="lede">Start with the two-command local evaluation. Use the source and evidence to plan a properly operated PostgreSQL production rollout.</p>
+  <div class="actions" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0">Review the v1.3.0 product tree</a>
+    <a class="btn alt" href="https://github.com/Hearthplug/mosaic-erp">Read the source and guides</a>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div>© 2026 Hearthplug · Mosaic ERP · MIT licensed</div>
+  <div><a href="https://github.com/Hearthplug/mosaic-erp">GitHub</a> · <a href="https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0">v1.3.0 product tree</a></div>
+</div></footer>
+
+<script>
+(function(){
+  var els = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window)) { els.forEach(function(e){e.classList.add('in')}); return; }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+  }, {threshold: .12});
+  els.forEach(function(e){ io.observe(e); });
+})();
+</script>
+</body>
+</html>
