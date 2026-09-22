@@ -1,5 +1,7 @@
 # Production deployment
 
+For the plain-English owner path and phone checks, start with [Check your shop from anywhere](HOSTED_ACCESS.md). A hosted installation uses the responsive web UI; it is not a separate mobile app. The public route must be HTTPS.
+
 ## Local evaluation
 
 ```bash

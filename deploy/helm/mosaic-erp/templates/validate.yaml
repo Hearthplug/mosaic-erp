@@ -2,3 +2,9 @@
 {{- if not .Values.database.secretName }}{{ fail "database.secretName is required" }}{{- end }}
 {{- if and .Values.database.runMigrationJob (not .Values.database.migrationSecretName) }}{{ fail "database.migrationSecretName is required when migration Job is enabled" }}{{- end }}
 {{- if and .Values.networkPolicy.enabled (not .Values.networkPolicy.databaseCIDR) }}{{ fail "set networkPolicy.databaseCIDR or explicitly disable NetworkPolicy after reviewing cluster egress controls" }}{{- end }}
+
+{{- if .Values.ingress.enabled }}
+{{- if not (regexMatch "^https://[^/]+$" .Values.config.publicOrigin) }}{{ fail "hosted ingress requires config.publicOrigin to be one canonical https:// origin with no path" }}{{- end }}
+{{- if not .Values.ingress.tls }}{{ fail "hosted ingress requires ingress.tls; never expose Mosaic over plain HTTP" }}{{- end }}
+{{- range .Values.ingress.hosts }}{{- if ne .host (trimPrefix "https://" $.Values.config.publicOrigin) }}{{ fail "every ingress host must match config.publicOrigin" }}{{- end }}{{- end }}
+{{- end }}

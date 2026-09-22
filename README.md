@@ -23,6 +23,10 @@ Explicitly excluded:
 - advanced modules such as held carts, promotions, printable fiscal receipts, deep batch/expiry/serial operations, landed cost, manufacturing, payroll and broad enterprise-suite replacement
 - managed hosting, database HA/PITR, target-cluster failover/capacity evidence or an operator restore certificate
 
+## Shop PC or anywhere access
+
+Use the Windows desktop installer or local Python path when Mosaic should stay on the shop PC. Use the hosted Docker/Helm path when the owner and staff need to check the same shop from a phone or another computer. The hosted UI runs in the phone browser; there is no separate mobile app. Hosted access requires HTTPS and external PostgreSQL. See [check your shop from anywhere](docs/HOSTED_ACCESS.md).
+
 ## Start locally
 
 ```bash
@@ -36,7 +40,7 @@ SQLite is for evaluation and simple single-process use. It includes an integrity
 
 ## Production deployment
 
-Use an external PostgreSQL 16+ service and the supplied Compose or Helm path. Runtime and schema-migration credentials are separate. Operators must provide TLS/DNS, secret management, managed database HA/PITR, monitoring, capacity testing and an isolated restore drill against the exact target environment. See [deployment](docs/DEPLOYMENT.md), [PostgreSQL operations](docs/POSTGRESQL.md), and [identity-provider deployment](docs/DEPLOYMENT.md#google-and-microsoft-sign-in).
+Use an external PostgreSQL 16+ service and the supplied Compose or Helm path. Runtime and schema-migration credentials are separate. Operators must provide TLS/DNS, secret management, managed database HA/PITR, monitoring, capacity testing and an isolated restore drill against the exact target environment. See [hosted access](docs/HOSTED_ACCESS.md), [deployment](docs/DEPLOYMENT.md), [PostgreSQL operations](docs/POSTGRESQL.md), and [identity-provider deployment](docs/DEPLOYMENT.md#google-and-microsoft-sign-in).
 
 The reviewed v1.2.0 product tree is [`8235d04bd53ed402e862bc2b77d832e7adc382de`](https://api.github.com/repos/Hearthplug/mosaic-erp/git/trees/8235d04bd53ed402e862bc2b77d832e7adc382de?recursive=1). Release-infrastructure commit [`5d6c3fc94a4c55ef2f8add3a0bf17b0732b0f91b`](https://github.com/Hearthplug/mosaic-erp/commit/5d6c3fc94a4c55ef2f8add3a0bf17b0732b0f91b) adds the independent publication gate without changing that reviewed product tree; its successful [source/deployment and PostgreSQL CI](https://github.com/Hearthplug/mosaic-erp/actions/runs/35393974456) verifies the product plus publication-workflow parent on September 19, 2026. This documentation update cites those prior verified inputs and does not claim that run tested this docs-only commit. Fresh v1.2.0 archives, checksums, image digests, signatures, SBOM/provenance and vulnerability-scan evidence must still be generated and verified before publication. No v1.1.0 artifact is evidence for v1.2.0.
 

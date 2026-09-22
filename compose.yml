@@ -13,6 +13,7 @@ services:
       MOSAIC_DB_POOL_MIN: ${MOSAIC_DB_POOL_MIN:-1}
       MOSAIC_DB_POOL_MAX: ${MOSAIC_DB_POOL_MAX:-10}
       MOSAIC_RATE_LIMIT_RPM: ${MOSAIC_RATE_LIMIT_RPM:-120}
+      MOSAIC_PUBLIC_ORIGIN: ${MOSAIC_PUBLIC_ORIGIN:?Set the canonical https:// domain; see docs/HOSTED_ACCESS.md}
       MOSAIC_ASSISTANT_SECRET_DIR: /run/mosaic-assistant-secrets
       # Local assistant Preview stays dark unless the operator sets both of these
       # (loopback/private URL only) and mounts the CI availability verdict JSON.

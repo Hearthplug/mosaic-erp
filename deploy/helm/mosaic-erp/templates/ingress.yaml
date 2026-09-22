@@ -6,7 +6,8 @@ metadata:
   labels:
     {{- include "mosaic.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
-  annotations: {{ toYaml . | nindent 4 }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   {{- with .Values.ingress.className }}
