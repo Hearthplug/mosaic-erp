@@ -1,4 +1,4 @@
-name: build-windows-installer
+name: build-mac-installer
 on:
   workflow_dispatch:
   push:
@@ -8,7 +8,7 @@ on:
       - mosaic_launcher.py
       - scripts/smoke_exe.py
       - scripts/assistant_provision.py
-      - .github/workflows/build-windows-installer.yml
+      - .github/workflows/build-mac-installer.yml
       - app.py
       - '*.html'
       - '*.css'
@@ -19,7 +19,7 @@ on:
       - mosaic_launcher.py
       - scripts/smoke_exe.py
       - scripts/assistant_provision.py
-      - .github/workflows/build-windows-installer.yml
+      - .github/workflows/build-mac-installer.yml
       - app.py
       - '*.html'
       - '*.css'
@@ -30,7 +30,7 @@ permissions:
   actions: read
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,31 +48,37 @@ jobs:
           python -c 'import json; d=json.load(open("local-assistant-availability.json")); assert d["schema"]=="mosaic-local-availability-v1" and d["available"] is True, d'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build executable
-        shell: pwsh
+      - name: Build the app bundle
+        shell: bash
         run: |
-          $pyArgs = @('--noconfirm','--onefile','--console','--name','MosaicERP')
-          Get-ChildItem -Name *.html,*.css,*.js,mosaic-logo.svg | ForEach-Object { $pyArgs += "--add-data=${_};." }
-          $pyArgs += '--add-data=local-assistant-availability.json;.'
+          pyArgs=(--noconfirm --windowed --name MosaicERP --osx-bundle-identifier com.hearthplug.mosaicerp)
+          for f in *.html *.css *.js mosaic-logo.svg; do pyArgs+=("--add-data=$f:."); done
+          pyArgs+=(--add-data=local-assistant-availability.json:.)
           # Frozen assistant contract: assistant_preview.py loads these by file
           # path at runtime, so PyInstaller must pack them as data.
-          Get-ChildItem local_assistant_finetune/v3/runtime.py,local_assistant_finetune/v3/label_map.json,local_assistant_finetune/v3/slot_schemas.json,local_assistant_finetune/v3/intent_label.gbnf | ForEach-Object { $pyArgs += "--add-data=$($_.FullName);local_assistant_finetune/v3" }
-          pyinstaller @pyArgs mosaic_launcher.py
-      - name: Smoke-test the executable
-        run: python scripts/smoke_exe.py dist\MosaicERP.exe
+          for f in local_assistant_finetune/v3/runtime.py local_assistant_finetune/v3/label_map.json local_assistant_finetune/v3/slot_schemas.json local_assistant_finetune/v3/intent_label.gbnf; do pyArgs+=("--add-data=$f:local_assistant_finetune/v3"); done
+          pyinstaller "${pyArgs[@]}" mosaic_launcher.py
+      - name: Smoke-test the app
+        run: python scripts/smoke_exe.py dist/MosaicERP.app/Contents/MacOS/MosaicERP
       - if: failure()
         uses: actions/upload-artifact@e454baaac2be505c9450e11b8f3215c6fc023ce8
-        with: {name: smoke-exe-log, path: smoke-exe.log, if-no-files-found: ignore, retention-days: 14}
+        with: {name: smoke-mac-log, path: smoke-exe.log, if-no-files-found: ignore, retention-days: 14}
+      - name: Package the dmg
+        shell: bash
+        run: |
+          mkdir -p dist/dmg-stage
+          cp -R dist/MosaicERP.app dist/dmg-stage/
+          ln -s /Applications dist/dmg-stage/Applications
+          hdiutil create -volname "Mosaic ERP" -srcfolder dist/dmg-stage -ov -format UDZO dist/MosaicERP-macos-arm64.dmg
+          shasum -a 256 dist/MosaicERP-macos-arm64.dmg
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MosaicERP-windows-x64
-          path: dist/MosaicERP.exe
+          name: MosaicERP-macos-arm64
+          path: dist/MosaicERP-macos-arm64.dmg
           if-no-files-found: error
       - name: Attach to release on tags
         if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          cp dist/MosaicERP.exe dist/MosaicERP-windows-x64.exe
-          gh release upload "${{ github.ref_name }}" dist/MosaicERP-windows-x64.exe --clobber
+        run: gh release upload "${{ github.ref_name }}" dist/MosaicERP-macos-arm64.dmg --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

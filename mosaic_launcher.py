@@ -24,7 +24,10 @@ def _free_port():
 
 def main():
     if getattr(sys, 'frozen', False):
-        data = Path(os.getenv('LOCALAPPDATA', str(Path.home()))) / 'MosaicERP'
+        if sys.platform == 'darwin':
+            data = Path.home() / 'Library' / 'Application Support' / 'MosaicERP'
+        else:
+            data = Path(os.getenv('LOCALAPPDATA', str(Path.home()))) / 'MosaicERP'
     else:
         data = Path.cwd() / 'mosaic-desktop-data'
     data.mkdir(parents=True, exist_ok=True)
