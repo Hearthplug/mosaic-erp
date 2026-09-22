@@ -46,9 +46,33 @@ class AssistantPreviewTests(unittest.TestCase):
         return self.k  # workspace owner key has top role
     def draft(self, label='RETAIL_PRODUCT_CREATE', slots=None, role='owner'):
         p = self.preview(FakeClient(label, slots if slots is not None else {'name': 'Rice 5kg'}))
-        out = p.chat(self.w, self.k, role, 'add a product')
+        out = p.chat(self.w, self.k, role, 'add a product Rice 5kg')
         assert 'draft' in out, out
         return p, out['draft']
+
+
+    def test_invented_slot_value_fails_closed_to_clarify(self):
+        self.enable_local()
+        out = self.preview(FakeClient('RETAIL_PRODUCT_CREATE', {'name': 'Rice 5kg'})).chat(
+            self.w, self.k, 'owner', 'add a product')
+        self.assertNotIn('draft', out)
+        self.assertIn('rephrase', out['reply'])
+        with self.s.tx():
+            n = self.s._db.execute('SELECT COUNT(*) c FROM retail_products WHERE workspace_id=?', (self.w,)).fetchone()['c']
+        self.assertEqual(n, 0)
+
+    def test_invented_enum_value_fails_closed_to_clarify(self):
+        self.enable_local()
+        out = self.preview(FakeClient('WORKSPACE_INVITE', {'role': 'manager'})).chat(
+            self.w, self.k, 'owner', 'draft a workspace invitation')
+        self.assertNotIn('draft', out)
+        self.assertIn('rephrase', out['reply'])
+
+    def test_grounded_slot_value_still_drafts(self):
+        self.enable_local()
+        out = self.preview(FakeClient('RETAIL_PRODUCT_CREATE', {'name': 'Rice 5kg'})).chat(
+            self.w, self.k, 'owner', 'add a product Rice 5kg')
+        self.assertIn('draft', out)
 
     def test_unavailable_without_local_mode_or_verdict(self):
         p = self.preview(FakeClient())
@@ -133,7 +157,7 @@ class AssistantPreviewTests(unittest.TestCase):
     def test_unsupported_kind_explains_without_draft(self):
         self.enable_local()
         p = self.preview(FakeClient('RETAIL_SALE_CREATE', {'location_ref': 'LOC-1'}))
-        out = p.chat(self.w, self.k, 'owner', 'sell one rice')
+        out = p.chat(self.w, self.k, 'owner', 'sell one rice at LOC-1')
         self.assertNotIn('draft', out)
         self.assertIn('cannot execute', out['reply'])
 
@@ -149,7 +173,7 @@ class AssistantPreviewTests(unittest.TestCase):
         out = self.preview(FakeClient('WORKSPACE_INVITE', {'role': 'cashier'})).chat(self.w, self.k, 'viewer', 'invite a cashier')
         self.assertNotIn('draft', out)
         self.assertIn('role', out['reply'])
-        out = self.preview(FakeClient('RETAIL_PRODUCT_CREATE', {'name': 'Oil 1L'})).chat(self.w, self.k, 'viewer', 'add product')
+        out = self.preview(FakeClient('RETAIL_PRODUCT_CREATE', {'name': 'Oil 1L'})).chat(self.w, self.k, 'viewer', 'add product Oil 1L')
         self.assertNotIn('draft', out)
 
     def test_invite_binding_executes(self):
@@ -176,7 +200,7 @@ class AssistantPreviewTests(unittest.TestCase):
 
     def test_unknown_product_ref_clarifies(self):
         self.enable_local()
-        out = self.preview(FakeClient('RETAIL_STOCK_STATUS', {'product_ref': 'PROD-9'})).chat(self.w, self.k, 'viewer', 'stock')
+        out = self.preview(FakeClient('RETAIL_STOCK_STATUS', {'product_ref': 'PROD-9'})).chat(self.w, self.k, 'viewer', 'stock of PROD-9')
         self.assertNotIn('draft', out)
         self.assertIn('could not find', out['reply'])
 
