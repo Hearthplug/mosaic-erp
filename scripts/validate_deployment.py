@@ -10,7 +10,9 @@ def need(path, *tokens):
         if token not in text:
             errors.append(f'{path}: missing {token}')
 need('Dockerfile', 'USER 10001:10001', 'HEALTHCHECK', 'ENTRYPOINT ["python", "app.py"]', '@sha256:')
-need('compose.yml', 'read_only: true', 'no-new-privileges:true', 'cap_drop: [ALL]', 'MOSAIC_DATABASE_URL')
+need('compose.yml', 'read_only: true', 'no-new-privileges:true', 'cap_drop: [ALL]', 'MOSAIC_DATABASE_URL', 'MOSAIC_PUBLIC_ORIGIN', 'ports: ["80:80", "443:443"]')
+need('Caddyfile', 'reverse_proxy app:8000', 'Strict-Transport-Security')
+need('deploy/helm/mosaic-erp/templates/validate.yaml', 'hosted ingress requires config.publicOrigin', 'hosted ingress requires ingress.tls', 'every ingress host must match config.publicOrigin')
 need('deploy/kubernetes/base/deployment.yaml', 'runAsNonRoot: true', 'readOnlyRootFilesystem: true', 'startupProbe:', 'readinessProbe:', 'livenessProbe:', 'MOSAIC_DATABASE_URL')
 need('deploy/helm/mosaic-erp/templates/deployment.yaml', 'runAsNonRoot: true', 'readOnlyRootFilesystem: true', 'startupProbe:', 'MOSAIC_DATABASE_URL')
 need('deploy/helm/mosaic-erp/templates/migrate-job.yaml', 'pre-install', 'pre-upgrade', 'migrationSecretName')
@@ -25,4 +27,4 @@ for p in R.rglob('*'):
             errors.append(f'{p.relative_to(R)}: possible committed secret')
 if errors:
     print('\n'.join('FAIL '+e for e in errors)); sys.exit(1)
-print('PASS deployment artifacts: pinned base, PostgreSQL secrets, migration job, multi-replica probes, resources, pod security, and network policy')
+print('PASS deployment artifacts: pinned base, private app port, HTTPS edge, hosted ingress TLS gate, PostgreSQL secrets, migration job, probes, pod security, and network policy')

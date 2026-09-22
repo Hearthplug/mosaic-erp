@@ -19,3 +19,7 @@ helm upgrade --install mosaic deploy/helm/mosaic-erp \
 ```
 
 HPA is optional and requires Metrics Server plus database capacity for `maxReplicas * dbPoolMax`. See `docs/POSTGRESQL.md` for role separation, migration, backup/PITR, HA, and recovery drills.
+
+## Hosted phone access
+
+Enable ingress only with `config.publicOrigin=https://...` and a matching `ingress.tls` Secret. The chart rejects plain-HTTP hosted configuration. See [the owner guide](../../../docs/HOSTED_ACCESS.md).
