@@ -52,6 +52,9 @@ jobs:
           $pyArgs = @('--noconfirm','--onefile','--console','--name','MosaicERP')
           Get-ChildItem -Name *.html,*.css,*.js,mosaic-logo.svg | ForEach-Object { $pyArgs += "--add-data=${_};." }
           $pyArgs += '--add-data=local-assistant-availability.json;.'
+          # Frozen assistant contract: assistant_preview.py loads these by file
+          # path at runtime, so PyInstaller must pack them as data.
+          Get-ChildItem -Name local_assistant_finetune/v3/runtime.py,local_assistant_finetune/v3/label_map.json,local_assistant_finetune/v3/slot_schemas.json,local_assistant_finetune/v3/intent_label.gbnf | ForEach-Object { $pyArgs += "--add-data=${_};local_assistant_finetune/v3" }
           pyinstaller @pyArgs mosaic_launcher.py
       - name: Smoke-test the executable
         run: python scripts/smoke_exe.py dist\MosaicERP.exe
