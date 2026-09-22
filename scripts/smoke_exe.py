@@ -11,7 +11,8 @@ env = os.environ.copy()
 env['PORT'] = port
 env['MOSAIC_DB_PATH'] = 'smoke-test.db'
 env['MOSAIC_SKIP_ASSISTANT_PROVISION'] = '1'
-proc = subprocess.Popen([exe], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+log = open('smoke-exe.log', 'w+', encoding='utf-8', errors='replace')
+proc = subprocess.Popen([exe], stdout=log, stderr=subprocess.STDOUT,
                         text=True, env=env)
 try:
     base = f'http://127.0.0.1:{port}'
@@ -26,6 +27,15 @@ try:
         except Exception:
             time.sleep(1)
     if not ok:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        log.flush()
+        log.seek(0)
+        print('--- executable output tail ---')
+        print(log.read()[-4000:])
         sys.exit('executable did not answer /health within 60s')
     for path, want in (('/', b'Mosaic ERP'), ('/signin', b'MOSAIC'),
                        ('/mosaic-logo.svg', b'<svg'), ('/interview', b'Build my Mosaic'),

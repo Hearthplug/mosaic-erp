@@ -38,8 +38,14 @@ def main():
         gate = Path(getattr(sys, '_MEIPASS', '.')) / 'local-assistant-availability.json'
         if gate.exists():
             os.environ.setdefault('MOSAIC_ASSISTANT_LOCAL_AVAILABILITY_FILE', str(gate))
-        from scripts.assistant_provision import start_background
-        start_background(data)
+        if os.getenv('MOSAIC_SKIP_ASSISTANT_PROVISION') != '1':
+            try:
+                from scripts.assistant_provision import start_background
+                start_background(data)
+            except Exception as exc:
+                # The local assistant is a Preview add-on: a provisioning
+                # failure must never stop the ERP itself from starting.
+                print(f'Local assistant setup skipped: {exc}')
     port = int(os.getenv('PORT', '0')) or _free_port()
     os.environ['PORT'] = str(port)
 
