@@ -525,6 +525,34 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,{'locations':[dict(x) for x in STORE._db.execute('SELECT id,code,name FROM locations WHERE workspace_id=? AND active=1 ORDER BY name',(wid,)).fetchall()],'products':[dict(x) for x in STORE._db.execute('SELECT id,sku,name FROM retail_products WHERE workspace_id=? AND active=1 ORDER BY name',(wid,)).fetchall()],'vendors':[dict(x) for x in STORE._db.execute("SELECT id,name FROM parties WHERE workspace_id=? AND kind IN ('vendor','both') AND active=1 ORDER BY name",(wid,)).fetchall()],'purchase_orders':[dict(x) for x in STORE._db.execute("SELECT id,number,status FROM purchase_orders WHERE workspace_id=? AND status IN ('draft','approved','part_received') ORDER BY ordered_on DESC",(wid,)).fetchall()],'open_bills':[dict(x) for x in STORE._db.execute("SELECT id,number,balance_minor FROM documents WHERE workspace_id=? AND kind='purchase_bill' AND status IN ('approved','posted') ORDER BY issue_date DESC",(wid,)).fetchall()],'cash_sessions':[dict(x) for x in STORE._db.execute("SELECT id,location_id FROM cash_sessions WHERE workspace_id=? AND status='open'",(wid,)).fetchall()],'next_steps':['Approve draft purchase orders before receiving','Match received orders to supplier bills','Close cash only after the final sale and refund','Lock a period only after reconciliation']},rid=rid) or 200
         if p == '/api/retail/stock':
             wid, _, _ = self._auth('viewer'); product=qs.get('product_id',[None])[0]; location=qs.get('location_id',[None])[0]; return self.out(200,{'quantity':str(RETAIL.stock(wid,product,location))},rid=rid) or 200
+        if p == '/api/retail/stock-register':
+            wid, _, _ = self._auth('viewer')
+            rows=STORE._db.execute("SELECT p.id AS product_id,p.sku,p.name,p.unit,l.id AS location_id,l.code AS location_code,l.name AS location_name,sl.quantity_delta AS qd FROM retail_products p JOIN locations l ON l.workspace_id=p.workspace_id AND l.active=1 LEFT JOIN stock_ledger sl ON sl.workspace_id=p.workspace_id AND sl.product_id=p.id AND sl.location_id=l.id WHERE p.workspace_id=? AND p.active=1 ORDER BY p.sku,l.code",(wid,)).fetchall()
+            agg={}
+            for r in rows:
+                k=(r['product_id'],r['location_id'])
+                if k not in agg: agg[k]={'product_id':r['product_id'],'location_id':r['location_id'],'sku':r['sku'],'name':r['name'],'unit':r['unit'],'location_code':r['location_code'],'location_name':r['location_name'],'on_hand':Decimal('0')}
+                if r['qd'] is not None: agg[k]['on_hand']+=Decimal(str(r['qd']))
+            out=[]
+            for v in agg.values():
+                q=v['on_hand']; v['on_hand']=format(q.normalize(),'f'); out.append(v)
+            return self.out(200,{'rows':out},rid=rid) or 200
+        if p == '/api/retail/sales-list':
+            wid, _, _ = self._auth('viewer')
+            rows=STORE._db.execute("SELECT s.id,s.number,s.sold_at,s.status,s.currency,s.total_minor,s.paid_minor,l.code AS location_code,(SELECT COUNT(*) FROM sale_lines sl WHERE sl.sale_id=s.id) AS line_count FROM sales s JOIN locations l ON l.id=s.location_id WHERE s.workspace_id=? ORDER BY s.sold_at DESC LIMIT 50",(wid,)).fetchall()
+            return self.out(200,{'rows':[dict(r) for r in rows]},rid=rid) or 200
+        if p == '/api/retail/purchases-list':
+            wid, _, _ = self._auth('viewer')
+            rows=STORE._db.execute("SELECT po.id,po.number,po.ordered_on,po.status,po.currency,pa.name AS vendor_name,l.code AS location_code FROM purchase_orders po JOIN parties pa ON pa.id=po.vendor_id JOIN locations l ON l.id=po.location_id WHERE po.workspace_id=? ORDER BY po.ordered_on DESC,po.number DESC LIMIT 50",(wid,)).fetchall()
+            out=[]
+            for r in rows:
+                lines=STORE._db.execute("SELECT quantity,unit_cost_minor FROM purchase_order_lines WHERE purchase_order_id=?",(r['id'],)).fetchall()
+                d=dict(r); d['line_count']=len(lines); d['total_minor']=int(sum((Decimal(str(x['quantity']))*int(x['unit_cost_minor'])).quantize(Decimal('1')) for x in lines)); out.append(d)
+            return self.out(200,{'rows':out},rid=rid) or 200
+        if p == '/api/retail/cash-sessions':
+            wid, _, _ = self._auth('viewer')
+            rows=STORE._db.execute("SELECT cs.id,cs.opened_at,cs.closed_at,cs.opening_minor,cs.expected_minor,cs.actual_minor,cs.variance_minor,cs.status,l.code AS location_code FROM cash_sessions cs JOIN locations l ON l.id=cs.location_id WHERE cs.workspace_id=? ORDER BY cs.opened_at DESC LIMIT 50",(wid,)).fetchall()
+            return self.out(200,{'rows':[dict(r) for r in rows]},rid=rid) or 200
         if p == '/api/retail/reorder':
             wid, _, _ = self._auth('viewer'); return self.out(200,{'items':RETAIL.reorder(wid,qs.get('location_id',[None])[0],int(qs.get('minimum',['5'])[0]))},rid=rid) or 200
         if p == '/api/retail/export':
