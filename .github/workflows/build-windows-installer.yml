@@ -37,11 +37,12 @@ jobs:
       - name: Install build dependencies
         run: pip install -r requirements.txt pyinstaller
       - name: Fetch CI availability verdict for the local assistant
+        shell: bash
         run: |
           RUN_ID=$(gh run list --workflow assistant-validation.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
           test -n "$RUN_ID"
           gh run download "$RUN_ID" --name local-assistant-availability
-          python3 -c 'import json; d=json.load(open("local-assistant-availability.json")); assert d["schema"]=="mosaic-local-availability-v1" and d["available"] is True, d'
+          python -c 'import json; d=json.load(open("local-assistant-availability.json")); assert d["schema"]=="mosaic-local-availability-v1" and d["available"] is True, d'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Collect packaged data files
