@@ -18,9 +18,10 @@ from artifact_builder import ArtifactBuilder
 from assistant_setup import AssistantSetup
 from assistant_preview import AssistantPreview
 from provisioning import Provisioner
-from jev_client import default_client
+from jev_client import default_client  # deployment default for self-hosted owners
 from jev_mapper import map_interview
 from jev_reconfigure import propose_change, TARGETS as JEV_TARGETS
+from ai_prefs import AiPrefs
 from rbac import Denied
 from oauth import OAuth, OAuthError
 from provider_assets import GOOGLE_SIGNIN, MICROSOFT_SIGNIN
@@ -454,7 +455,7 @@ class H(BaseHTTPRequestHandler):
             return self.out(200, (ROOT / 'interview.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/assistant':
             return self.out(200,(ROOT/'assistant.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
-        if p in ('/assistant.css','/assistant.js'):
+        if p in ('/assistant.css','/assistant.js','/assist.css','/assist.js'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p in ('/interview.css','/retail.css','/accounting.css'):
             return self.out(200,(ROOT / p[1:]).read_text(encoding='utf-8'),'text/css; charset=utf-8',rid=rid) or 200
@@ -519,6 +520,9 @@ class H(BaseHTTPRequestHandler):
             return self.out(200, {'events': STORE.audit_trail(wid)}, rid=rid) or 200
         if p == '/api/provisioning':
             wid, _, _ = self._auth('viewer'); return self.out(200,PROVISIONER.status(wid),rid=rid) or 200
+        if p == '/api/ai/preference':
+            wid, actor, _ = self._auth('viewer')
+            return self.out(200,AIPREFS.get(wid),rid=rid) or 200
         if p == '/api/onboarding/schema':
             return self.out(200,{'version':SCHEMA_VERSION,'questions':QUESTIONS},rid=rid) or 200
         if p == '/api/onboarding/session':
@@ -657,15 +661,18 @@ class H(BaseHTTPRequestHandler):
             result=ONBOARDING.apply(wid,actor,d['id'])
             self._ensure_accounting(wid,actor,d['id'])
             return self.out(200,result,rid=rid) or 200
+        if p == '/api/ai/preference/switch':
+            wid, actor, _ = self._auth('owner'); d=self._body()
+            return self.out(200,AIPREFS.set_provider(wid,actor,d.get('provider',''),d.get('api_key','')),rid=rid) or 200
         if p == '/api/jev/map-interview':
             wid, actor, _ = self._auth('owner'); d=self._body()
             session=ONBOARDING.get(wid,d['id'])
-            return self.out(200,map_interview(session['answers'],JEV),rid=rid) or 200
+            return self.out(200,map_interview(session['answers'],AIPREFS.client_for(wid)),rid=rid) or 200
         if p == '/api/jev/reconfigure':
             wid, actor, _ = self._auth('owner'); d=self._body()
             row=STORE._db.execute("SELECT answers_json FROM onboarding_sessions WHERE workspace_id=? ORDER BY updated_at DESC LIMIT 1",(wid,)).fetchone()
             current=json.loads(row['answers_json']) if row else {}
-            return self.out(200,propose_change(d.get('request',''),current,JEV),rid=rid) or 200
+            return self.out(200,propose_change(d.get('request',''),current,AIPREFS.client_for(wid)),rid=rid) or 200
         if p == '/api/jev/reconfigure/apply':
             wid, actor, _ = self._auth('owner'); d=self._body()
             row=STORE._db.execute("SELECT answers_json FROM onboarding_sessions WHERE workspace_id=? ORDER BY updated_at DESC LIMIT 1",(wid,)).fetchone()
@@ -675,7 +682,7 @@ class H(BaseHTTPRequestHandler):
                     answers[ch['target']]=ch['proposed']
             with STORE.tx():STORE._db.execute("UPDATE onboarding_sessions SET answers_json=?,updated_at=? WHERE workspace_id=?",(json.dumps(answers),utcnow(),wid))
             profile=PROFILES.apply(wid,actor,answers)
-            with STORE.tx():STORE._audit(wid,actor,'jev.reconfigure.apply',{'targets':[c['target'] for c in d.get('changes',[])],'client':'mock' if JEV.__class__.__name__=='MockJevClient' else 'jev'})
+            with STORE.tx():STORE._audit(wid,actor,'jev.reconfigure.apply',{'targets':[c['target'] for c in d.get('changes',[])],'client':'jev' if AIPREFS.client_for(wid).__class__.__name__=='HttpJevClient' else 'built-in'})
             return self.out(200,{'profile':profile,'answers':answers},rid=rid) or 200
         if p == '/api/retail/profile':
             wid, actor, _ = self._auth('owner'); return self.out(200,PROFILES.apply(wid,actor,self._body()),rid=rid) or 200
@@ -835,7 +842,7 @@ RETAIL = Retail(STORE,BOOKS)
 PROFILES = Profiles(STORE)
 PROVISIONER = Provisioner(STORE)
 ONBOARDING = Onboarding(STORE,PROFILES,PROVISIONER)
-JEV = default_client(os.environ.get('JEV_API_KEY'))  # mock until an owner's own key exists (BYOK)
+AIPREFS = AiPrefs(STORE)  # per-workspace answer-shaping choice: built-in or the owner's own Jev key
 MIGRATIONS_API = Migrations(STORE,BOOKS,RETAIL)
 TAX = TaxEngine(STORE)
 ARTIFACTS = ArtifactBuilder(STORE,BOOKS,RETAIL)
