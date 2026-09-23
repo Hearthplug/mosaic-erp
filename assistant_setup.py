@@ -44,7 +44,7 @@ def _pinned_post(parsed,addresses,body,key):
  raw=res.read(65537);conn.close();return raw
 
 class AssistantSetup:
- def __init__(self,s):self.s=s
+ def __init__(self,s,everyday=None):self.s=s;self._everyday=everyday
  def get(self,wid):
   r=self.s._db.execute('SELECT * FROM assistant_settings WHERE workspace_id=?',(wid,)).fetchone()
   if not r:return {'mode':'deterministic','status':'ready','version':0,'secret_configured':False,'local_model':LOCAL_MODEL}
@@ -75,7 +75,31 @@ class AssistantSetup:
    with self.s.tx():self.s._db.execute("UPDATE assistant_settings SET secret_ref=?,status='ready',updated_by=?,updated_at=? WHERE workspace_id=? AND mode='remote'",('file:'+path,actor,utcnow(),wid));self.s._audit(wid,actor,'assistant.secret.reference',{'secret_ref_hash':hashlib.sha256(path.encode()).hexdigest(),'stored':'operator-mounted'})
    return {'intent':'applied','reply':'The operator-mounted secret is connected. Ask me to test the provider.'}
   if 'test' in low:return self.test(wid)
-  return {'intent':'collect','reply':'I can keep simple built-in chat, connect your own AI service, show status, test, disable, remove, or rollback. The private local assistant is not available yet.'}
+  out=self._remote_answer(wid,cur,text)
+  if out is not None:return out
+  if self._everyday:
+   routed=self._everyday(wid,actor,text,low,cur)
+   if routed is not None:return routed
+  return {'intent':'collect','reply':"I can't answer that one yet. I can set up the assistant - say connect my AI service - or show status, test, disable, remove, or rollback. Business settings like tax live on the Settings page.",'settings':cur}
+ def _remote_answer(self,wid,cur,text):
+  if cur.get('mode')!='remote' or cur.get('status')!='ready':return None
+  row=self.s._db.execute('SELECT secret_ref FROM assistant_settings WHERE workspace_id=?',(wid,)).fetchone();key=self._key(row['secret_ref'] if row else '')
+  if not key:return None
+  try:
+   base=_public_https(cur['endpoint']);url=base if base.endswith('/chat/completions') else base+'/chat/completions'
+   body=canon({'model':cur['model'],'messages':[{'role':'system','content':'You are the Mosaic ERP assistant. Answer briefly and plainly. Mosaic screens: Today, Stock, Sales, Buying, Money, Books, Assistant, Settings. If the question is about a Mosaic screen or setting, name the exact menu item.'},{'role':'user','content':text}],'temperature':0,'max_tokens':300}).encode()
+   parsed=urllib.parse.urlparse(url);addresses=[]
+   for x in socket.getaddrinfo(parsed.hostname,parsed.port or 443,type=socket.SOCK_STREAM):
+    ip=ipaddress.ip_address(x[4][0])
+    if not ip.is_global:raise ValueError('endpoint resolved to a private address')
+    if str(ip) not in addresses:addresses.append(str(ip))
+   raw=_pinned_post(parsed,addresses,body,key)
+   if len(raw)>65536:return None
+   out=json.loads(raw);content=(out['choices'][0]['message']['content'] or '').strip()
+   if not content:return None
+   self.s._audit(wid,'system','assistant.remote_answer',{'endpoint':base,'model':cur['model']})
+   return {'intent':'answer','reply':content,'settings':self.get(wid)}
+  except Exception:return None
  def _preview(self,cur,candidate,reply):
   return {'intent':'preview','reply':reply+' Say confirm to apply or cancel to discard.','preview':candidate,'current':cur,'requires_confirmation':True}
  def stage(self,wid,actor,candidate):

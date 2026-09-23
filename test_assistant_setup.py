@@ -20,3 +20,19 @@ class AssistantSetupTests(unittest.TestCase):
  def test_disable_is_previewed(self):
   x=self.a.chat(self.w,self.k,'disable assistant');self.assertEqual(x['intent'],'preview');self.assertEqual(x['preview']['mode'],'deterministic')
 if __name__=='__main__':unittest.main()
+
+class EverydayRoutingTest(unittest.TestCase):
+ @classmethod
+ def setUpClass(c):
+  os.environ['MOSAIC_DB_PATH']=tempfile.mktemp()
+  global app
+  import app as _app;app=_app
+ def test_tax_question_gets_real_answer_not_canned_list(self):
+  out=app.ASSISTANT.chat('wsp_q','owner','Show me the tax settings for India')
+  self.assertEqual(out['intent'],'answer');self.assertIn('GST',out['reply']);self.assertNotIn('keep simple built-in chat',out['reply'])
+ def test_navigation_question_routes_to_screen(self):
+  out=app.ASSISTANT.chat('wsp_q','owner','where do I see my stock')
+  self.assertEqual(out['intent'],'answer');self.assertIn('Stock',out['reply'])
+ def test_unknown_question_is_honest_not_canned(self):
+  out=app.ASSISTANT.chat('wsp_q','owner','what is the weather tomorrow')
+  self.assertIn("can't answer",out['reply']);self.assertNotIn('keep simple built-in chat, connect your own',out['reply'])

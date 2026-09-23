@@ -797,7 +797,31 @@ ONBOARDING = Onboarding(STORE,PROFILES,PROVISIONER)
 MIGRATIONS_API = Migrations(STORE,BOOKS,RETAIL)
 TAX = TaxEngine(STORE)
 ARTIFACTS = ArtifactBuilder(STORE,BOOKS,RETAIL)
-ASSISTANT = AssistantSetup(STORE)
+def _assistant_everyday(wid,actor,text,low,cur):
+ tax_words=('tax','gst','vat','compliance','registration','invoice rule','tds')
+ if any(w in low for w in tax_words) and any(w in low for w in ('show','what','which','view','current','tell','setting','rate','rates','india','explain','how','where')):
+  country=None
+  try:
+   row=STORE._db.execute("SELECT answers_json FROM onboarding_sessions WHERE workspace_id=? ORDER BY updated_at DESC LIMIT 1",(wid,)).fetchone()
+   if row:
+    ans=json.loads(row['answers_json']);c=(ans.get('country') or '').strip()
+    if c in PACKS:country=c
+  except Exception:pass
+  if not country:
+   for c in PACKS:
+    if c.lower() in low:country=c;break
+  if not country and 'india' in low:country='India'
+  if country:
+   t=tax_profile({'country':country,'buyers':'Consumers'})
+   if t:
+    return {'intent':'answer','reply':f"Tax settings for {t['jurisdiction']}: {t['tax_name']} under {t['authority']}. Rates: {t['rates']['structure']}. Registration threshold: {t['registration']['threshold']}. Your registration type and item-level rates are set on the Settings page - I will not guess those.",'settings':cur}
+  return {'intent':'answer','reply':'Tax settings depend on where the business is registered. Open the Settings page to review jurisdiction, registration, and rates.','settings':cur}
+ nav=(('stock','Stock'),('inventory','Stock'),('sale','Sales'),('bill','Sales'),('buying','Buying'),('purchase','Buying'),('supplier','Buying'),('money','Money'),('cash','Money'),('till','Money'),('report','Books'),('books','Books'),('ledger','Books'),('setting','Settings'),('brand','Settings'))
+ if any(w in low for w in ('where','open','find','go to','show me the')):
+  for key,screen in nav:
+   if key in low:return {'intent':'answer','reply':f'Open {screen} from the menu on the left.','settings':cur}
+ return None
+ASSISTANT = AssistantSetup(STORE, everyday=_assistant_everyday)
 PREVIEW = AssistantPreview(STORE, RETAIL, ASSISTANT)
 OAUTH = OAuth(STORE,PROVISIONER)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
