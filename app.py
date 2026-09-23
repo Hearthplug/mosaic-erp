@@ -371,8 +371,8 @@ class H(BaseHTTPRequestHandler):
             status=400
             try:self.out(400,{'error':str(e),'request_id':rid},rid=rid)
             except Exception:pass
-        except (Conflict, NotFound) as e:
-            status = 409 if isinstance(e, Conflict) else 404
+        except (Conflict, NotFound, ValueError) as e:
+            status = 409 if isinstance(e, Conflict) else 404 if isinstance(e, NotFound) else 400
             try:
                 self.out(status, {'error': str(e), 'request_id': rid}, rid=rid)
             except Exception:
