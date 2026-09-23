@@ -15,3 +15,5 @@
 .assist-consent{font-size:12px;color:#8a8d85;margin:6px 0 0;line-height:1.4}
 .assist-state{font-size:12.5px;color:#3d6b4f;margin:6px 0 0}
 @media (max-width:640px){.assist-key{margin-left:0}}
+.assist-key[hidden]{display:none}
+.assist-opt input[type=radio]{appearance:auto;width:16px;min-width:16px;height:16px;padding:0;border:1px solid #9aa094;border-radius:50%;background:#fff}

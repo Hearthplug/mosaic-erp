@@ -14,7 +14,7 @@ function render(p){
     const span=document.createElement('span');
     const b=document.createElement('b');b.textContent=o.name;
     const small=document.createElement('small');small.textContent=o.line+' ';
-    if(!o.available){const em=document.createElement('em');em.textContent='Not available yet.';small.appendChild(em)}
+    if(!o.available){const em=document.createElement('em');em.textContent='Not available yet.';small.textContent=o.line.replace(/ ?Not available yet\.?/,'')+' ';small.appendChild(em)}
     span.appendChild(b);span.appendChild(small);label.appendChild(input);label.appendChild(span);box.appendChild(label);
     if(o.available)input.onchange=()=>choose(o.id,p);
   });
