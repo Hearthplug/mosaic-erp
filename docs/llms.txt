@@ -3,7 +3,7 @@
 Mosaic ERP is an MIT-licensed, interview-native operational ERP for evidence-backed core retailer work. It turns plain-language owner answers into real controls and supports buying, receiving, selling, returns/refunds, stock, cash, supplier bills/payments, reconciliation, period close and core accounting reports. Built-in deterministic chat is the default, and users can optionally connect their own AI provider. Setup and configuration are guided in chat; provider secrets use a masked secure step and never enter chat, logs, exports, or audit detail. New in Preview in v1.3.0: the fine-tuned local assistant runs on the shop's own machine; it can understand, draft and explain ERP actions, and every action requires the owner's explicit confirmation of the exact rendered payload. Measured on the frozen development contract: all constrained outputs were schema-valid, every tested unsafe request failed closed, and label accuracy was 84 to 86 percent, so drafts must be read before approval.
 
 Official sources:
-- Product page: https://hearthplug.github.io/mosaic-erp/
+- Product page: https://mosaic-erp.pages.dev/
 - Source: https://github.com/Hearthplug/mosaic-erp
 - Reviewed v1.3.0 product tree: https://github.com/Hearthplug/mosaic-erp/tree/v1.3.0
 - Assistant packaging merge (exp5 checkpoint-492 model, native amd64/arm64 runtimes, truthful availability benchmark): https://github.com/Hearthplug/mosaic-erp/commit/102b495d070b9763088b92e8b79bfa35b2504219
