@@ -37,17 +37,22 @@ def detect(a):
  if a.get('stock_pain')=='I do not keep stock' and any(x in a.get('buying','').lower() for x in ('delivery','stock','warehouse','supplier')):out.append({'keys':['stock_pain','buying'],'message':'You said you do not keep stock, but described receiving goods. Do you keep goods even briefly?'})
  return out
 
-def infer(a):
+STUB_GOALS={'','not sure','skip','n/a','na','none','no','nothing','dont know',"don't know"}
+def map_answers(a):
  mapped=dict(a)
  loc=a.get('locations','');mapped['locations']='One store' if loc=='One place' else loc
  vb=a.get('vertical','');mapped['vertical']='Electronics' if 'Electronic' in vb else 'Grocery' if 'Grocer' in vb else 'Pharmacy' if 'Pharmacy' in vb else 'Fashion' if any(x in vb for x in ('Clothing','footwear')) else vb
- cb=a.get('credit_behavior','');mapped['credit']='No credit' if 'paid immediately' in cb else 'Customer + supplier' if 'both' in cb else 'Customer credit' if 'customers' in cb.lower() else 'Supplier credit'
+ cb=a.get('credit_behavior','').lower();mapped['credit']='No credit' if 'paid immediately' in cb else 'Customer + supplier' if 'both' in cb else 'Customer credit' if 'customers' in cb else 'Supplier credit'
+ return mapped
+def infer(a):
+ mapped=map_answers(a)
  p=compile_profile(mapped);explanations=[]
  reasons={'transfers':'You have more than one place, so stock can move between them.','receivables':'Customers sometimes pay later, so Mosaic tracks what they owe.','payables':'Suppliers give credit, so Mosaic tracks what you owe.','expiry':'Expiry or health-product answers require batch and expiry control.','serials':'Electronics need serial and warranty traceability.','service':'Your business handles repairs, service or warranties.'}
  for m in p['enabled_modules']:
   if m in reasons:explanations.append({'enabled':m,'because':reasons[m]})
  accountant=[{'decision':'Opening balances and chart mapping','reason':'These must match your existing books.'},{'decision':'Tax registration, invoice rules and filing adapters','reason':'Local legal rules require qualified verification.'},{'decision':'When income is recognized','reason':'A professional must confirm whether your business records income at sale, delivery or another event.'}]
- return p|{'explanations':explanations,'professional_verification':accountant,'owner_summary':{'business':a.get('business_name'),'first_goal':a.get('goal'),'daily_numbers':a.get('money_view',[])}}
+ goal=(a.get('goal') or '').strip()
+ return p|{'explanations':explanations,'professional_verification':accountant,'owner_summary':{'business':a.get('business_name'),'first_goal':None if goal.lower().rstrip('.!?') in STUB_GOALS else goal,'daily_numbers':a.get('money_view',[])}}
 
 class Onboarding:
  def __init__(self,s,profiles,provisioner=None):self.s,self.profiles,self.provisioner=s,profiles,provisioner
@@ -67,7 +72,7 @@ class Onboarding:
  def apply(self,wid,actor,x):
   d=self.get(wid,x)
   if d['status']!='ready':raise Conflict('finish and review the interview before applying it')
-  profile=self.profiles.apply(wid,actor,d['answers'])
+  profile=self.profiles.apply(wid,actor,map_answers(d['answers']))
   with self.s.tx():self.s._db.execute("UPDATE onboarding_sessions SET status='applied',updated_at=? WHERE id=?",(utcnow(),x));self.s._audit(wid,actor,'onboarding.apply',{'id':x})
   provisioned=self.provisioner.apply(wid,actor,x,d['answers']) if self.provisioner else None
   return {'profile':profile,'review':d['inference'],'provisioned':provisioned}
