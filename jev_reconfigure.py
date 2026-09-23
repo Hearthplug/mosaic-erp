@@ -89,7 +89,7 @@ def propose_change(request, current_profile_answers, client=None):
         current = current_profile_answers.get(target)
         if current == r.pick:
             continue
-        changes.append({'target': target, 'current': current or 'Not set', 'proposed': r.pick,
+        changes.append({'target': target, 'ask': spec['ask'], 'current': current or 'Not set', 'proposed': r.pick,
                         'confidence': r.confidence,
                         'status': 'auto_accept' if r.confidence >= AUTO_ACCEPT else 'confirm',
                         'because': spec['because'], 'probabilities': r.probabilities})
