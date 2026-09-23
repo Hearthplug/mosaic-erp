@@ -2,9 +2,15 @@
 from store import canon,sha256,utcnow,Conflict
 MODULES={'core':[], 'pos':['catalog','inventory','sales','finance'], 'procurement':['catalog','inventory','purchasing','finance'], 'credit':['crm','receivables','payables','finance'], 'multi_store':['inventory','transfers','analytics'], 'service':['crm','service','inventory'], 'manufacturing':['inventory','manufacturing','finance'], 'projects':['crm','projects','finance'], 'people':['people'], 'assets':['assets','maintenance','finance']}
 def compile_profile(a):
- enabled={'catalog','inventory','sales','purchasing','finance','analytics','audit'}
+ enabled={'catalog','sales','purchasing','finance','analytics','audit'}
+ if a.get('stock_pain')!='I do not keep stock':enabled|={'inventory'}
  if a.get('locations') not in (None,'One store'):enabled|={'transfers'}
- if a.get('credit') not in (None,'No credit'):enabled|={'crm','receivables','payables'}
+ credit=a.get('credit')
+ if credit not in (None,'No credit'):
+  enabled|={'crm'}
+  if credit in ('Customer credit','Customer + supplier'):enabled|={'receivables'}
+  if credit in ('Supplier credit','Customer + supplier'):enabled|={'payables'}
+ if a.get('vertical')=='Repairs or services':enabled|={'service'}
  if a.get('vertical')=='Electronics':enabled|={'service','serials'}
  if a.get('vertical') in ('Grocery','Pharmacy'):enabled|={'lots','expiry'}
  if a.get('assembly') in ('Yes','Manufacturing','Assembly'):enabled|={'manufacturing'}

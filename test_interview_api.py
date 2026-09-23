@@ -31,3 +31,24 @@ class InterviewAPI(unittest.TestCase):
   except urllib.error.HTTPError as e:
    self.assertEqual(e.code,400);self.assertIn('password',e.read().decode())
 if __name__=='__main__':unittest.main()
+
+class NonRetailInferenceHonestyTest(unittest.TestCase):
+ @classmethod
+ def setUpClass(c):
+  from http.server import ThreadingHTTPServer;c.s=ThreadingHTTPServer(('127.0.0.1',0),app.H);c.p=c.s.server_address[1];threading.Thread(target=c.s.serve_forever,daemon=True).start()
+ @classmethod
+ def tearDownClass(c):c.s.shutdown()
+ def test_service_business_gets_honest_modules_and_summary(self):
+  w=call(self.p,'POST','/api/workspaces',{'name':'Educlaas'});k=w['api_key']
+  x=call(self.p,'POST','/api/onboarding/start',{},k)
+  A={'business_name':'Educlaas','vertical':'Repairs or services','locations':'One place','selling':'Students enroll for a coaching batch and pay a monthly fee at the front desk.','buying':'We rarely buy anything to resell. Occasionally books and stationery.','stock_pain':'I do not keep stock','credit_behavior':'Only customers use credit','discounts':'Only I can waive a fee.','returns':'Refund unused months after approval.','staff':'Owner, two teachers, one front desk.','money_view':['Sales','Money customers owe','Profit'],'country':'India','selling_locations':['Near my registered business'],'buying_locations':['Nearby suppliers'],'price_display':'Tax is included in the shown price','customer_type':'Households','product_tax_facts':'Coaching fees are services.','existing_records':'Spreadsheets','exceptions':'Instalment fees confuse the front desk.','brand_style':'Clean and professional','brand_colors':'Blue','logo':'No, use the business name for now','screen_preference':'Money and collections','goal':'Not sure'}
+  r=None
+  for q,v in A.items():r=call(self.p,'POST','/api/onboarding/answer',{'id':x['id'],'key':q,'value':v},k)
+  self.assertEqual(r['status'],'ready')
+  inf=r['inference'];mods=set(inf['enabled_modules'])
+  self.assertIn('receivables',mods);self.assertNotIn('payables',mods)
+  self.assertNotIn('inventory',mods);self.assertIn('service',mods);self.assertNotIn('transfers',mods)
+  self.assertFalse(any('supplier' in e['because'].lower() for e in inf['explanations']))
+  self.assertIsNone(inf['owner_summary']['first_goal'])
+  ap=call(self.p,'POST','/api/onboarding/apply',{'id':x['id']},k)
+  self.assertEqual(set(ap['profile']['enabled_modules']),mods)
