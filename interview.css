@@ -28,3 +28,4 @@
 .reconfig-check{display:flex;align-items:center}
 #reconfig-state{font-size:13px;color:#6d675d;margin:6px 0 0}
 @media (max-width:720px){.jev-row{grid-template-columns:1fr;gap:4px}.jev-arrow{transform:rotate(90deg)}}
+.jev-reconfig .jev-row{grid-template-columns:auto 1fr 24px 1fr auto}
