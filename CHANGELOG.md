@@ -1,6 +1,21 @@
 # Changelog
 
+## 1.4.0
+
+- Answer-shaping chooser on the interview start and Assistant screens: Standard (built in) is the default, Jev by TypeSafe is available in Preview with the owner's own TypeSafe key, and other providers are shown but marked not available yet. The API rejects any provider that is not wired, so an unwired option can never silently take effect
+- Jev AI assist in Preview: side-by-side interview review (your words on the left, Mosaic's tidied version on the right, with matched/confirm badges) and plain-language reconfiguration that proposes concrete setting changes with reasons. Nothing applies without the owner's confirmation; mapping is English-only in this phase, and TypeSafe sign-ups are currently closed, so Jev is for owners who already hold a key
+- Windows and Mac desktop apps refreshed on the same release
+
+## 1.3.4
+
+- Windows NSIS setup installer with proper uninstall, shipped alongside the portable exe; both CI-built from the tagged commit and attached to the release automatically
+
+## 1.3.3
+
+- Interview fix: visible Apply step after review, accounting defaults auto-provisioned on apply and on first purchase/sale, malformed purchase receipts return a 400 instead of a 500, and the assistant answers everyday questions instead of a canned setup list
+
 ## 1.3.2
+
 
 - One-download Mac desktop app for Apple Silicon (unsigned, right-click > Open on first run) with the same bundled assistant Preview as Windows
 - Hardened hosted HTTPS path: Helm fails closed without a single canonical https publicOrigin plus TLS; Compose requires MOSAIC_PUBLIC_ORIGIN with the app port private behind Caddy
