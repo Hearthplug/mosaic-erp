@@ -63,6 +63,9 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@e454baaac2be505c9450e11b8f3215c6fc023ce8
         with: {name: smoke-exe-log, path: smoke-exe.log, if-no-files-found: ignore, retention-days: 14}
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y --no-progress
       - name: Build NSIS installer
         shell: pwsh
         run: makensis installer.nsi
