@@ -1,0 +1,25 @@
+{
+  "note": "Hand-written labels only. ToS 1.iv / MCA 2.3(b): never label with Jev outputs. English-only this phase; non-English cases assert the owner-confirm route, not a mapping.",
+  "cases": [
+    {"key": "selling", "raw": "Customer walks in, cashier scans items, pays cash", "expect": "Walk-in checkout, pays on the spot"},
+    {"key": "selling", "raw": "people message us on whatsapp, we drop it off and they pay the driver", "expect": "Order first, pay on delivery"},
+    {"key": "selling", "raw": "shops order from us and settle the invoice at month end", "expect": "Account sale, pays later"},
+    {"key": "selling", "raw": "mostly walk-ins but a few regulars run a tab", "expect": ["A mix of these", "Walk-in checkout, pays on the spot", "Account sale, pays later"], "note": "genuinely ambiguous: must not be blank_confirm"},
+    {"key": "buying", "raw": "i decide what we need and count it in myself when the van comes", "expect": "Owner decides and checks deliveries"},
+    {"key": "buying", "raw": "the girls order what is low but nothing goes out without my ok", "expect": "Staff order, owner approves"},
+    {"key": "discounts", "raw": "anyone can knock a bit off, that is how you keep customers", "expect": "Staff discount freely"},
+    {"key": "discounts", "raw": "up to a fiver is fine, anything more they come find me", "expect": "Small discounts, manager above a limit"},
+    {"key": "discounts", "raw": "refunds only through me, no exceptions", "expect": "Only managers discount or refund"},
+    {"key": "returns", "raw": "if it is sealed and they have the receipt we refund and put it back on the shelf", "expect": "Refund and restock if unopened"},
+    {"key": "returns", "raw": "we swap it for another one, money never goes back", "expect": "Exchange only, no refunds"},
+    {"key": "returns", "raw": "my wife checks anything that comes back and decides", "expect": "Manager decides each return"},
+    {"key": "country", "raw": "registered in india, sell locally", "expect": "India", "expect_currency": "INR"},
+    {"key": "country", "raw": "london uk", "expect": "United Kingdom", "expect_currency": "GBP"},
+    {"key": "country", "raw": "we are in dubai", "expect": "United Arab Emirates", "expect_currency": "AED"},
+    {"key": "selling", "raw": "nous vendons au comptoir et le client paie tout de suite en especes", "expect_status": "non_english"},
+    {"key": "buying", "raw": "ich bestelle alles selbst und pruefe die lieferung wenn sie kommt", "expect_status": "non_english"},
+    {"key": "goal", "raw": "stop running out of the things people ask for every day", "expect_status": "auto_accept"},
+    {"key": "selling", "raw": "", "expect_status": "empty"},
+    {"key": "discounts", "raw": "hmm not really thought about it", "expect_status": ["confirm", "blank_confirm"], "note": "vague: must not invent a rule"}
+  ]
+}

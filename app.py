@@ -18,6 +18,9 @@ from artifact_builder import ArtifactBuilder
 from assistant_setup import AssistantSetup
 from assistant_preview import AssistantPreview
 from provisioning import Provisioner
+from jev_client import default_client
+from jev_mapper import map_interview
+from jev_reconfigure import propose_change, TARGETS as JEV_TARGETS
 from rbac import Denied
 from oauth import OAuth, OAuthError
 from provider_assets import GOOGLE_SIGNIN, MICROSOFT_SIGNIN
@@ -654,6 +657,25 @@ class H(BaseHTTPRequestHandler):
             result=ONBOARDING.apply(wid,actor,d['id'])
             self._ensure_accounting(wid,actor,d['id'])
             return self.out(200,result,rid=rid) or 200
+        if p == '/api/jev/map-interview':
+            wid, actor, _ = self._auth('owner'); d=self._body()
+            session=ONBOARDING.get(wid,d['id'])
+            return self.out(200,map_interview(session['answers'],JEV),rid=rid) or 200
+        if p == '/api/jev/reconfigure':
+            wid, actor, _ = self._auth('owner'); d=self._body()
+            row=STORE._db.execute("SELECT answers_json FROM onboarding_sessions WHERE workspace_id=? ORDER BY updated_at DESC LIMIT 1",(wid,)).fetchone()
+            current=json.loads(row['answers_json']) if row else {}
+            return self.out(200,propose_change(d.get('request',''),current,JEV),rid=rid) or 200
+        if p == '/api/jev/reconfigure/apply':
+            wid, actor, _ = self._auth('owner'); d=self._body()
+            row=STORE._db.execute("SELECT answers_json FROM onboarding_sessions WHERE workspace_id=? ORDER BY updated_at DESC LIMIT 1",(wid,)).fetchone()
+            answers=json.loads(row['answers_json']) if row else {}
+            for ch in d.get('changes',[]):
+                if ch.get('target') in JEV_TARGETS and ch.get('proposed') in JEV_TARGETS[ch['target']]['options']:
+                    answers[ch['target']]=ch['proposed']
+            profile=PROFILES.apply(wid,actor,answers)
+            with STORE.tx():STORE._audit(wid,actor,'jev.reconfigure.apply',{'targets':[c['target'] for c in d.get('changes',[])],'client':'mock' if JEV.__class__.__name__=='MockJevClient' else 'jev'})
+            return self.out(200,{'profile':profile,'answers':answers},rid=rid) or 200
         if p == '/api/retail/profile':
             wid, actor, _ = self._auth('owner'); return self.out(200,PROFILES.apply(wid,actor,self._body()),rid=rid) or 200
         if p == '/api/retail/locations':
@@ -812,6 +834,7 @@ RETAIL = Retail(STORE,BOOKS)
 PROFILES = Profiles(STORE)
 PROVISIONER = Provisioner(STORE)
 ONBOARDING = Onboarding(STORE,PROFILES,PROVISIONER)
+JEV = default_client(os.environ.get('JEV_API_KEY'))  # mock until an owner's own key exists (BYOK)
 MIGRATIONS_API = Migrations(STORE,BOOKS,RETAIL)
 TAX = TaxEngine(STORE)
 ARTIFACTS = ArtifactBuilder(STORE,BOOKS,RETAIL)
