@@ -7,7 +7,7 @@ from decimal import Decimal
 from urllib.parse import urlparse
 import secrets, sys, threading, time
 from urllib.parse import parse_qs
-from store import Store, Conflict, NotFound, canon, sha256
+from store import Store, Conflict, NotFound, canon, sha256, utcnow
 from accounting import Accounting
 from retail import Retail
 from operational_profile import Profiles
@@ -673,6 +673,7 @@ class H(BaseHTTPRequestHandler):
             for ch in d.get('changes',[]):
                 if ch.get('target') in JEV_TARGETS and ch.get('proposed') in JEV_TARGETS[ch['target']]['options']:
                     answers[ch['target']]=ch['proposed']
+            with STORE.tx():STORE._db.execute("UPDATE onboarding_sessions SET answers_json=?,updated_at=? WHERE workspace_id=?",(json.dumps(answers),utcnow(),wid))
             profile=PROFILES.apply(wid,actor,answers)
             with STORE.tx():STORE._audit(wid,actor,'jev.reconfigure.apply',{'targets':[c['target'] for c in d.get('changes',[])],'client':'mock' if JEV.__class__.__name__=='MockJevClient' else 'jev'})
             return self.out(200,{'profile':profile,'answers':answers},rid=rid) or 200
