@@ -52,3 +52,5 @@ class NonRetailInferenceHonestyTest(unittest.TestCase):
   self.assertIsNone(inf['owner_summary']['first_goal'])
   ap=call(self.p,'POST','/api/onboarding/apply',{'id':x['id']},k)
   self.assertEqual(set(ap['profile']['enabled_modules']),mods)
+  st=call(self.p,'GET','/api/accounting/status',key=k)
+  self.assertEqual(st['base_currency'],'INR')

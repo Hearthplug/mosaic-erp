@@ -578,6 +578,19 @@ class H(BaseHTTPRequestHandler):
             data = STORE.export_workspace(wid, key_id)
             return self.out(200, data, hdrs={'Content-Disposition': 'attachment; filename="mosaic-erp-workspace-export.json"'}, rid=rid) or 200
         return self.out(404, {'error': 'Not found', 'request_id': rid}, rid=rid) or 404
+
+    def _ensure_accounting(self,wid,actor,onboarding_id=None):
+        try:BOOKS.status(wid);return
+        except NotFound:pass
+        currency='USD'
+        try:
+            if onboarding_id:country=(ONBOARDING.get(wid,onboarding_id)['answers'].get('country') or '').strip()
+            else:
+                row=STORE._db.execute("SELECT answers_json FROM onboarding_sessions WHERE workspace_id=? ORDER BY updated_at DESC LIMIT 1",(wid,)).fetchone()
+                country=(json.loads(row['answers_json']).get('country') or '').strip() if row else ''
+            if country in PACKS:currency=PACKS[country]({'country':country}).get('currency',{}).get('code','USD')
+        except Exception:pass
+        BOOKS.setup(wid,actor,base_currency=currency)
     def _post(self, rid):
         p = urlparse(self.path).path
         if p in ('/api/questions', '/api/preview', '/api/configure', '/api/export', '/api/chat'):
@@ -637,7 +650,10 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/onboarding/answer':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.answer(wid,actor,d['id'],d['key'],d['value']),rid=rid) or 200
         if p == '/api/onboarding/apply':
-            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.apply(wid,actor,d['id']),rid=rid) or 200
+            wid, actor, _ = self._auth('owner'); d=self._body()
+            result=ONBOARDING.apply(wid,actor,d['id'])
+            self._ensure_accounting(wid,actor,d['id'])
+            return self.out(200,result,rid=rid) or 200
         if p == '/api/retail/profile':
             wid, actor, _ = self._auth('owner'); return self.out(200,PROFILES.apply(wid,actor,self._body()),rid=rid) or 200
         if p == '/api/retail/locations':
@@ -645,13 +661,13 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/retail/products':
             wid, actor, _ = self._operational_auth('product.create','editor'); d=self._body(); return self.out(201,RETAIL.product(wid,actor,d['sku'],d['name'],d['selling_price_minor'],d['cost_minor'],**{k:v for k,v in d.items() if k not in ('sku','name','selling_price_minor','cost_minor')}),rid=rid) or 201
         if p == '/api/retail/purchases':
-            d=self._body(); wid, actor, _ = self._operational_auth('purchase.create','editor',d['location_id'],sum(int((Decimal(str(x['quantity']))*int(x['unit_cost_minor'])).quantize(Decimal('1'))) for x in d['lines'])); return self.out(201,RETAIL.purchase_order(wid,actor,d['vendor_id'],d['location_id'],d['ordered_on'],d['lines'],d.get('currency','USD')),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._operational_auth('purchase.create','editor',d['location_id'],sum(int((Decimal(str(x['quantity']))*int(x['unit_cost_minor'])).quantize(Decimal('1'))) for x in d['lines'])); self._ensure_accounting(wid,actor); return self.out(201,RETAIL.purchase_order(wid,actor,d['vendor_id'],d['location_id'],d['ordered_on'],d['lines'],d.get('currency','USD')),rid=rid) or 201
         if p == '/api/retail/purchases/approve':
             wid, actor, _ = self._operational_auth('purchase.approve','owner'); d=self._body(); RETAIL.approve_purchase(wid,actor,d['purchase_order_id']); return self.out(200,{'approved':True},rid=rid) or 200
         if p == '/api/retail/purchases/receive':
             d=self._body(); wid, actor, _ = self._auth('editor'); po=STORE._db.execute('SELECT location_id,status FROM purchase_orders WHERE id=? AND workspace_id=?',(d['purchase_order_id'],wid)).fetchone(); self._operational_auth('purchase.receive','editor',po['location_id'] if po else None,record_state=po['status'] if po else None); return self.out(200,RETAIL.receive_purchase(wid,actor,d['purchase_order_id'],d['received']),rid=rid) or 200
         if p == '/api/retail/sales':
-            d=self._body(); wid, actor, _ = self._operational_auth('sale.create','editor',d['location_id'],sum(int(x['amount_minor']) for x in d['tenders'])); return self.out(201,RETAIL.complete_sale(wid,actor,d['location_id'],d['lines'],d['tenders'],d.get('customer_id'),d.get('currency','USD')),rid=rid) or 201
+            d=self._body(); wid, actor, _ = self._operational_auth('sale.create','editor',d['location_id'],sum(int(x['amount_minor']) for x in d['tenders'])); self._ensure_accounting(wid,actor); return self.out(201,RETAIL.complete_sale(wid,actor,d['location_id'],d['lines'],d['tenders'],d.get('customer_id'),d.get('currency','USD')),rid=rid) or 201
         if p == '/api/retail/transfers':
             d=self._body(); wid, actor, _ = self._operational_auth('stock.transfer.approve','editor',d['from_location']); return self.out(201,RETAIL.transfer(wid,actor,d['product_id'],d['from_location'],d['to_location'],d['quantity']),rid=rid) or 201
         if p == '/api/retail/counts':
