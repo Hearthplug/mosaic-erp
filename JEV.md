@@ -48,3 +48,21 @@ non-English route rather than any non-English mapping.
 No benchmark numbers are published (terms prohibit it). Jev features are
 demoed, not quoted. While the mock backs the flow, UI copy says "Mosaic
 tidied/matched" rather than naming a model.
+
+## Answer-shaping chooser
+
+The interview start and the Assistant page both offer the same choice of how
+interview words are mapped to settings:
+
+- **Standard (built in)** - default. Deterministic mapping inside Mosaic; nothing
+  leaves the workspace and no key is needed.
+- **Jev by TypeSafe (your key)** - the owner pastes their own TypeSafe key. It is
+  written to per-workspace secret-file storage (never the database, logs, or
+  audit details) and used only for mapping calls. TypeSafe is named in text only.
+- **OpenAI, Claude, or DeepSeek (your key)** - shown disabled, "Not available
+  yet." The API rejects any provider other than `standard` or `jev`, so an
+  unwired option can never silently take effect.
+
+The choice is stored per workspace (`ai_answer_prefs`), changeable by the owner
+at any time, readable by viewers, and every change is audited. `client_for(wid)`
+in `ai_prefs.py` is the single place that picks the mapping client.

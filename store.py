@@ -27,6 +27,7 @@ from tax_verification_schema import TAX_VERIFICATION_SQLITE_SCHEMA
 from provisioning_schema import PROVISIONING_SQLITE_SCHEMA
 from artifact_builder_schema import ARTIFACT_BUILDER_SQLITE_SCHEMA
 from assistant_setup_schema import ASSISTANT_SETUP_SQLITE_SCHEMA
+from ai_prefs_schema import AI_PREFS_SQLITE_SCHEMA
 from assistant_preview_schema import ASSISTANT_PREVIEW_SQLITE_SCHEMA
 
 MIGRATIONS = [
@@ -122,6 +123,7 @@ MIGRATIONS = [
     ARTIFACT_BUILDER_SQLITE_SCHEMA,
     ASSISTANT_SETUP_SQLITE_SCHEMA,
     ASSISTANT_PREVIEW_SQLITE_SCHEMA,
+    AI_PREFS_SQLITE_SCHEMA,
 ]
 
 def utcnow() -> str:
