@@ -665,7 +665,9 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/retail/purchases/approve':
             wid, actor, _ = self._operational_auth('purchase.approve','owner'); d=self._body(); RETAIL.approve_purchase(wid,actor,d['purchase_order_id']); return self.out(200,{'approved':True},rid=rid) or 200
         if p == '/api/retail/purchases/receive':
-            d=self._body(); wid, actor, _ = self._auth('editor'); po=STORE._db.execute('SELECT location_id,status FROM purchase_orders WHERE id=? AND workspace_id=?',(d['purchase_order_id'],wid)).fetchone(); self._operational_auth('purchase.receive','editor',po['location_id'] if po else None,record_state=po['status'] if po else None); return self.out(200,RETAIL.receive_purchase(wid,actor,d['purchase_order_id'],d['received']),rid=rid) or 200
+            d=self._body()
+            if not isinstance(d.get('received'),dict):raise ValueError('received must be an object of purchase order line id to quantity')
+            wid, actor, _ = self._auth('editor'); po=STORE._db.execute('SELECT location_id,status FROM purchase_orders WHERE id=? AND workspace_id=?',(d['purchase_order_id'],wid)).fetchone(); self._operational_auth('purchase.receive','editor',po['location_id'] if po else None,record_state=po['status'] if po else None); return self.out(200,RETAIL.receive_purchase(wid,actor,d['purchase_order_id'],d['received']),rid=rid) or 200
         if p == '/api/retail/sales':
             d=self._body(); wid, actor, _ = self._operational_auth('sale.create','editor',d['location_id'],sum(int(x['amount_minor']) for x in d['tenders'])); self._ensure_accounting(wid,actor); return self.out(201,RETAIL.complete_sale(wid,actor,d['location_id'],d['lines'],d['tenders'],d.get('customer_id'),d.get('currency','USD')),rid=rid) or 201
         if p == '/api/retail/transfers':
