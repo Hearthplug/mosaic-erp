@@ -70,6 +70,15 @@
           <label>Quantity<input name="quantity" type="number" step="any"></label>
           <div class="actionrow"><button class="btn primary" type="submit">Transfer stock</button></div>
         </form>
+        <form class="card actioncard" id="add-location">
+          <h3>Add a store</h3>
+          <p class="hint">Stores appear in orders, transfers and the stock register.</p>
+          <div class="fieldrow">
+            <label>Store code<input name="code" required></label>
+            <label>Store name<input name="name" required></label>
+          </div>
+          <div class="actionrow"><button class="btn" type="submit">Add store</button></div>
+        </form>
       </div>
     </section>
 
@@ -91,7 +100,7 @@
           <label>Item<input name="product_id" list="products" required></label>
           <div class="fieldrow">
             <label>Quantity<input name="quantity" type="number" min="0" step="any" required></label>
-            <label>Cash received<input name="amount_minor" type="number" min="0" required></label>
+            <label>Cash received<input name="amount_minor" type="number" min="0" step="any" required></label>
           </div>
           <div class="actionrow"><button class="btn primary" type="submit">Complete sale</button></div>
         </form>
@@ -133,7 +142,7 @@
           <label>Item<input name="product_id" list="products" required></label>
           <div class="fieldrow">
             <label>Quantity<input name="quantity" type="number" min="0" step="any" required></label>
-            <label>Unit cost<input name="unit_cost_minor" type="number" min="0" required></label>
+            <label>Unit cost<input name="unit_cost_minor" type="number" min="0" step="any" required></label>
           </div>
           <div class="actionrow"><button class="btn primary" type="submit">Save purchase order</button></div>
         </form>
@@ -141,10 +150,8 @@
           <h3>Confirm what arrived</h3>
           <p class="hint">Receiving adds the stock to your register.</p>
           <label>Purchase order<input name="purchase_order_id" list="orders" required></label>
-          <div class="fieldrow">
-            <label>Item line from the order<input name="line_id" required></label>
-            <label>Quantity received<input name="quantity" type="number" min="0" step="any" required></label>
-          </div>
+          <label>Item line from the order<select name="line_id" required><option value="">Choose a purchase order first</option></select></label>
+          <label>Quantity received<input name="quantity" type="number" min="0" step="any" required></label>
           <div class="actionrow"><button class="btn primary" type="submit">Receive stock</button></div>
         </form>
         <form class="card actioncard" id="bill-match">
@@ -155,6 +162,25 @@
             <label>Supplier bill<input name="bill_id" list="bill-options"></label>
           </div>
           <div class="actionrow"><button class="btn primary" type="submit">Check supplier paperwork</button></div>
+        </form>
+        <form class="card actioncard" id="add-vendor">
+          <h3>Add a supplier</h3>
+          <p class="hint">Suppliers appear in the order form and in your books.</p>
+          <label>Supplier name<input name="name" required></label>
+          <div class="actionrow"><button class="btn" type="submit">Add supplier</button></div>
+        </form>
+        <form class="card actioncard" id="add-item">
+          <h3>Add an item</h3>
+          <p class="hint">Items appear in orders, sales and the stock register.</p>
+          <div class="fieldrow">
+            <label>Item code<input name="sku" required></label>
+            <label>Item name<input name="name" required></label>
+          </div>
+          <div class="fieldrow">
+            <label>Selling price<input name="price" type="number" min="0" step="any" required></label>
+            <label>Cost<input name="cost" type="number" min="0" step="any" required></label>
+          </div>
+          <div class="actionrow"><button class="btn" type="submit">Add item</button></div>
         </form>
       </div>
     </section>
@@ -177,7 +203,7 @@
             <label>Store<input name="location_id" list="locations"></label>
             <label>Cash session ID<input name="session_id"></label>
           </div>
-          <label>Amount<input name="amount_minor" type="number" min="0" required></label>
+          <label>Amount<input name="amount_minor" type="number" min="0" step="any" required></label>
           <div class="actionrow">
             <button class="btn primary" type="button" name="open">Open till</button>
             <button class="btn" type="button" name="close">Close till</button>
