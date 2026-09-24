@@ -59,10 +59,10 @@ h1,h2,h3{letter-spacing:-.035em;line-height:1.06;margin:0}
 /* hero */
 .hero{padding:96px 0 0;text-align:center}
 .hero h1{font-size:clamp(52px,8vw,96px);font-weight:700;margin:18px auto 24px;max-width:14ch}
-.hero h1 em{font-style:normal;color:var(--green)}
+.hero h1 em{font-style:normal;color:var(--green-deep)}
 .hero .lede{max-width:640px;margin:0 auto}
 .hero .actions{display:flex;gap:14px;justify-content:center;margin-top:34px;flex-wrap:wrap}
-.btn{display:inline-block;border-radius:999px;padding:13px 26px;font-weight:600;font-size:16px;text-decoration:none;background:var(--green);color:#fff;transition:transform .2s ease,box-shadow .2s ease}
+.btn{display:inline-block;border-radius:999px;padding:13px 26px;font-weight:600;font-size:16px;text-decoration:none;background:var(--green-deep);color:#fff;transition:transform .2s ease,box-shadow .2s ease}
 .btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(15,163,126,.28)}
 .btn.alt{background:transparent;color:var(--green-deep);border:1px solid var(--line)}
 .btn.alt:hover{box-shadow:0 8px 20px rgba(12,31,25,.08)}
@@ -81,7 +81,7 @@ section{padding:110px 0}
 .split .shot{margin:0}
 .split .frame{border-radius:var(--radius);padding:10px}
 .split .frame img{border-radius:12px}
-.figure-note{font-size:13px;color:var(--faint);margin-top:14px;text-align:center}
+.figure-note{font-size:13px;color:var(--muted);margin-top:14px;text-align:center}
 
 /* stat band */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;text-align:center;padding:56px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -96,7 +96,7 @@ section{padding:110px 0}
 
 /* day trio */
 .day{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
-.day article{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:34px}
+.day article{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:34px;color:var(--ink)}
 .day .when{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--green-deep)}
 .day h3{font-size:22px;margin:12px 0 10px}
 .day p{margin:0;color:var(--muted);font-size:16px}
@@ -116,7 +116,7 @@ section{padding:110px 0}
 .faq details{border-top:1px solid var(--line);padding:24px 0}
 .faq details:last-child{border-bottom:1px solid var(--line)}
 .faq summary{font-size:18px;font-weight:650;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:20px}
-.faq summary::after{content:"+";font-size:24px;font-weight:400;color:var(--faint);transition:transform .25s ease}
+.faq summary::after{content:"+";font-size:24px;font-weight:400;color:var(--muted);transition:transform .25s ease}
 .faq details[open] summary::after{transform:rotate(45deg)}
 .faq details p{color:var(--muted);margin:14px 0 0;max-width:68ch}
 
@@ -135,7 +135,7 @@ section{padding:110px 0}
 .cta h2{font-size:clamp(40px,5.6vw,64px);max-width:16ch;margin:0 auto 20px}
 .cta .lede{margin:0 auto 36px;max-width:560px}
 
-footer{padding:44px 0;color:var(--faint);font-size:14px;border-top:1px solid var(--line)}
+footer{padding:44px 0;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 footer a{text-decoration:none;color:var(--muted)}
 footer a:hover{color:var(--ink)}
@@ -158,7 +158,7 @@ footer a:hover{color:var(--ink)}
   .day{grid-template-columns:1fr}
   .cta{padding:80px 0}
 }
-.follow{padding:54px 0;background:var(--white);border-top:1px solid var(--line)}.follow .links{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}.follow a{display:inline-flex;align-items:center;padding:11px 15px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-weight:700;color:var(--ink)}.follow a:hover{border-color:var(--green);color:var(--green)}
+.follow{padding:54px 0;background:var(--white);border-top:1px solid var(--line)}.follow .links{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}.follow a{display:inline-flex;align-items:center;padding:11px 15px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-weight:700;color:var(--ink)}.follow a:hover{border-color:var(--green-deep);color:var(--green-deep)}
 </style>
 </head>
 <body>
@@ -244,7 +244,7 @@ footer a:hover{color:var(--ink)}
 
 <section style="background:var(--white)"><div class="wrap split flip">
   <div class="shot reveal">
-    <div class="frame"><img src="assets/ml-chooser.png" width="2880" height="1800" loading="lazy" decoding="async" alt="The answer-shaping chooser at the start of the Mosaic interview: Standard built in selected by default, Jev by TypeSafe with your own key shown as a Preview option, and other providers marked not available yet"></div>
+    <div class="frame"><picture><source media="(max-width:860px)" srcset="assets/ml-chooser-mobile-card.png"><img src="assets/ml-chooser.png" width="2880" height="1800" loading="lazy" decoding="async" alt="The answer-shaping chooser at the start of the Mosaic interview: Standard built in selected by default, Jev by TypeSafe with your own key shown as a Preview option, and other providers marked not available yet"></picture></div>
     <div class="figure-note">Answer shaping, chosen by the owner - Standard is the default, Jev by TypeSafe is a Preview option with your own key</div>
   </div>
   <div class="reveal">
