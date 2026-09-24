@@ -15,7 +15,7 @@ from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
 from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
 import build_bills, build_registers
-import dayclose
+import dayclose, dayclose_share
 from tax_engine import TaxEngine
 from artifact_builder import ArtifactBuilder
 from assistant_setup import AssistantSetup
@@ -599,6 +599,12 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer'); return self.out(200, dayclose.day_summary(STORE, wid, qs.get('date',[dayclose.local_today(STORE, wid)])[0]), rid=rid) or 200
         if p == '/api/dayclose/closes':
             wid, _, _ = self._auth('viewer'); return self.out(200, {'closes': dayclose.list_closes(STORE, wid)}, rid=rid) or 200
+        if p == '/api/dayclose/share':
+            wid, _, _ = self._auth('viewer')
+            day = qs.get('date',[dayclose.local_today(STORE, wid)])[0]
+            summary = dayclose.day_summary(STORE, wid, day)
+            currency = BOOKS.status(wid).get('base_currency','USD')
+            return self.out(200, {'text': dayclose_share.close_share_text(summary, dayclose.get_close(STORE, wid, day), currency)}, rid=rid) or 200
         if p == '/api/workspace/export':
             wid, key_id, _ = self._auth('editor')
             data = STORE.export_workspace(wid, key_id)

@@ -149,6 +149,18 @@ def save_close(store, wid, actor, day, counted_cash_minor, note=''):
     return {'date': day, 'snapshot': snap, 'counted_cash_minor': counted, 'difference_minor': diff, 'note': note}
 
 
+def get_close(store, wid, day):
+    """The saved close for one day, or None."""
+    r = store._db.execute(
+        'SELECT close_date, snapshot_json, counted_cash_minor, difference_minor, note, created_at '
+        'FROM day_closes WHERE workspace_id=? AND close_date=?', (wid, day)).fetchone()
+    if not r:
+        return None
+    return {'date': r['close_date'], 'snapshot': json.loads(r['snapshot_json']),
+            'counted_cash_minor': r['counted_cash_minor'], 'difference_minor': r['difference_minor'],
+            'note': r['note'], 'created_at': r['created_at']}
+
+
 def list_closes(store, wid, limit=60):
     """Past closes, newest first. Recomputes each day and flags closes whose books changed since."""
     rows = store._db.execute(

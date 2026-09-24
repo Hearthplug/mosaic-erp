@@ -17,7 +17,7 @@
 </div>
 <p class="diff" id="diff">Type the counted cash to compare it with the books.</p>
 <label class="notelabel"><span>Note for this close <em>(optional)</em></span><input id="note" type="text" maxlength="300" placeholder="e.g. Kept some cash aside for the morning float"></label>
-<div class="saverow"><button id="save" type="button" disabled>Save today's close</button><span class="savehint" id="savehint"></span></div>
+<div class="saverow"><button id="save" type="button" disabled>Save today's close</button><button id="share" type="button" class="ghostbtn">Share to WhatsApp</button><span class="savehint" id="savehint"></span></div><pre class="sharetext" id="sharetext" hidden></pre>
 </section>
 <section class="card closes-card"><div class="cardhead"><div><h2>Past closes</h2><p>Saving again for the same day replaces that day's record. Days are never locked.</p></div></div>
 <div class="tablewrap"><table id="closes"><thead><tr><th>Day</th><th class="num">Counted cash</th><th class="num">Difference</th><th>Note</th><th>Status</th></tr></thead><tbody id="closes-body"><tr><td colspan="5">Loading past closes…</td></tr></tbody></table></div></section>
