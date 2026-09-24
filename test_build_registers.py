@@ -161,6 +161,31 @@ class RecordStock(unittest.TestCase):
         r2 = build_registers.record_register(s, books, wid, 'o@t.co', payload)
         self.assertEqual(len(r2['recorded']), 1)
 
+class LeadingDateSplit(unittest.TestCase):
+    def test_leading_date_is_split_from_detail(self):
+        from datetime import date
+        today = date.today()
+        iso, rest = build_registers._strip_leading_date('12 Sep - rice and oil', today)
+        y = today.year if date(today.year, 9, 12) <= today else today.year - 1
+        self.assertEqual(iso, date(y, 9, 12).isoformat())
+        self.assertEqual(rest, 'rice and oil')
+        iso2, rest2 = build_registers._strip_leading_date('2026-09-10: cartons', today)
+        self.assertEqual(iso2, '2026-09-10')
+        self.assertEqual(rest2, 'cartons')
+        iso3, rest3 = build_registers._strip_leading_date('rice and oil', today)
+        self.assertEqual(iso3, '')
+        self.assertEqual(rest3, 'rice and oil')
+
+    def test_draft_splits_dates_out_of_book_lines(self):
+        s, wid, books = _store()
+        extraction = {'document_type': 'customer credit book',
+                      'fields': [{'name': 'name', 'value': 'Ravi Kumar'}, {'name': 'balance', 'value': '$300.00'}],
+                      'lines': [{'description': '12 Sep - rice and oil', 'amount': '$500.00'},
+                                {'description': '15 Sep - paid', 'amount': '$200.00'}]}
+        d = build_registers.draft_from_extraction(s, wid, 'credit_book', extraction)
+        self.assertTrue(d['entries'][0]['date'].endswith('-09-12'))
+        self.assertEqual(d['entries'][0]['detail'], 'rice and oil')
+        self.assertEqual(d['entries'][1]['kind'], 'payment')
 
 
 if __name__ == '__main__':

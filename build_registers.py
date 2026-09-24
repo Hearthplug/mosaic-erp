@@ -77,12 +77,15 @@ def draft_from_extraction(store, wid, register, extraction):
         return {'register': register, 'items': items, 'stated_total_minor': stated, 'warnings': warnings}
     party = _field(fields, 'name', 'customer', 'customer name', 'supplier', 'supplier name', 'vendor')
     entries = []
+    from datetime import date as _today
+    today = _today.today()
     for ln in lines[:60]:
-        detail = str(ln.get('description', '')).strip()[:160]
+        raw = str(ln.get('description', '')).strip()[:160]
         amount = amount_minor(ln.get('amount')) or amount_minor(ln.get('unit_price'))
-        if not detail and amount is None:
+        if not raw and amount is None:
             continue
-        entries.append({'date': '', 'detail': detail, 'kind': 'payment' if _PAYMENT_WORDS.search(detail) else 'credit',
+        iso, detail = _strip_leading_date(raw, today)
+        entries.append({'date': iso, 'detail': detail or raw, 'kind': 'payment' if _PAYMENT_WORDS.search(raw) else 'credit',
                         'amount_minor': amount})
     stated = amount_minor(_field(fields, 'balance', 'running balance', 'total', 'total due', 'outstanding'))
     if stated is None:
@@ -92,6 +95,46 @@ def draft_from_extraction(store, wid, register, extraction):
     if not entries:
         warnings.append('No dated entries were read clearly. Type the entries below instead.')
     return {'register': register, 'party': party, 'entries': entries, 'stated_balance_minor': stated, 'warnings': warnings}
+
+
+
+_MONTHS = {'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+           'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12}
+_LEAD_DATE = re.compile(
+    r'^\s*(?:(\d{4})-(\d{1,2})-(\d{1,2})|(\d{1,2})\s+([A-Za-z]{3,9})|([A-Za-z]{3,9})\s+(\d{1,2})|(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?)\b\s*[-:\u2013\u2014.,]?\s*')
+
+
+def _strip_leading_date(detail, today):
+    """Split a leading date off a book line ('12 Sep - rice and oil'). Returns (iso_date, rest)."""
+    from datetime import date as _date, timedelta
+    detail = (detail or '').strip()
+    m = _LEAD_DATE.match(detail)
+    if not m:
+        return '', detail
+    g = m.groups()
+    try:
+        if g[0]:
+            y, mo, d = int(g[0]), int(g[1]), int(g[2])
+            roll = False
+        elif g[3]:
+            d, mo, y = int(g[3]), _MONTHS[g[4][:3].lower()], today.year
+            roll = True
+        elif g[5]:
+            mo, d, y = _MONTHS[g[5][:3].lower()], int(g[6]), today.year
+            roll = True
+        else:
+            d, mo = int(g[7]), int(g[8])
+            y = int(g[9]) if g[9] else today.year
+            if y < 100:
+                y += 2000
+            roll = not g[9]
+        dt = _date(y, mo, d)
+        if roll and dt > today + timedelta(days=7):
+            dt = _date(y - 1, mo, d)
+        iso = dt.isoformat()
+    except (KeyError, ValueError):
+        return '', detail
+    return iso, detail[m.end():].strip()
 
 
 _CREDIT_HEADERS = ({'name', 'customer', 'customer name', 'party'}, {'date'}, {'amount', 'amount_minor'})
@@ -245,7 +288,7 @@ def _record_book(store, books, wid, actor, register, payload):
         balance = sum(store._db.execute('SELECT balance_minor FROM documents WHERE id=?', (d['id'],)).fetchone()['balance_minor'] for d in docs)
         if balance != pl['stated']:
             raise ValueError('Recorded balance for ' + party + ' does not match the book. Nothing else was recorded; please try again.')
-        recorded.append({'party': party, 'stated_minor': pl['stated'], 'documents': len(docs), 'dated_history': pl['dated']})
+        recorded.append({'party': party, 'stated_minor': pl['stated'], 'documents': len(docs), 'entries': len(pl['entries']), 'dated_history': pl['dated']})
     total = sum(r['stated_minor'] for r in recorded)
     store._audit(wid, actor, 'build.register.record', {'register': register, 'parties': len(recorded), 'total_minor': total})
     return {'register': register, 'recorded': recorded, 'total_minor': total, 'party_label': kind_label}
