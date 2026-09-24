@@ -14,6 +14,7 @@ from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
 from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
+import build_bills
 from tax_engine import TaxEngine
 from artifact_builder import ArtifactBuilder
 from assistant_setup import AssistantSetup
@@ -751,6 +752,10 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,client.extract_image(d['data_b64'],mime),rid=rid) or 200
         if p == '/api/build/draft-from-extraction':
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,ARTIFACTS.draft_from_extraction(wid,actor,d.get('target',''),d.get('extraction') or {},d.get('hint','')),rid=rid) or 201
+        if p == '/api/build/bill-draft':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,build_bills.draft_from_extraction(STORE,wid,d.get('extraction') or {}),rid=rid) or 200
+        if p == '/api/build/record-bill':
+            d=self._body(); wid, actor, _ = self._operational_auth('document.post','owner'); return self.out(201,build_bills.record_bill(STORE,BOOKS,wid,actor,d),rid=rid) or 201
         if p == '/api/tax/verify':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,TAX.attest(wid,actor,d['verification'],d['rules']),rid=rid) or 201
         if p == '/api/tax/regression':

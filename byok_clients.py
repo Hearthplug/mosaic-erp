@@ -161,7 +161,8 @@ _EXTRACT_SYSTEM = ("You read a photo of a business document, screen, or notebook
     "Reply with ONLY a JSON object: "
     '{"document_type": "<short plain name>", '
     '"fields": [{"name": "<field>", "value": "<what is written>", "confidence": <0..1>}], '
-    '"summary": "<one plain sentence about what this document shows>"}. '
+    '"summary": "<one plain sentence about what this document shows>", '
+    '"lines": [{"description": "<item or row name>", "quantity": "<number>", "unit_price": "<as written>", "amount": "<line total as written>"}]}. '
     "Copy values exactly as written, including currency symbols and non-Latin scripts. "
     "Use a confidence below 0.6 for anything you are unsure about. No prose, no markdown fences.")
 
@@ -209,8 +210,18 @@ def _extract_image(self, image_b64, media_type):
         except (TypeError, ValueError):
             conf = 0.0
         cleaned.append({'name': f['name'][:80], 'value': str(f.get('value', ''))[:500], 'confidence': min(max(conf, 0.0), 1.0)})
+    lines = []
+    raw_lines = data.get('lines')
+    if isinstance(raw_lines, list):
+        for ln in raw_lines[:60]:
+            if not isinstance(ln, dict):
+                continue
+            lines.append({'description': str(ln.get('description', ''))[:120],
+                          'quantity': str(ln.get('quantity', ''))[:30],
+                          'unit_price': str(ln.get('unit_price', ''))[:40],
+                          'amount': str(ln.get('amount', ''))[:40]})
     return {'document_type': str(data.get('document_type', 'document'))[:80],
-            'summary': str(data.get('summary', ''))[:300], 'fields': cleaned}
+            'summary': str(data.get('summary', ''))[:300], 'fields': cleaned, 'lines': lines}
 
 
 ChatProviderClient.extract_image = _extract_image
