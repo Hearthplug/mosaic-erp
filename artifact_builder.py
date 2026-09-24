@@ -49,12 +49,16 @@ class ArtifactBuilder:
     return {'needs_choice':True,'kind':'report','choices':sorted(ALLOWED_REPORTS),'message':'Which report should this become? Pick one and the draft appears for review.'}
   kind={'dashboard':'dashboard','report':'report','statutory_invoice':'statutory_invoice'}[target]
   doc=str(extraction.get('document_type','')).strip() or 'document'
+  import re as _re
+  if _re.search(r'bill|invoice|receipt',doc,_re.I):doc='supplier bill'
+  vendor=next((str(f.get('value','')).strip() for f in fields if str(f.get('name','')).lower() in ('vendor','supplier','seller') and str(f.get('value','')).strip()),None)
   if kind=='report':
    probe=message.lower();rt=next((x for x in ALLOWED_REPORTS if x.replace('_',' ') in probe),None)
    what=(rt or 'sales_summary').replace('_',' ')+' report'
   elif kind=='dashboard':what='dashboard'
   else:what='invoice layout'
-  base=(doc[:1].upper()+doc[1:]+' - '+what)[:92]
+  if doc=='supplier bill' and vendor and kind=='report':base=('Supplier bills - '+vendor)[:92]
+  else:base=(doc[:1].upper()+doc[1:]+' - '+what)[:92]
   existing={r['name'] for r in self.s._db.execute('SELECT name FROM generated_artifacts WHERE workspace_id=? AND kind=?',(wid,kind)).fetchall()}
   name=base;n=2
   while name in existing:name=base+' ('+str(n)+')';n+=1
