@@ -150,10 +150,8 @@
           <h3>Confirm what arrived</h3>
           <p class="hint">Receiving adds the stock to your register.</p>
           <label>Purchase order<input name="purchase_order_id" list="orders" required></label>
-          <div class="fieldrow">
-            <label>Item line from the order<select name="line_id" required><option value="">Choose a purchase order first</option></select></label>
-            <label>Quantity received<input name="quantity" type="number" min="0" step="any" required></label>
-          </div>
+          <label>Item line from the order<select name="line_id" required><option value="">Choose a purchase order first</option></select></label>
+          <label>Quantity received<input name="quantity" type="number" min="0" step="any" required></label>
           <div class="actionrow"><button class="btn primary" type="submit">Receive stock</button></div>
         </form>
         <form class="card actioncard" id="bill-match">
