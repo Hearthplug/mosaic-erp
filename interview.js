@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s);let schema,session,current,selected,templateUsed=sessionStorage.mosaicTemplate||null;const identity=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');if($('#rail-company'))$('#rail-company').textContent=identity.workspace_name||'Your company';
 async function api(path,method='GET',body){let r=await fetch(path,{method,headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:body&&JSON.stringify(body)});let j=await r.json();if(!r.ok)throw Error(j.error||'Could not continue');return j}
 async function begin(){if(!MosaicAuth.require())return;schema=await api('/api/onboarding/schema');let id=localStorage.mosaicOnboarding;if(id){try{session=await api('/api/onboarding/session?id='+encodeURIComponent(id))}catch(e){localStorage.removeItem('mosaicOnboarding')}}if(!session){session=await api('/api/onboarding/start','POST',{});localStorage.mosaicOnboarding=session.id}$('#connect').hidden=true;render()}
-function render(){if(session.status==='ready'||session.status==='needs_review'||session.status==='applied'){showSummary();return}current=schema.questions.find(q=>q.key===session.current_question);let n=schema.questions.indexOf(current);$('#interview').hidden=false;$('#bar').value=(n/schema.questions.length)*100;$('#rail-step').textContent='Question '+(n+1)+' of '+schema.questions.length;if(templateUsed){let answered=Object.keys(session.answers||{}).length,remaining=schema.questions.length-answered;$('#bar').value=(answered/schema.questions.length)*100;$('#rail-step').textContent=templateUsed+' template - '+remaining+' question'+(remaining===1?'':'s')+' left';$('#question-step').hidden=true;let tip=$('.regional-note');if(tip)tip.innerHTML='<b>'+templateUsed+' template.</b> INR and GST settings are pre-set. You will review everything before it is saved.';let foot=document.querySelector('.interview-rail footer span');if(foot)foot.textContent='India · INR';}$('#question-step').textContent=String(n+1).padStart(2,'0')+' / '+String(schema.questions.length).padStart(2,'0');$('#question').textContent=current.text;$('#why').textContent='Why Mosaic asks: '+current.why;$('#examples').textContent=current.examples?'For example: '+current.examples.join(' / '):'';$('#answer').hidden=current.type==='choice'||current.type==='multi';$('#answer').value='';selected=current.type==='multi'?[]:null;$('#options').innerHTML='';(current.options||[]).forEach(o=>{let b=document.createElement('button');b.textContent=o;b.onclick=()=>{if(current.type==='multi'){selected.includes(o)?selected.splice(selected.indexOf(o),1):selected.push(o);b.classList.toggle('selected',selected.includes(o))}else{selected=o;[...$('#options').children].forEach(x=>x.classList.remove('selected'));b.classList.add('selected')}};$('#options').appendChild(b)})}
+function render(){if(session.status==='ready'||session.status==='needs_review'||session.status==='applied'){showSummary();return}current=schema.questions.find(q=>q.key===session.current_question);let n=schema.questions.indexOf(current);$('#interview').hidden=false;$('#bar').value=(n/schema.questions.length)*100;$('#rail-step').textContent='Question '+(n+1)+' of '+schema.questions.length;if(templateUsed){let answered=Object.keys(session.answers||{}).length,remaining=schema.questions.length-answered;$('#bar').value=(answered/schema.questions.length)*100;$('#rail-step').textContent=templateUsed+' template - '+remaining+' question'+(remaining===1?'':'s')+' left';$('#question-step').hidden=true;let tip=$('.regional-note'),tplMeta=TEMPLATES.find(x=>x.name===templateUsed)||{};if(tip)tip.innerHTML='<b>'+templateUsed+' template.</b> '+(tplMeta.note||'Regional settings are pre-set.')+' You will review everything before it is saved.';let foot=document.querySelector('.interview-rail footer span');if(foot&&tplMeta.foot)foot.textContent=tplMeta.foot;}$('#question-step').textContent=String(n+1).padStart(2,'0')+' / '+String(schema.questions.length).padStart(2,'0');$('#question').textContent=current.text;$('#why').textContent='Why Mosaic asks: '+current.why;$('#examples').textContent=current.examples?'For example: '+current.examples.join(' / '):'';$('#answer').hidden=current.type==='choice'||current.type==='multi';$('#answer').value='';selected=current.type==='multi'?[]:null;$('#options').innerHTML='';(current.options||[]).forEach(o=>{let b=document.createElement('button');b.textContent=o;b.onclick=()=>{if(current.type==='multi'){selected.includes(o)?selected.splice(selected.indexOf(o),1):selected.push(o);b.classList.toggle('selected',selected.includes(o))}else{selected=o;[...$('#options').children].forEach(x=>x.classList.remove('selected'));b.classList.add('selected')}};$('#options').appendChild(b)})}
 async function save(){let value=current.type==='text'?$('#answer').value:selected;if(!value||(Array.isArray(value)&&!value.length)){ $('#saved').textContent='Please answer in the way that fits your business.';return}session=await api('/api/onboarding/answer','POST',{id:session.id,key:current.key,value});$('#saved').textContent='Saved';render()}
 function rail(step){let li=document.querySelectorAll('.rail-progress li');li[1].className=step>=2?'done':'on';li[1].querySelector('i').textContent=step>=2?'\u2713':'2';li[2].className=step>=3?'done':(step===2?'on':'');li[2].querySelector('i').textContent=step>=3?'\u2713':'3'}
 function showApplied(){rail(3);let bar=document.querySelector('#summary .card-bar span');if(bar)bar.textContent='LIVE';let note=document.querySelector('.summary-note');if(note)note.textContent='Your Mosaic is ready. The setup you reviewed is now live in your workspace.';let acts=document.querySelector('.summary-actions');if(acts)acts.innerHTML='<p id="apply-state"></p><a class="open-workspace" href="/operations">Open your workspace \u2192</a>'}
@@ -18,7 +18,7 @@ async function reconfigApply(changes){let picked=[...document.querySelectorAll('
 if($('#reconfig-go'))$('#reconfig-go').onclick=()=>reconfigGo();
 
 const TEMPLATES=[
-{id:'kirana',name:'Kirana store',region:'India · INR · GST-ready',blurb:'Neighbourhood grocery with khata credit for regulars',answers:{
+{group:'India',id:'kirana',name:'Kirana store',region:'India · INR · GST-ready',note:'INR and GST settings are pre-set.',foot:'India · INR',blurb:'Neighbourhood grocery with khata credit for regulars',answers:{
  vertical:'Groceries or food',locations:'One place',
  selling:'Customers pick items from the shelves, we weigh or scan them at the counter, they pay by UPI, card or cash.',
  buying:'I buy from local wholesalers and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
@@ -36,7 +36,7 @@ const TEMPLATES=[
  brand_style:'Warm and welcoming',brand_colors:'Warm yellow and green',logo:'No, use the business name for now',
  screen_preference:'Today’s manager checklist',
  goal:'Keep the khata and stock straight without the evening paper tally.'}},
-{id:'pharmacy',name:'Pharmacy',region:'India · INR · GST-ready',blurb:'Chemist shop with batch and expiry tracking',answers:{
+{group:'India',id:'pharmacy',name:'Pharmacy',region:'India · INR · GST-ready',note:'INR and GST settings are pre-set.',foot:'India · INR',blurb:'Chemist shop with batch and expiry tracking',answers:{
  vertical:'Pharmacy or health',locations:'One place',
  selling:'Customers bring prescriptions or ask for common medicines; we bill at the counter by batch, they pay by UPI, card or cash.',
  buying:'I order from two or three medicine distributors and check batches and expiry on delivery against the bill.',
@@ -54,7 +54,7 @@ const TEMPLATES=[
  brand_style:'Clean and professional',brand_colors:'White and medical green',logo:'No, use the business name for now',
  screen_preference:'Stock needing attention',
  goal:'Never sell an expired strip and know what to reorder each morning.'}},
-{id:'apparel',name:'Apparel shop',region:'India · INR · GST-ready',blurb:'Clothing store with seasonal buying and size exchanges',answers:{
+{group:'India',id:'apparel',name:'Apparel shop',region:'India · INR · GST-ready',note:'INR and GST settings are pre-set.',foot:'India · INR',blurb:'Clothing store with seasonal buying and size exchanges',answers:{
  vertical:'Clothing or footwear',locations:'One place',
  selling:'Customers browse and try items, we bill at the counter, they pay by UPI, card or cash.',
  buying:'I buy from wholesale markets and brand distributors before each season and check deliveries against the bill.',
@@ -71,7 +71,114 @@ const TEMPLATES=[
  exceptions:'Size exchanges and season-end leftover stock cause the most confusion.',
  brand_style:'Bold and energetic',brand_colors:'Deep maroon and cream',logo:'No, use the business name for now',
  screen_preference:'Start selling',
- goal:'Know which sizes and styles to reorder before the season turns.'}}];
-function renderTemplates(){let sec=$('#templates'),box=$('#template-cards');if(!sec||!box)return;if(localStorage.mosaicOnboarding)return;sec.hidden=false;TEMPLATES.forEach(t=>{let b=document.createElement('button');b.type='button';b.className='template-card';b.innerHTML='<b>'+t.name+'</b><span class="template-region">'+t.region+'</span><small>'+t.blurb+'</small>';b.onclick=()=>startTemplate(t).catch(e=>{$('#state').textContent=e.message});box.appendChild(b)})}
+ goal:'Know which sizes and styles to reorder before the season turns.'}},{group:'Southeast Asia',id:'warung',name:'Warung kiosk',region:'Indonesia · IDR · PPN-ready',note:'IDR and PPN settings are pre-set.',foot:'Indonesia · IDR',blurb:'Neighbourhood kiosk with daily essentials and a credit list for regulars',answers:{
+ vertical:'Groceries or food',locations:'One place',
+ selling:'Customers pick items from the shelves or ask at the counter, they pay by cash or QRIS.',
+ buying:'I buy from the grosir wholesaler and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
+ stock_pain:'Running out',credit_behavior:'Customers and suppliers both use credit',
+ discounts:'Regular customers get small discounts at the counter. Refunds always need the owner.',
+ returns:'We exchange unopened items within a few days with the receipt.',
+ staff:'One helper runs the counter and refills shelves. The owner manages purchasing and prices.',
+ money_view:['Sales','Money customers owe','Low stock'],
+ country:'Indonesia',
+ selling_locations:['Near my registered business'],buying_locations:['Nearby suppliers'],
+ price_display:'Tax is included in the shown price',customer_type:'Households',
+ product_tax_facts:'Staple foods and everyday items; no special tax treatment that our accountant flags.',
+ existing_records:'Paper books',
+ exceptions:'Customer credit entries (the bon list) and partial supplier deliveries cause the most confusion.',
+ brand_style:'Warm and welcoming',brand_colors:'Warm yellow and green',logo:'No, use the business name for now',
+ screen_preference:'Today’s manager checklist',
+ goal:'Keep the credit list and stock straight without the evening paper tally.'}},
+{group:'Southeast Asia',id:'sarisari',name:'Sari-sari store',region:'Philippines · PHP · VAT-ready',note:'PHP and VAT settings are pre-set.',foot:'Philippines · PHP',blurb:'Sari-sari convenience store with sachet pricing and a customer utang list',answers:{
+ vertical:'Groceries or food',locations:'One place',
+ selling:'Customers buy small everyday items and sachets at the window or counter, they pay by cash or GCash.',
+ buying:'I buy from the wholesale grocery and distributor salesmen, check every delivery against the invoice, and reorder when stock runs low.',
+ stock_pain:'Running out',credit_behavior:'Customers and suppliers both use credit',
+ discounts:'Regular customers get small discounts at the counter. Refunds always need the owner.',
+ returns:'We exchange unopened items within a few days with the receipt.',
+ staff:'One family member helps at the counter. The owner manages purchasing and prices.',
+ money_view:['Sales','Money customers owe','Low stock'],
+ country:'Philippines',
+ selling_locations:['Near my registered business'],buying_locations:['Nearby suppliers'],
+ price_display:'Tax is included in the shown price',customer_type:'Households',
+ product_tax_facts:'Staple foods and everyday items; no special tax treatment that our accountant flags.',
+ existing_records:'Paper books',
+ exceptions:'Customer credit entries (the utang list) and partial supplier deliveries cause the most confusion.',
+ brand_style:'Warm and welcoming',brand_colors:'Warm yellow and blue',logo:'No, use the business name for now',
+ screen_preference:'Today’s manager checklist',
+ goal:'Keep the utang list and stock straight without the evening paper tally.'}},
+{group:'Southeast Asia',id:'taphoa',name:'Tap hoa grocery',region:'Vietnam · VND · VAT-ready',note:'VND and VAT settings are pre-set.',foot:'Vietnam · VND',blurb:'Family grocery with daily staples and a credit notebook for regulars',answers:{
+ vertical:'Groceries or food',locations:'One place',
+ selling:'Customers pick items from the shelves or ask at the counter, they pay by cash or bank transfer QR.',
+ buying:'I buy from the wholesale market and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
+ stock_pain:'Running out',credit_behavior:'Customers and suppliers both use credit',
+ discounts:'Regular customers get small discounts at the counter. Refunds always need the owner.',
+ returns:'We exchange unopened items within a few days with the receipt.',
+ staff:'One helper runs the counter and refills shelves. The owner manages purchasing and prices.',
+ money_view:['Sales','Money customers owe','Low stock'],
+ country:'Vietnam',
+ selling_locations:['Near my registered business'],buying_locations:['Nearby suppliers'],
+ price_display:'Tax is included in the shown price',customer_type:'Households',
+ product_tax_facts:'Staple foods and everyday items; no special tax treatment that our accountant flags.',
+ existing_records:'Paper books',
+ exceptions:'Customer credit notebook entries and partial supplier deliveries cause the most confusion.',
+ brand_style:'Warm and welcoming',brand_colors:'Warm red and yellow',logo:'No, use the business name for now',
+ screen_preference:'Today’s manager checklist',
+ goal:'Keep the credit notebook and stock straight without the evening paper tally.'}},
+{group:'Southeast Asia',id:'kedai',name:'Kedai runcit',region:'Malaysia · MYR · SST-ready',note:'MYR and SST settings are pre-set.',foot:'Malaysia · MYR',blurb:'Neighbourhood provision shop with daily essentials and a credit book',answers:{
+ vertical:'Groceries or food',locations:'One place',
+ selling:'Customers pick items from the shelves, we total them at the counter, they pay by cash or DuitNow QR.',
+ buying:'I buy from local wholesalers and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
+ stock_pain:'Running out',credit_behavior:'Customers and suppliers both use credit',
+ discounts:'Regular customers get small discounts at the counter. Refunds always need the owner.',
+ returns:'We exchange unopened items within a few days with the receipt.',
+ staff:'One helper runs the counter and refills shelves. The owner manages purchasing and prices.',
+ money_view:['Sales','Money customers owe','Low stock'],
+ country:'Malaysia',
+ selling_locations:['Near my registered business'],buying_locations:['Nearby suppliers'],
+ price_display:'Tax is included in the shown price',customer_type:'Households',
+ product_tax_facts:'Staple foods and everyday items; no special tax treatment that our accountant flags.',
+ existing_records:'Paper books',
+ exceptions:'Customer credit book entries and partial supplier deliveries cause the most confusion.',
+ brand_style:'Warm and welcoming',brand_colors:'Warm yellow and green',logo:'No, use the business name for now',
+ screen_preference:'Today’s manager checklist',
+ goal:'Keep the credit book and stock straight without the evening paper tally.'}},
+{group:'Southeast Asia',id:'shophouse',name:'Thai shophouse store',region:'Thailand · THB · VAT-ready',note:'THB and VAT settings are pre-set.',foot:'Thailand · THB',blurb:'Shophouse grocery with daily staples and a credit list for regulars',answers:{
+ vertical:'Groceries or food',locations:'One place',
+ selling:'Customers pick items from the shelves or ask at the counter, they pay by cash or PromptPay.',
+ buying:'I buy from the wholesale market and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
+ stock_pain:'Running out',credit_behavior:'Customers and suppliers both use credit',
+ discounts:'Regular customers get small discounts at the counter. Refunds always need the owner.',
+ returns:'We exchange unopened items within a few days with the receipt.',
+ staff:'One helper runs the counter and refills shelves. The owner manages purchasing and prices.',
+ money_view:['Sales','Money customers owe','Low stock'],
+ country:'Thailand',
+ selling_locations:['Near my registered business'],buying_locations:['Nearby suppliers'],
+ price_display:'Tax is included in the shown price',customer_type:'Households',
+ product_tax_facts:'Staple foods and everyday items; no special tax treatment that our accountant flags.',
+ existing_records:'Paper books',
+ exceptions:'Customer credit list entries and partial supplier deliveries cause the most confusion.',
+ brand_style:'Warm and welcoming',brand_colors:'Warm red and gold',logo:'No, use the business name for now',
+ screen_preference:'Today’s manager checklist',
+ goal:'Keep the credit list and stock straight without the evening paper tally.'}},
+{group:'Southeast Asia',id:'provision',name:'Provision shop',region:'Singapore · SGD · GST-ready',note:'SGD and GST settings are pre-set.',foot:'Singapore · SGD',blurb:'Heartland provision shop with daily essentials and card and PayNow payments',answers:{
+ vertical:'Groceries or food',locations:'One place',
+ selling:'Customers pick items from the shelves, we scan them at the counter, they pay by PayNow, card or cash.',
+ buying:'I buy from local wholesalers and distributor salesmen, check every delivery against the invoice, and reorder when stock runs low.',
+ stock_pain:'Running out',credit_behavior:'Only suppliers give us credit',
+ discounts:'Regular customers get small discounts at the counter. Refunds always need the owner.',
+ returns:'We exchange unopened items within a few days with the receipt.',
+ staff:'One helper runs the counter and refills shelves. The owner manages purchasing and prices.',
+ money_view:['Sales','Low stock','Profit'],
+ country:'Singapore',
+ selling_locations:['Near my registered business'],buying_locations:['Nearby suppliers'],
+ price_display:'Tax is included in the shown price',customer_type:'Households',
+ product_tax_facts:'Staple foods and everyday items; no special tax treatment that our accountant flags.',
+ existing_records:'Spreadsheets',
+ exceptions:'Supplier deliveries with missing items cause the most confusion.',
+ brand_style:'Clean and professional',brand_colors:'Green and white',logo:'No, use the business name for now',
+ screen_preference:'Today’s manager checklist',
+ goal:'Know what to reorder each morning and keep supplier bills matched.'}}];
+function renderTemplates(){let sec=$('#templates'),box=$('#template-cards');if(!sec||!box)return;if(localStorage.mosaicOnboarding)return;sec.hidden=false;let groups=[];TEMPLATES.forEach(t=>{let g=groups.find(x=>x.label===t.group);if(!g){g={label:t.group,items:[]};groups.push(g)}g.items.push(t)});groups.forEach(g=>{let h=document.createElement('p');h.className='template-group';h.textContent=g.label;box.appendChild(h);let grid=document.createElement('div');grid.className='template-cards';g.items.forEach(t=>{let b=document.createElement('button');b.type='button';b.className='template-card';b.innerHTML='<b>'+t.name+'</b><span class="template-region">'+t.region+'</span><small>'+t.blurb+'</small>';b.onclick=()=>startTemplate(t).catch(e=>{$('#state').textContent=e.message});grid.appendChild(b)});box.appendChild(grid)})}
 async function startTemplate(t){templateUsed=t.name;sessionStorage.mosaicTemplate=t.name;$('#state').textContent='Starting from the '+t.name+' template - pre-filling typical answers…';await begin();for(const [k,v] of Object.entries(t.answers)){session=await api('/api/onboarding/answer','POST',{id:session.id,key:k,value:v})}$('#state').textContent='Template answers pre-filled. Tell Mosaic your shop’s name, then review everything before it goes live.';render()}
 renderTemplates();
