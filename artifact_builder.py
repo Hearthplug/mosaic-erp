@@ -25,12 +25,47 @@ class ArtifactBuilder:
   else:
    spec={'template':'jurisdiction_scoped_invoice','fields':['seller','buyer','invoice_number','issue_date','currency','lines','net','tax','gross','tax_registration','rules_version'],'output_state':'DRAFT - REVIEW REQUIRED'};sources=['documents','document_lines','tax_transaction_facts','tax_verifications','statutory_adapters']
   return {'kind':kind,'name':name,'specification':spec,'source_tables':sources,'legal_status':'review_required' if kind=='statutory_invoice' else 'not_applicable'}
- def draft(self,wid,actor,message):
-  x=self.interpret(message);aid='gar_'+secrets.token_hex(8)
+ def draft(self,wid,actor,message,name=None):
+  x=self.interpret(message)
+  if name:x['name']=name
+  aid='gar_'+secrets.token_hex(8)
   with self.s.tx():
    self.s._db.execute("INSERT INTO generated_artifacts(id,workspace_id,kind,name,specification_json,specification_hash,source_tables_json,config_version,status,legal_status,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,'draft',?,?,?)",(aid,wid,x['kind'],x['name'],canon(x['specification']),__import__('hashlib').sha256(canon(x['specification']).encode()).hexdigest(),canon(x['source_tables']),self._config_version(wid),x['legal_status'],actor,utcnow()))
    self.s._audit(wid,actor,'artifact.draft',{'artifact_id':aid,'kind':x['kind'],'name':x['name'],'source_tables':x['source_tables']})
   return {'id':aid,'status':'draft',**x,'message':'Draft created. Review the fields, filters, access and sample output before activation.'}
+ def draft_from_extraction(self,wid,actor,target,extraction,hint=''):
+  """Draft an artifact from a photo/PDF extraction. Maps onto the same
+  allow-lists as interpret(); fields that do not map are reported back so the
+  review screen can show them, never silently guessed."""
+  lead={'dashboard':'dashboard','report':'report','statutory_invoice':'statutory tax invoice'}.get(target)
+  if not lead:raise ValueError('Choose what to build: a report, a dashboard, or an invoice layout')
+  fields=[f for f in (extraction.get('fields') or []) if isinstance(f,dict)]
+  words=' '.join([str(extraction.get('document_type','')),str(extraction.get('summary','')),str(hint or '')]+[str(f.get('name','')) for f in fields])
+  message=(lead+' '+' '.join(words.split()))[:2000]
+  if len(message)<=len(lead)+1:raise ValueError('Nothing readable was found. Describe what you want in your own words.')
+  if target=='report':
+   low=message.lower()
+   if not any(x.replace('_',' ') in low for x in ALLOWED_REPORTS):
+    return {'needs_choice':True,'kind':'report','choices':sorted(ALLOWED_REPORTS),'message':'Which report should this become? Pick one and the draft appears for review.'}
+  kind={'dashboard':'dashboard','report':'report','statutory_invoice':'statutory_invoice'}[target]
+  doc=str(extraction.get('document_type','')).strip() or 'document'
+  import re as _re
+  if _re.search(r'bill|invoice|receipt',doc,_re.I):doc='supplier bill'
+  vendor=next((str(f.get('value','')).strip() for f in fields if str(f.get('name','')).lower() in ('vendor','supplier','seller') and str(f.get('value','')).strip()),None)
+  if kind=='report':
+   probe=message.lower();rt=next((x for x in ALLOWED_REPORTS if x.replace('_',' ') in probe),None)
+   what=(rt or 'sales_summary').replace('_',' ')+' report'
+  elif kind=='dashboard':what='dashboard'
+  else:what='invoice layout'
+  if doc=='supplier bill' and vendor and kind=='report':base=('Supplier bills - '+vendor)[:92]
+  else:base=(doc[:1].upper()+doc[1:]+' - '+what)[:92]
+  existing={r['name'] for r in self.s._db.execute('SELECT name FROM generated_artifacts WHERE workspace_id=? AND kind=?',(wid,kind)).fetchall()}
+  name=base;n=2
+  while name in existing:name=base+' ('+str(n)+')';n+=1
+  result=self.draft(wid,actor,message,name=name)
+  used=json.dumps(result['specification']).lower()
+  unmapped=[str(f.get('name','')) for f in fields if f.get('name') and str(f.get('name')).lower() not in used]
+  return {'draft':result,'unmapped':unmapped[:20]}
  def _config_version(self,wid):
   r=self.s._db.execute('SELECT MAX(version) v FROM config_versions WHERE workspace_id=?',(wid,)).fetchone();return r['v'] if r else None
  def list(self,wid):

@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, json, os
+import base64, hashlib, json, os
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -13,6 +13,7 @@ from retail import Retail
 from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
+from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
 from tax_engine import TaxEngine
 from artifact_builder import ArtifactBuilder
 from assistant_setup import AssistantSetup
@@ -467,6 +468,10 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,(ROOT/'operations.css').read_text(encoding='utf-8'),'text/css; charset=utf-8',rid=rid) or 200
         if p == '/operations.js':
             return self.out(200,(ROOT/'operations.js').read_text(encoding='utf-8'),'application/javascript; charset=utf-8',rid=rid) or 200
+        if p == '/build':
+            return self.out(200,(ROOT/'build.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
+        if p in ('/build.css','/build.js'):
+            kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p == '/retail':
             return self.out(200, (ROOT / 'retail.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/accounting':
@@ -735,6 +740,17 @@ class H(BaseHTTPRequestHandler):
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,ARTIFACTS.draft(wid,actor,d.get('message','')),rid=rid) or 201
         if p == '/api/artifacts/verify':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ARTIFACTS.activate(wid,actor,d['artifact_id'],d.get('reviewer_kind','owner'),d.get('note','Owner reviewed the definition and sample output'),d.get('rules_version')),rid=rid) or 200
+        if p == '/api/build/read-file':
+            wid, _, _ = self._auth('editor'); d=self._body(); return self.out(200,build_read_file(d.get('name',''),d.get('mime',''),d.get('data_b64','')),rid=rid) or 200
+        if p == '/api/build/read-photo':
+            wid, _, _ = self._auth('editor'); d=self._body()
+            build_decode_upload(d.get('data_b64',''));mime=build_sniff_mime(d.get('name',''),d.get('mime',''))
+            if mime not in BUILD_PHOTO_TYPES:raise ValueError('That does not look like a photo. Use a PNG, JPG, or WebP image.')
+            client=AIPREFS.client_for(wid)
+            if not hasattr(client,'extract_image'):raise ValueError('Photo reading needs your own OpenAI or Claude key - add it in Assistant settings, or type what the document shows.')
+            return self.out(200,client.extract_image(d['data_b64'],mime),rid=rid) or 200
+        if p == '/api/build/draft-from-extraction':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,ARTIFACTS.draft_from_extraction(wid,actor,d.get('target',''),d.get('extraction') or {},d.get('hint','')),rid=rid) or 201
         if p == '/api/tax/verify':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,TAX.attest(wid,actor,d['verification'],d['rules']),rid=rid) or 201
         if p == '/api/tax/regression':
