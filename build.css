@@ -57,3 +57,15 @@
 .billlink{color:var(--accent);font-weight:600;text-decoration:none}
 .billlink:hover{text-decoration:underline}
 @media(max-width:600px){.billrow{grid-template-columns:96px 1fr}.billrow i{grid-column:2}.billhead{display:none}.billline{grid-template-columns:64px 96px 1fr 24px}.billline .billdesc{grid-column:1/-1}}
+
+.regkind{border:1px solid rgba(0,0,0,.14);border-radius:20px;background:#fff;padding:5px 10px;font:600 10.5px var(--font);color:var(--ink);cursor:pointer;white-space:nowrap;height:28px}
+.regkind.paid{background:#e6f6ea;border-color:#bfe6c8;color:#1e7d34}
+.regline-book{display:grid;grid-template-columns:96px 128px 1fr 128px 96px 24px;gap:8px;align-items:center}
+.regline-book.single{grid-template-columns:128px 1fr 128px 96px 24px}
+.regline-stock{grid-template-columns:1fr 96px 110px 24px}
+.reghead-book,.reghead{display:grid;gap:8px;padding:0 2px}
+.reghead{grid-template-columns:1fr 96px 110px 24px}
+.reghead-book{grid-template-columns:96px 128px 1fr 128px 96px 24px}
+.reghead-book.single{grid-template-columns:128px 1fr 128px 96px 24px}
+.warn{color:#8a5800;font-size:11px}.ok{color:#1e7d34;font-size:11px}
+@media(max-width:600px){.regline-book,.regline-book.single{grid-template-columns:96px 1fr 24px}.regline-book .regdetail,.regline-book .regparty{grid-column:1/-1}.reghead-book,.reghead{display:none}.regline-book .regkind{grid-column:1/-1}.regline-stock{grid-template-columns:64px 1fr 24px}.regline-stock .billdesc{grid-column:1/-1}}
