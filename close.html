@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Close the day · Mosaic</title><link rel="icon" type="image/svg+xml" href="/mosaic-logo.svg"><link rel="stylesheet" href="/accounting.css"><link rel="stylesheet" href="/close.css"></head>
+<body><div class="appshell">
+<aside class="rail"><a class="brand" href="/operations"><img src="/mosaic-logo.svg" alt="">Mosaic <span>ERP</span></a><nav aria-label="Modules"><p>Daily work</p><a class="on" href="/operations#today">Today</a><a href="/operations#stock">Stock</a><a href="/operations#sales">Sales</a><a href="/operations#buying">Buying</a><a href="/operations#money">Money</a><p>Business</p><a href="/accounting">Books</a><a href="/assistant">Assistant <small>Preview</small></a></nav><footer><b id="company">Your company</b><span id="authstate">Opening your workspace…</span><button id="signout" type="button">Sign out</button></footer></aside>
+<main class="main"><header><div class="crumb">Daily work <span>›</span> Close the day</div><h1>Close the day</h1><p>Count the cash in the drawer, check the day against the books, and save the close. Saving never locks the day - a late edit simply shows the saved close as changed.</p></header>
+<section class="card daybar"><label for="day">Day to close</label><input type="date" id="day"><button id="show-day" type="button">Show day</button><span class="tzline">Store time: <b id="tzname">…</b> <button id="tz-change" type="button" class="linkbtn">Change</button><span id="tz-editor" hidden><select id="tz-select"></select><button id="tz-save" type="button" class="linkbtn">Save</button></span></span></section>
+<div class="stats close-stats">
+<article><span>Sales</span><strong class="money" id="s-sales">—</strong><small id="s-sales-sub">—</small></article>
+<article><span>Payments in</span><strong class="money" id="s-payments">—</strong><small id="s-payments-sub">—</small></article>
+<article><span>Sold on credit</span><strong class="money" id="s-credit">—</strong><small>still owed from this day</small></article>
+<article><span>Items sold</span><strong id="s-items">—</strong><small>stock that left the shelves</small></article>
+</div>
+<section class="card cashcard"><div class="cardhead"><div><h2>Count the cash</h2><p>Compare what is in the drawer with what the books say.</p></div></div>
+<div class="cashgrid">
+<div class="expected"><span>Books say you should have</span><b class="money" id="expected">—</b><small id="expected-sub">All cash recorded in the books up to this day.</small></div>
+<label class="counted"><span>Cash you counted</span><input id="counted" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
+</div>
+<p class="diff" id="diff">Type the counted cash to compare it with the books.</p>
+<label class="notelabel"><span>Note for this close <em>(optional)</em></span><input id="note" type="text" maxlength="300" placeholder="e.g. Kept some cash aside for the morning float"></label>
+<div class="saverow"><button id="save" type="button" disabled>Save today's close</button><span class="savehint" id="savehint"></span></div>
+</section>
+<section class="card closes-card"><div class="cardhead"><div><h2>Past closes</h2><p>Saving again for the same day replaces that day's record. Days are never locked.</p></div></div>
+<div class="tablewrap"><table id="closes"><thead><tr><th>Day</th><th class="num">Counted cash</th><th class="num">Difference</th><th>Note</th><th>Status</th></tr></thead><tbody id="closes-body"><tr><td colspan="5">Loading past closes…</td></tr></tbody></table></div></section>
+</main></div>
+<script src="/auth.js"></script><script src="/close.js"></script>
+</body></html>

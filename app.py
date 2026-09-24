@@ -15,6 +15,7 @@ from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
 from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
 import build_bills, build_registers
+import dayclose
 from tax_engine import TaxEngine
 from artifact_builder import ArtifactBuilder
 from assistant_setup import AssistantSetup
@@ -477,8 +478,12 @@ class H(BaseHTTPRequestHandler):
             return self.out(200, (ROOT / 'retail.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/accounting':
             return self.out(200, (ROOT / 'accounting.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
+        if p == '/close':
+            return self.out(200, (ROOT / 'close.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/retail.js':
             return self.out(200,(ROOT / 'retail.js').read_text(encoding='utf-8'),'application/javascript; charset=utf-8',rid=rid) or 200
+        if p in ('/close.css','/close.js'):
+            kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p == '/accounting.js':
             return self.out(200, (ROOT / 'accounting.js').read_text(encoding='utf-8'), 'application/javascript; charset=utf-8', rid=rid) or 200
         if p in ('/static.css', '/static.js'):
@@ -590,6 +595,10 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.list_documents(wid, qs.get('kind',[None])[0], qs.get('limit',['50'])[0]), rid=rid) or 200
         if p == '/api/accounting/document':
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.get_document(wid, qs.get('id',[''])[0]), rid=rid) or 200
+        if p == '/api/dayclose/summary':
+            wid, _, _ = self._auth('viewer'); return self.out(200, dayclose.day_summary(STORE, wid, qs.get('date',[dayclose.local_today(STORE, wid)])[0]), rid=rid) or 200
+        if p == '/api/dayclose/closes':
+            wid, _, _ = self._auth('viewer'); return self.out(200, {'closes': dayclose.list_closes(STORE, wid)}, rid=rid) or 200
         if p == '/api/workspace/export':
             wid, key_id, _ = self._auth('editor')
             data = STORE.export_workspace(wid, key_id)
@@ -766,6 +775,10 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,build_registers.draft_from_extraction(STORE,wid,d.get('register',''),d.get('extraction') or {}),rid=rid) or 200
         if p == '/api/build/record-register':
             d=self._body(); wid, actor, _ = self._operational_auth('document.post','owner'); return self.out(201,build_registers.record_register(STORE,BOOKS,wid,actor,d),rid=rid) or 201
+        if p == '/api/dayclose/save':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,dayclose.save_close(STORE,wid,actor,d.get('date',''),d.get('counted_cash_minor'),d.get('note','')),rid=rid) or 200
+        if p == '/api/dayclose/timezone':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,dayclose.set_timezone(STORE,wid,actor,d.get('timezone','')),rid=rid) or 200
         if p == '/api/tax/verify':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,TAX.attest(wid,actor,d['verification'],d['rules']),rid=rid) or 201
         if p == '/api/tax/regression':
