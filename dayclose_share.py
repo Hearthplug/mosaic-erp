@@ -27,11 +27,11 @@ def close_share_text(summary, close, currency):
     if close:
         diff = close['difference_minor']
         if diff == 0:
-            lines.append(f"Cash counted: {_money(close['counted_cash_minor'], currency)} - matches the books")
+            lines.append(f"Cash counted: {_money(close['counted_cash_minor'], currency)} (matches the books)")
         else:
-            word = 'over' if diff > 0 else 'short'
-            lines.append(f"Cash counted: {_money(close['counted_cash_minor'], currency)} - "
-                         f"{_money(abs(diff), currency)} {word}")
+            word = 'over the books' if diff > 0 else 'short of the books'
+            lines.append(f"Cash counted: {_money(close['counted_cash_minor'], currency)} "
+                         f"({_money(abs(diff), currency)} {word})")
         if close.get('note'):
             lines.append(f"Note: {close['note']}")
     lines.append("Sent from Mosaic")
