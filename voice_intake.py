@@ -64,16 +64,23 @@ def _multipart_body(fields, file_field, filename, mime, raw):
 
 
 def voice_status(aiprefs, wid):
-    """Can this workspace use the mic? Plain reason when not (drives a disabled control, never a fake one)."""
+    """Can this workspace use the mic? Plain reason when not (drives a disabled control, never a fake one).
+    Available with an OpenAI key, or a custom server that has a transcription model set."""
     prefs = aiprefs.get(wid)
     provider = prefs.get('provider', 'standard')
-    if provider in AUDIO_PROVIDERS and prefs.get('has_key'):
+    if provider == 'openai' and prefs.get('has_key'):
         return {'available': True, 'reason': ''}
+    if provider == 'custom':
+        models = (prefs.get('custom') or {}).get('models') or {}
+        if models.get('transcription'):
+            return {'available': True, 'reason': ''}
+        return {'available': False,
+                'reason': 'Your custom server has no transcription model set - add one in Assistant settings (any Whisper-compatible model), or type instead.'}
     if provider == 'standard' or not prefs.get('has_key'):
         return {'available': False,
-                'reason': 'Voice entry needs your own OpenAI key - add it in Assistant settings, or type instead.'}
+                'reason': 'Voice entry needs an OpenAI key or a custom server with a transcription model - set it in Assistant settings, or type instead.'}
     return {'available': False,
-            'reason': f"Voice entry needs an OpenAI key - {prefs.get('key_brand') or provider} keys cannot transcribe recordings. Switch in Assistant settings, or type instead."}
+            'reason': f"{prefs.get('key_brand') or provider} keys cannot transcribe recordings. Switch to OpenAI or a custom server with a transcription model in Assistant settings, or type instead."}
 
 
 CASH_FIELD_NAMES = ('counted cash', 'cash counted', 'cash in drawer', 'cash in the drawer', 'cash')
@@ -99,20 +106,25 @@ def close_fields(extraction):
 
 def transcribe_audio(client, audio_b64, name='', mime='', hint='', opener=None):
     """Transcribe a recording with the owner's own key. Fail-closed."""
-    if client.provider not in AUDIO_PROVIDERS:
+    audio = client.audio_spec() if hasattr(client, 'audio_spec') else None
+    if not audio:
+        if client.provider == 'custom':
+            raise ProviderError("Your custom server has no transcription model set. Add one in Assistant settings, or type what you said.")
         raise ProviderError(f"{client.spec['brand']} cannot transcribe recordings. "
-                            "Switch the key in Assistant settings to OpenAI, or type what you said.")
+                            "Switch to OpenAI or a custom server with a transcription model in Assistant settings, or type what you said.")
     raw = decode_audio(audio_b64)
     media = sniff_audio_mime(name, mime)
     if not media:
         raise ValueError('That does not look like a voice recording. Use a WebM, OGG, M4A, MP3, or WAV file.')
-    fields = [('model', WHISPER_MODEL), ('response_format', 'json')]
+    fields = [('model', audio['model']), ('response_format', 'json')]
     if hint:
         fields.append(('prompt', hint[:200]))
     body, content_type = _multipart_body(fields, 'file', 'recording.' + _EXT[media], media, raw)
     open_fn = opener or client._opener
-    req = urllib.request.Request(WHISPER_ENDPOINT, data=body, headers={
-        'Authorization': f'Bearer {client.api_key}', 'Content-Type': content_type})
+    headers = {'Content-Type': content_type}
+    if client.api_key:
+        headers['Authorization'] = f'Bearer {client.api_key}'
+    req = urllib.request.Request(audio['endpoint'], data=body, headers=headers)
     try:
         with open_fn(req, timeout=client.timeout) as r:
             payload = json.loads(r.read().decode())

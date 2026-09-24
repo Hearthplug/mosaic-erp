@@ -141,6 +141,20 @@ MIGRATIONS = [
     """,
     DAYCLOSE_SQLITE_SCHEMA,
     WORKSPACE_PREFS_SQLITE_SCHEMA,
+    # 18: AI providers add a custom OpenAI-compatible server; recreate
+    # ai_answer_prefs so the CHECK accepts it and it can hold its config.
+    """
+    CREATE TABLE ai_answer_prefs_v18(
+     workspace_id TEXT PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+     provider TEXT NOT NULL CHECK(provider IN ('standard','jev','openai','claude','deepseek','custom')) DEFAULT 'standard',
+     key_ref TEXT NOT NULL DEFAULT '',
+     config TEXT NOT NULL DEFAULT '',
+     updated_by TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    INSERT INTO ai_answer_prefs_v18 SELECT workspace_id,provider,key_ref,'',updated_by,updated_at FROM ai_answer_prefs;
+    DROP TABLE ai_answer_prefs;
+    ALTER TABLE ai_answer_prefs_v18 RENAME TO ai_answer_prefs;
+    """,
 ]
 
 def utcnow() -> str:
