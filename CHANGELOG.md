@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1
+
+- OpenAI, Claude (Anthropic) and DeepSeek wired into interview answer-shaping and reconfiguration: each works with the owner's own key from that provider, stored per workspace as a masked secret with an audit event, owner-only. Standard (built in) stays the default, the consent note is unchanged, and official provider names are used throughout
+- Product page: contrast fixes for card headings and muted text at phone and desktop width, and a legible cropped close-up of the answer-shaping chooser at mobile width
+- Windows and Mac desktop apps refreshed on the same release
+
 ## 1.4.0
 
 - Answer-shaping chooser on the interview start and Assistant screens: Standard (built in) is the default, Jev by TypeSafe is available in Preview with the owner's own TypeSafe key, and other providers are shown but marked not available yet. The API rejects any provider that is not wired, so an unwired option can never silently take effect

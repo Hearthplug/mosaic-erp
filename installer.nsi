@@ -10,7 +10,7 @@ RequestExecutionLevel user
 
 !define APPNAME "Mosaic ERP"
 !define PUBLISHER "Hearthplug"
-!define VERSION "1.4.0"
+!define VERSION "1.4.1"
 !define EXE "MosaicERP.exe"
 
 !insertmacro MUI_PAGE_WELCOME

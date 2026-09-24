@@ -94,4 +94,4 @@ def propose_change(request, current_profile_answers, client=None):
                         'status': 'auto_accept' if r.confidence >= AUTO_ACCEPT else 'confirm',
                         'because': spec['because'], 'probabilities': r.probabilities})
     return {'request': request, 'changes': changes, 'english_only': True,
-            'client': 'mock' if isinstance(client, MockJevClient) else 'jev'}
+            'client': getattr(client, 'label', 'jev')}

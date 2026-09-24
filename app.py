@@ -682,7 +682,7 @@ class H(BaseHTTPRequestHandler):
                     answers[ch['target']]=ch['proposed']
             with STORE.tx():STORE._db.execute("UPDATE onboarding_sessions SET answers_json=?,updated_at=? WHERE workspace_id=?",(json.dumps(answers),utcnow(),wid))
             profile=PROFILES.apply(wid,actor,answers)
-            with STORE.tx():STORE._audit(wid,actor,'jev.reconfigure.apply',{'targets':[c['target'] for c in d.get('changes',[])],'client':'jev' if AIPREFS.client_for(wid).__class__.__name__=='HttpJevClient' else 'built-in'})
+            with STORE.tx():STORE._audit(wid,actor,'jev.reconfigure.apply',{'targets':[c['target'] for c in d.get('changes',[])],'client':getattr(AIPREFS.client_for(wid),'label','built-in')})
             return self.out(200,{'profile':profile,'answers':answers},rid=rid) or 200
         if p == '/api/retail/profile':
             wid, actor, _ = self._auth('owner'); return self.out(200,PROFILES.apply(wid,actor,self._body()),rid=rid) or 200

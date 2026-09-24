@@ -78,6 +78,7 @@ class HttpJevClient:
             raise JevConfigError('Jev requires the owner\'s own API key (BYOK)')
         self.api_key, self.endpoint, self.model = api_key, endpoint, model
         self.timeout, self.max_retries = timeout, max_retries
+        self.label = 'jev'
 
     def _call(self, primitive, question, payload):
         body = {'model': self.model, 'primitive': primitive, 'question': question, **payload}
@@ -100,19 +101,19 @@ class HttpJevClient:
                 raise JevUnavailable(f'Jev unreachable: {e}') from e
         raise JevUnavailable('Jev retries exhausted')
 
-    def choice(self, question, options, context=None):
+    def choice(self, question, options, context=None, evidence=None):
         opts = _validate_choice(options)
         r = self._call('choice', question, {'options': opts, 'state': context or ''})
         probs = {o: float(p) for o, p in zip(r['options'], r['probabilities'])}
         return ChoiceResult(opts, probs, r['options'][0], _confidence(list(probs.values())))
 
-    def score(self, question, levels, context=None):
+    def score(self, question, levels, context=None, evidence=None):
         lv = _validate_levels(levels)
         r = self._call('score', question, {'levels': lv, 'state': context or ''})
         probs = {i + 1: float(p) for i, p in enumerate(r['probabilities'])}
         return ScoreResult(lv, probs, max(probs, key=probs.get), _confidence(list(probs.values())))
 
-    def noul(self, question, context=None):
+    def noul(self, question, context=None, evidence=None):
         r = self._call('noul', question, {'state': context or ''})
         p = float(r['probability_yes'])
         return NoulResult(p >= 0.5, round(p, 4), _confidence([p, 1 - p]))
@@ -125,6 +126,7 @@ class MockJevClient:
     mock never invents answers, it only weighs the evidence it is given."""
     def __init__(self, seed=13):
         self.rng = random.Random(seed)
+        self.label = 'mock'
 
     def _weigh(self, question, options, evidence):
         q = question.lower()

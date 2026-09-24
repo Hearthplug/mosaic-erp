@@ -150,4 +150,4 @@ def map_interview(answers, client=None):
         if p['status'] == 'auto_accept': auto += 1
         elif p['status'] not in ('empty',): confirm += 1
     return {'proposals': proposals, 'auto_accepted': auto, 'needs_confirm': confirm,
-            'english_only': True, 'client': 'mock' if isinstance(client, MockJevClient) else 'jev'}
+            'english_only': True, 'client': getattr(client, 'label', 'jev')}

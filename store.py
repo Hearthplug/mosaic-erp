@@ -124,6 +124,19 @@ MIGRATIONS = [
     ASSISTANT_SETUP_SQLITE_SCHEMA,
     ASSISTANT_PREVIEW_SQLITE_SCHEMA,
     AI_PREFS_SQLITE_SCHEMA,
+    # 15: answer-shaping adds OpenAI/Claude/DeepSeek BYOK providers; recreate
+    # ai_answer_prefs so the provider CHECK accepts them (SQLite cannot alter one).
+    """
+    CREATE TABLE ai_answer_prefs_v12(
+     workspace_id TEXT PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+     provider TEXT NOT NULL CHECK(provider IN ('standard','jev','openai','claude','deepseek')) DEFAULT 'standard',
+     key_ref TEXT NOT NULL DEFAULT '',
+     updated_by TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    INSERT INTO ai_answer_prefs_v12 SELECT workspace_id,provider,key_ref,updated_by,updated_at FROM ai_answer_prefs;
+    DROP TABLE ai_answer_prefs;
+    ALTER TABLE ai_answer_prefs_v12 RENAME TO ai_answer_prefs;
+    """,
 ]
 
 def utcnow() -> str:

@@ -8,3 +8,6 @@ mosaic.db
 mosaic-workspace.key
 
 .env.dev
+demo.db
+demo.db-shm
+demo.db-wal

@@ -16,16 +16,34 @@ class AiPrefsAPI(unittest.TestCase):
  @classmethod
  def tearDownClass(c):c.s.shutdown()
 
- def test_default_is_standard_with_three_options(self):
+ def test_default_is_standard_with_all_providers_listed(self):
   w=call(self.p,'POST','/api/workspaces',{'name':'Prefs'});k=w['api_key']
   r=call(self.p,'GET','/api/ai/preference',None,k)
   self.assertEqual(r['provider'],'standard');self.assertFalse(r['has_key'])
   opts={o['id']:o for o in r['options']}
-  self.assertEqual(set(opts),{'standard','jev','other'})
-  self.assertTrue(opts['standard']['available']);self.assertTrue(opts['jev']['available'])
-  self.assertFalse(opts['other']['available'])
-  self.assertIn('Not available yet',opts['other']['line'])
+  self.assertEqual(set(opts),{'standard','jev','openai','claude','deepseek'})
+  for oid,o in opts.items():self.assertTrue(o['available'],oid)
+  self.assertFalse(opts['standard']['needs_key'])
+  for oid in ('jev','openai','claude','deepseek'):self.assertTrue(opts[oid]['needs_key'],oid)
   self.assertIn('Standard keeps everything inside Mosaic',r['consent_note'])
+
+ def test_openai_key_flow_and_keys_kept_per_provider(self):
+  from byok_clients import ChatProviderClient
+  w=call(self.p,'POST','/api/workspaces',{'name':'PrefsOpenAI'});k=w['api_key']
+  wid=app.STORE._db.execute('SELECT id FROM workspaces WHERE name=?',('PrefsOpenAI',)).fetchone()[0]
+  try:call(self.p,'POST','/api/ai/preference/switch',{'provider':'openai'},k);self.fail('expected 400')
+  except urllib.error.HTTPError as e:self.assertEqual(e.code,400)
+  r=call(self.p,'POST','/api/ai/preference/switch',{'provider':'openai','api_key':'sk-test-openai'},k)
+  self.assertEqual(r['provider'],'openai');self.assertTrue(r['has_key']);self.assertEqual(r['key_brand'],'OpenAI')
+  c=app.AIPREFS.client_for(wid);self.assertIsInstance(c,ChatProviderClient);self.assertEqual(c.provider,'openai')
+  r=call(self.p,'POST','/api/ai/preference/switch',{'provider':'claude','api_key':'sk-ant-test'},k)
+  self.assertEqual(r['provider'],'claude');self.assertTrue(r['has_key'])
+  self.assertEqual(app.AIPREFS.client_for(wid).provider,'claude')
+  r=call(self.p,'POST','/api/ai/preference/switch',{'provider':'openai'},k)
+  self.assertEqual(r['provider'],'openai');self.assertTrue(r['has_key'])
+  self.assertEqual(app.AIPREFS.client_for(wid).provider,'openai')
+  r=call(self.p,'POST','/api/ai/preference/switch',{'provider':'deepseek','api_key':'sk-test-deepseek'},k)
+  self.assertEqual(app.AIPREFS.client_for(wid).provider,'deepseek')
 
  def test_jev_requires_key_then_client_switches(self):
   w=call(self.p,'POST','/api/workspaces',{'name':'PrefsJev'});k=w['api_key']
@@ -39,7 +57,7 @@ class AiPrefsAPI(unittest.TestCase):
 
  def test_unknown_provider_rejected(self):
   w=call(self.p,'POST','/api/workspaces',{'name':'PrefsBad'});k=w['api_key']
-  for bad in ('other','openai',''):
+  for bad in ('other','cohere',''):
    try:call(self.p,'POST','/api/ai/preference/switch',{'provider':bad},k);self.fail('expected 400 for '+bad)
    except urllib.error.HTTPError as e:self.assertEqual(e.code,400)
 
