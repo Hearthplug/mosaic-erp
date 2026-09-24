@@ -30,7 +30,9 @@
 @media (max-width:720px){.jev-row{grid-template-columns:1fr;gap:4px}.jev-arrow{transform:rotate(90deg)}}
 .jev-reconfig .jev-row{grid-template-columns:auto 1fr 24px 1fr auto}
 .templates{margin-top:22px;border-top:1px solid rgba(16,26,21,.08);padding-top:16px}
-.template-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:10px 0 12px}
+.template-group{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#5b6b62;margin:14px 0 6px}
+.template-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 4px;grid-auto-rows:1fr}
+@media(max-width:600px){.template-cards{grid-template-columns:1fr;gap:8px}.template-card{padding:10px 12px}}
 .template-card{text-align:left;background:var(--white,#fff);border:1px solid rgba(16,26,21,.14);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit;display:flex;flex-direction:column;gap:3px;transition:border-color .15s,box-shadow .15s}
 .template-card:hover{border-color:#0c5c43;box-shadow:0 4px 14px rgba(12,92,67,.12)}
 .template-card b{font-size:15px}

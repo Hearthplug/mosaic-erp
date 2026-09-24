@@ -47,5 +47,7 @@ $('#assist-key-save').onclick=async()=>{
   try{const next=await api('/api/ai/preference/switch',{provider:pending,api_key:key});$('#assist-key-input').value='';pending=null;state.textContent='Key saved.';render(next)}
   catch(e){state.textContent=e.message}
 };
-try{render(await api('/api/ai/preference'))}catch(e){/* preference card stays hidden on load errors */}
+async function init(){try{render(await api('/api/ai/preference'));root.hidden=false}catch(e){root.hidden=true}}
+document.addEventListener('mosaic-session',init);
+init();
 })();

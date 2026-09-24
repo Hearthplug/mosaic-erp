@@ -18,7 +18,7 @@ async function reconfigApply(changes){let picked=[...document.querySelectorAll('
 if($('#reconfig-go'))$('#reconfig-go').onclick=()=>reconfigGo();
 
 const TEMPLATES=[
-{id:'kirana',name:'Kirana store',region:'India · INR · GST-ready',note:'INR and GST settings are pre-set.',foot:'India · INR',blurb:'Neighbourhood grocery with khata credit for regulars',answers:{
+{group:'India',id:'kirana',name:'Kirana store',region:'India · INR · GST-ready',note:'INR and GST settings are pre-set.',foot:'India · INR',blurb:'Neighbourhood grocery with khata credit for regulars',answers:{
  vertical:'Groceries or food',locations:'One place',
  selling:'Customers pick items from the shelves, we weigh or scan them at the counter, they pay by UPI, card or cash.',
  buying:'I buy from local wholesalers and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
@@ -36,7 +36,7 @@ const TEMPLATES=[
  brand_style:'Warm and welcoming',brand_colors:'Warm yellow and green',logo:'No, use the business name for now',
  screen_preference:'Today’s manager checklist',
  goal:'Keep the khata and stock straight without the evening paper tally.'}},
-{id:'pharmacy',name:'Pharmacy',region:'India · INR · GST-ready',note:'INR and GST settings are pre-set.',foot:'India · INR',blurb:'Chemist shop with batch and expiry tracking',answers:{
+{group:'India',id:'pharmacy',name:'Pharmacy',region:'India · INR · GST-ready',note:'INR and GST settings are pre-set.',foot:'India · INR',blurb:'Chemist shop with batch and expiry tracking',answers:{
  vertical:'Pharmacy or health',locations:'One place',
  selling:'Customers bring prescriptions or ask for common medicines; we bill at the counter by batch, they pay by UPI, card or cash.',
  buying:'I order from two or three medicine distributors and check batches and expiry on delivery against the bill.',
@@ -54,7 +54,7 @@ const TEMPLATES=[
  brand_style:'Clean and professional',brand_colors:'White and medical green',logo:'No, use the business name for now',
  screen_preference:'Stock needing attention',
  goal:'Never sell an expired strip and know what to reorder each morning.'}},
-{id:'apparel',name:'Apparel shop',region:'India · INR · GST-ready',note:'INR and GST settings are pre-set.',foot:'India · INR',blurb:'Clothing store with seasonal buying and size exchanges',answers:{
+{group:'India',id:'apparel',name:'Apparel shop',region:'India · INR · GST-ready',note:'INR and GST settings are pre-set.',foot:'India · INR',blurb:'Clothing store with seasonal buying and size exchanges',answers:{
  vertical:'Clothing or footwear',locations:'One place',
  selling:'Customers browse and try items, we bill at the counter, they pay by UPI, card or cash.',
  buying:'I buy from wholesale markets and brand distributors before each season and check deliveries against the bill.',
@@ -71,7 +71,7 @@ const TEMPLATES=[
  exceptions:'Size exchanges and season-end leftover stock cause the most confusion.',
  brand_style:'Bold and energetic',brand_colors:'Deep maroon and cream',logo:'No, use the business name for now',
  screen_preference:'Start selling',
- goal:'Know which sizes and styles to reorder before the season turns.'}},{id:'warung',name:'Warung kiosk',region:'Indonesia · IDR · PPN-ready',note:'IDR and PPN settings are pre-set.',foot:'Indonesia · IDR',blurb:'Neighbourhood kiosk with daily essentials and a credit list for regulars',answers:{
+ goal:'Know which sizes and styles to reorder before the season turns.'}},{group:'Southeast Asia',id:'warung',name:'Warung kiosk',region:'Indonesia · IDR · PPN-ready',note:'IDR and PPN settings are pre-set.',foot:'Indonesia · IDR',blurb:'Neighbourhood kiosk with daily essentials and a credit list for regulars',answers:{
  vertical:'Groceries or food',locations:'One place',
  selling:'Customers pick items from the shelves or ask at the counter, they pay by cash or QRIS.',
  buying:'I buy from the grosir wholesaler and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
@@ -89,7 +89,7 @@ const TEMPLATES=[
  brand_style:'Warm and welcoming',brand_colors:'Warm yellow and green',logo:'No, use the business name for now',
  screen_preference:'Today’s manager checklist',
  goal:'Keep the credit list and stock straight without the evening paper tally.'}},
-{id:'sarisari',name:'Sari-sari store',region:'Philippines · PHP · VAT-ready',note:'PHP and VAT settings are pre-set.',foot:'Philippines · PHP',blurb:'Sari-sari convenience store with sachet pricing and a customer utang list',answers:{
+{group:'Southeast Asia',id:'sarisari',name:'Sari-sari store',region:'Philippines · PHP · VAT-ready',note:'PHP and VAT settings are pre-set.',foot:'Philippines · PHP',blurb:'Sari-sari convenience store with sachet pricing and a customer utang list',answers:{
  vertical:'Groceries or food',locations:'One place',
  selling:'Customers buy small everyday items and sachets at the window or counter, they pay by cash or GCash.',
  buying:'I buy from the wholesale grocery and distributor salesmen, check every delivery against the invoice, and reorder when stock runs low.',
@@ -107,7 +107,7 @@ const TEMPLATES=[
  brand_style:'Warm and welcoming',brand_colors:'Warm yellow and blue',logo:'No, use the business name for now',
  screen_preference:'Today’s manager checklist',
  goal:'Keep the utang list and stock straight without the evening paper tally.'}},
-{id:'taphoa',name:'Tap hoa grocery',region:'Vietnam · VND · VAT-ready',note:'VND and VAT settings are pre-set.',foot:'Vietnam · VND',blurb:'Family grocery with daily staples and a credit notebook for regulars',answers:{
+{group:'Southeast Asia',id:'taphoa',name:'Tap hoa grocery',region:'Vietnam · VND · VAT-ready',note:'VND and VAT settings are pre-set.',foot:'Vietnam · VND',blurb:'Family grocery with daily staples and a credit notebook for regulars',answers:{
  vertical:'Groceries or food',locations:'One place',
  selling:'Customers pick items from the shelves or ask at the counter, they pay by cash or bank transfer QR.',
  buying:'I buy from the wholesale market and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
@@ -125,7 +125,7 @@ const TEMPLATES=[
  brand_style:'Warm and welcoming',brand_colors:'Warm red and yellow',logo:'No, use the business name for now',
  screen_preference:'Today’s manager checklist',
  goal:'Keep the credit notebook and stock straight without the evening paper tally.'}},
-{id:'kedai',name:'Kedai runcit',region:'Malaysia · MYR · SST-ready',note:'MYR and SST settings are pre-set.',foot:'Malaysia · MYR',blurb:'Neighbourhood provision shop with daily essentials and a credit book',answers:{
+{group:'Southeast Asia',id:'kedai',name:'Kedai runcit',region:'Malaysia · MYR · SST-ready',note:'MYR and SST settings are pre-set.',foot:'Malaysia · MYR',blurb:'Neighbourhood provision shop with daily essentials and a credit book',answers:{
  vertical:'Groceries or food',locations:'One place',
  selling:'Customers pick items from the shelves, we total them at the counter, they pay by cash or DuitNow QR.',
  buying:'I buy from local wholesalers and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
@@ -143,7 +143,7 @@ const TEMPLATES=[
  brand_style:'Warm and welcoming',brand_colors:'Warm yellow and green',logo:'No, use the business name for now',
  screen_preference:'Today’s manager checklist',
  goal:'Keep the credit book and stock straight without the evening paper tally.'}},
-{id:'shophouse',name:'Thai shophouse store',region:'Thailand · THB · VAT-ready',note:'THB and VAT settings are pre-set.',foot:'Thailand · THB',blurb:'Shophouse grocery with daily staples and a credit list for regulars',answers:{
+{group:'Southeast Asia',id:'shophouse',name:'Thai shophouse store',region:'Thailand · THB · VAT-ready',note:'THB and VAT settings are pre-set.',foot:'Thailand · THB',blurb:'Shophouse grocery with daily staples and a credit list for regulars',answers:{
  vertical:'Groceries or food',locations:'One place',
  selling:'Customers pick items from the shelves or ask at the counter, they pay by cash or PromptPay.',
  buying:'I buy from the wholesale market and distributor salesmen, check every delivery against the bill, and reorder when stock runs low.',
@@ -161,7 +161,7 @@ const TEMPLATES=[
  brand_style:'Warm and welcoming',brand_colors:'Warm red and gold',logo:'No, use the business name for now',
  screen_preference:'Today’s manager checklist',
  goal:'Keep the credit list and stock straight without the evening paper tally.'}},
-{id:'provision',name:'Provision shop',region:'Singapore · SGD · GST-ready',note:'SGD and GST settings are pre-set.',foot:'Singapore · SGD',blurb:'Heartland provision shop with daily essentials and card and PayNow payments',answers:{
+{group:'Southeast Asia',id:'provision',name:'Provision shop',region:'Singapore · SGD · GST-ready',note:'SGD and GST settings are pre-set.',foot:'Singapore · SGD',blurb:'Heartland provision shop with daily essentials and card and PayNow payments',answers:{
  vertical:'Groceries or food',locations:'One place',
  selling:'Customers pick items from the shelves, we scan them at the counter, they pay by PayNow, card or cash.',
  buying:'I buy from local wholesalers and distributor salesmen, check every delivery against the invoice, and reorder when stock runs low.',
@@ -179,6 +179,6 @@ const TEMPLATES=[
  brand_style:'Clean and professional',brand_colors:'Green and white',logo:'No, use the business name for now',
  screen_preference:'Today’s manager checklist',
  goal:'Know what to reorder each morning and keep supplier bills matched.'}}];
-function renderTemplates(){let sec=$('#templates'),box=$('#template-cards');if(!sec||!box)return;if(localStorage.mosaicOnboarding)return;sec.hidden=false;TEMPLATES.forEach(t=>{let b=document.createElement('button');b.type='button';b.className='template-card';b.innerHTML='<b>'+t.name+'</b><span class="template-region">'+t.region+'</span><small>'+t.blurb+'</small>';b.onclick=()=>startTemplate(t).catch(e=>{$('#state').textContent=e.message});box.appendChild(b)})}
+function renderTemplates(){let sec=$('#templates'),box=$('#template-cards');if(!sec||!box)return;if(localStorage.mosaicOnboarding)return;sec.hidden=false;let groups=[];TEMPLATES.forEach(t=>{let g=groups.find(x=>x.label===t.group);if(!g){g={label:t.group,items:[]};groups.push(g)}g.items.push(t)});groups.forEach(g=>{let h=document.createElement('p');h.className='template-group';h.textContent=g.label;box.appendChild(h);let grid=document.createElement('div');grid.className='template-cards';g.items.forEach(t=>{let b=document.createElement('button');b.type='button';b.className='template-card';b.innerHTML='<b>'+t.name+'</b><span class="template-region">'+t.region+'</span><small>'+t.blurb+'</small>';b.onclick=()=>startTemplate(t).catch(e=>{$('#state').textContent=e.message});grid.appendChild(b)});box.appendChild(grid)})}
 async function startTemplate(t){templateUsed=t.name;sessionStorage.mosaicTemplate=t.name;$('#state').textContent='Starting from the '+t.name+' template - pre-filling typical answers…';await begin();for(const [k,v] of Object.entries(t.answers)){session=await api('/api/onboarding/answer','POST',{id:session.id,key:k,value:v})}$('#state').textContent='Template answers pre-filled. Tell Mosaic your shop’s name, then review everything before it goes live.';render()}
 renderTemplates();
