@@ -156,6 +156,13 @@ class DraftFromExtractionTest(unittest.TestCase):
         self.assertEqual(out['draft']['kind'], 'report')
         self.assertEqual(out['draft']['specification']['report_type'], 'payables_aging')
 
+    def test_same_document_twice_gets_distinct_names(self):
+        extraction = {'document_type': 'supplier bill', 'summary': 'Fresh Farms bill', 'fields': []}
+        one = self.b.draft_from_extraction(self.w, 'owner', 'report', extraction, hint='bill.pdf payables aging')
+        two = self.b.draft_from_extraction(self.w, 'owner', 'report', extraction, hint='bill.pdf payables aging')
+        self.assertNotEqual(one['draft']['name'], two['draft']['name'])
+        self.assertEqual(one['draft']['name'], 'Supplier bill - payables aging report')
+
     def test_invalid_target_rejected(self):
         with self.assertRaises(ValueError):
             self.b.draft_from_extraction(self.w, 'owner', 'delete_everything', {'summary': 'x'}, hint='y')

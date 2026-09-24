@@ -25,8 +25,10 @@ class ArtifactBuilder:
   else:
    spec={'template':'jurisdiction_scoped_invoice','fields':['seller','buyer','invoice_number','issue_date','currency','lines','net','tax','gross','tax_registration','rules_version'],'output_state':'DRAFT - REVIEW REQUIRED'};sources=['documents','document_lines','tax_transaction_facts','tax_verifications','statutory_adapters']
   return {'kind':kind,'name':name,'specification':spec,'source_tables':sources,'legal_status':'review_required' if kind=='statutory_invoice' else 'not_applicable'}
- def draft(self,wid,actor,message):
-  x=self.interpret(message);aid='gar_'+secrets.token_hex(8)
+ def draft(self,wid,actor,message,name=None):
+  x=self.interpret(message)
+  if name:x['name']=name
+  aid='gar_'+secrets.token_hex(8)
   with self.s.tx():
    self.s._db.execute("INSERT INTO generated_artifacts(id,workspace_id,kind,name,specification_json,specification_hash,source_tables_json,config_version,status,legal_status,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,'draft',?,?,?)",(aid,wid,x['kind'],x['name'],canon(x['specification']),__import__('hashlib').sha256(canon(x['specification']).encode()).hexdigest(),canon(x['source_tables']),self._config_version(wid),x['legal_status'],actor,utcnow()))
    self.s._audit(wid,actor,'artifact.draft',{'artifact_id':aid,'kind':x['kind'],'name':x['name'],'source_tables':x['source_tables']})
@@ -45,14 +47,18 @@ class ArtifactBuilder:
    low=message.lower()
    if not any(x.replace('_',' ') in low for x in ALLOWED_REPORTS):
     return {'needs_choice':True,'kind':'report','choices':sorted(ALLOWED_REPORTS),'message':'Which report should this become? Pick one and the draft appears for review.'}
-  result=self.draft(wid,actor,message)
+  kind={'dashboard':'dashboard','report':'report','statutory_invoice':'statutory_invoice'}[target]
   doc=str(extraction.get('document_type','')).strip() or 'document'
-  if result['kind']=='report':what=result['specification']['report_type'].replace('_',' ')+' report'
-  elif result['kind']=='dashboard':what='dashboard'
+  if kind=='report':
+   probe=message.lower();rt=next((x for x in ALLOWED_REPORTS if x.replace('_',' ') in probe),None)
+   what=(rt or 'sales_summary').replace('_',' ')+' report'
+  elif kind=='dashboard':what='dashboard'
   else:what='invoice layout'
-  pretty=(doc[:1].upper()+doc[1:]+' - '+what)[:100]
-  with self.s.tx():self.s._db.execute('UPDATE generated_artifacts SET name=? WHERE id=? AND workspace_id=?',(pretty,result['id'],wid))
-  result['name']=pretty
+  base=(doc[:1].upper()+doc[1:]+' - '+what)[:92]
+  existing={r['name'] for r in self.s._db.execute('SELECT name FROM generated_artifacts WHERE workspace_id=? AND kind=?',(wid,kind)).fetchall()}
+  name=base;n=2
+  while name in existing:name=base+' ('+str(n)+')';n+=1
+  result=self.draft(wid,actor,message,name=name)
   used=json.dumps(result['specification']).lower()
   unmapped=[str(f.get('name','')) for f in fields if f.get('name') and str(f.get('name')).lower() not in used]
   return {'draft':result,'unmapped':unmapped[:20]}
