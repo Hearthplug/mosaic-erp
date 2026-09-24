@@ -1,0 +1,16 @@
+.buildmain .panel{margin-bottom:14px}
+.buildnote{font-size:12px;color:var(--muted);margin:8px 0 0}
+.buildreview{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.buildside{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbf9}
+.buildside h3{margin:0 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.buildside p{margin:0;white-space:pre-wrap;line-height:1.5}
+.buildspec-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.buildspec-row:first-of-type{border-top:0}
+.buildspec-row b{font-weight:600}
+.buildspec-row span{color:var(--muted);text-align:right}
+.buildghost{background:white;border:1px solid var(--line);color:var(--ink)}
+.builditem{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.builditem:first-of-type{border-top:0}
+.builditem small{color:var(--muted);display:block;margin-top:2px}
+#file{max-width:260px}
+@media(max-width:600px){.buildreview{grid-template-columns:1fr}}
