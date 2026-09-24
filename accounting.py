@@ -278,6 +278,40 @@ class Accounting:
             days=max(0,(anchor-date.fromisoformat(r['due_date'] or as_of)).days); b='current' if days==0 else '1_30' if days<=30 else '31_60' if days<=60 else '61_90' if days<=90 else 'over_90'; buckets[b]+=r['balance_minor']; detail.append(dict(r)|{'days_overdue':days,'bucket':b})
         return {'kind':kind,'as_of':as_of,'buckets':buckets,'documents':detail}
 
+
+    DOCUMENT_KINDS = ('sales_invoice', 'purchase_bill', 'credit_note', 'debit_note', 'payment', 'refund', 'opening_balance', 'inventory_adjustment')
+
+    def list_documents(self, wid, kind=None, limit=50):
+        """Newest documents first, with the party name for display. Read-only."""
+        if kind and kind not in self.DOCUMENT_KINDS:
+            raise ValueError('unsupported document kind')
+        try:
+            limit = int(limit)
+        except (TypeError, ValueError):
+            limit = 50
+        limit = min(max(limit, 1), 200)
+        sql = "SELECT d.id,d.kind,d.number,d.issue_date,d.due_date,d.status,d.currency,d.total_minor,d.balance_minor,p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id=d.party_id WHERE d.workspace_id=?"
+        args = [wid]
+        if kind:
+            sql += " AND d.kind=?"
+            args.append(kind)
+        sql += " ORDER BY d.issue_date DESC,d.created_at DESC LIMIT ?"
+        args.append(limit)
+        rows = self.s._db.execute(sql, args).fetchall()
+        return {'documents': [dict(r) for r in rows]}
+
+    def get_document(self, wid, document_id):
+        """One document with its lines and recorded payments. Read-only."""
+        d = self.s._db.execute("SELECT d.*,p.name AS party_name FROM documents d LEFT JOIN parties p ON p.id=d.party_id WHERE d.id=? AND d.workspace_id=?", (document_id, wid)).fetchone()
+        if not d:
+            raise NotFound('document not found')
+        lines = self.s._db.execute("SELECT position,description,quantity,unit_price_minor,discount_minor,net_minor,tax_minor,total_minor FROM document_lines WHERE document_id=? ORDER BY position", (document_id,)).fetchall()
+        payments = self.s._db.execute("SELECT s.amount_minor,pay.number,pay.issue_date AS paid_on FROM settlements s JOIN documents pay ON pay.id=s.payment_document_id WHERE s.target_document_id=? AND s.workspace_id=? ORDER BY s.created_at", (document_id, wid)).fetchall()
+        out = dict(d)
+        out['lines'] = [dict(x) for x in lines]
+        out['payments'] = [dict(x) for x in payments]
+        return out
+
     def import_bank_transactions(self,wid,actor,account_id,rows):
         results=[]
         with self.s.tx():

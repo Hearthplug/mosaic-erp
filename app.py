@@ -586,6 +586,10 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.financial_statements(wid,to_date=qs.get('as_of',[None])[0]), rid=rid) or 200
         if p == '/api/accounting/aging':
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.aging(wid,qs.get('as_of',[TODAY])[0],qs.get('kind',['receivable'])[0]), rid=rid) or 200
+        if p == '/api/accounting/documents':
+            wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.list_documents(wid, qs.get('kind',[None])[0], qs.get('limit',['50'])[0]), rid=rid) or 200
+        if p == '/api/accounting/document':
+            wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.get_document(wid, qs.get('id',[''])[0]), rid=rid) or 200
         if p == '/api/workspace/export':
             wid, key_id, _ = self._auth('editor')
             data = STORE.export_workspace(wid, key_id)

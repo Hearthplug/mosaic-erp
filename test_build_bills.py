@@ -125,6 +125,57 @@ class Record(unittest.TestCase):
             build_bills.record_bill(s, books, wid, 'o@t.co', {'vendor': '', 'stated_total_minor': 100,
                                                               'lines': [{'description': 'A', 'quantity': '1', 'unit_price_minor': 100}]})
 
+class DocumentViews(unittest.TestCase):
+    def _bill(self):
+        s, wid = _store()
+        books = Accounting(s)
+        d = build_bills.draft_from_extraction(s, wid, EXTRACTION)
+        payload = {'vendor': d['vendor'], 'number': d['number'], 'issue_date': d['issue_date'],
+                   'stated_total_minor': d['stated_total_minor'],
+                   'lines': [{'description': l['description'], 'quantity': l['quantity'], 'unit_price_minor': l['unit_price_minor']} for l in d['lines']]}
+        r = build_bills.record_bill(s, books, wid, 'o@t.co', payload)
+        return s, wid, books, r
+
+    def test_list_documents_shows_bill_with_vendor(self):
+        s, wid, books, r = self._bill()
+        listing = books.list_documents(wid, kind='purchase_bill')
+        self.assertEqual(len(listing['documents']), 1)
+        b = listing['documents'][0]
+        self.assertEqual(b['id'], r['id'])
+        self.assertEqual(b['number'], r['number'])
+        self.assertEqual(b['party_name'], 'Fresh Farms')
+        self.assertEqual(b['total_minor'], 4830)
+        self.assertEqual(b['balance_minor'], 4830)
+
+    def test_get_document_has_lines_and_no_payments(self):
+        s, wid, books, r = self._bill()
+        doc = books.get_document(wid, r['id'])
+        self.assertEqual(doc['party_name'], 'Fresh Farms')
+        self.assertEqual(len(doc['lines']), 2)
+        self.assertEqual(doc['lines'][0]['description'], 'Tomatoes 10kg')
+        self.assertEqual(doc['lines'][0]['total_minor'], 2400)
+        self.assertEqual(doc['payments'], [])
+
+    def test_get_document_lists_payments_and_balance(self):
+        s, wid, books, r = self._bill()
+        books.record_payment(wid, 'o@t.co', r['id'], 2000, '2026-09-21')
+        doc = books.get_document(wid, r['id'])
+        self.assertEqual(doc['balance_minor'], 2830)
+        self.assertEqual(len(doc['payments']), 1)
+        self.assertEqual(doc['payments'][0]['amount_minor'], 2000)
+        self.assertEqual(doc['payments'][0]['paid_on'], '2026-09-21')
+
+    def test_get_document_unknown_id_fails(self):
+        s, wid, books, r = self._bill()
+        from store import NotFound
+        with self.assertRaises(NotFound):
+            books.get_document(wid, 'doc-does-not-exist')
+
+    def test_list_documents_rejects_bad_kind(self):
+        s, wid, books, r = self._bill()
+        with self.assertRaises(ValueError):
+            books.list_documents(wid, kind='nonsense')
+
 
 if __name__ == '__main__':
     unittest.main()
