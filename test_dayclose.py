@@ -64,6 +64,37 @@ class DaySummary(unittest.TestCase):
         self.assertEqual(d['items_sold'], 5)
 
 
+class StoreTimezone(unittest.TestCase):
+    def test_defaults_and_setting(self):
+        s, wid, books = _store()
+        self.assertEqual(dayclose.store_timezone(s, wid), 'UTC')  # no prefs, no config
+        dayclose.set_timezone(s, wid, 'o@t.co', 'Asia/Kolkata')
+        self.assertEqual(store_timezone := dayclose.store_timezone(s, wid), 'Asia/Kolkata')
+        with self.assertRaises(ValueError):
+            dayclose.set_timezone(s, wid, 'o@t.co', 'Not/AZone')
+
+    def test_items_follow_store_local_day(self):
+        s, wid, books = _store()
+        dayclose.set_timezone(s, wid, 'o@t.co', 'Asia/Kolkata')
+        s._db.execute("INSERT INTO retail_products(id,workspace_id,sku,name,unit,selling_price_minor,cost_minor) VALUES('p1',?,'R1','Rice','each',0,0)", (wid,))
+        s._db.execute("INSERT INTO locations(id,workspace_id,code,name,kind) VALUES('l1',?,'MAIN','Main','store')", (wid,))
+        # 2026-09-24 23:30 UTC = 2026-09-25 05:00 in Kolkata: belongs to the 25th locally
+        s._db.execute("INSERT INTO stock_ledger(id,workspace_id,product_id,location_id,effective_at,quantity_delta,unit_cost_minor,kind,source_type,source_id,actor_id,created_at) VALUES('s1',?,'p1','l1','2026-09-24T23:30:00+00:00','-4',0,'sale','sale','x','o@t.co','2026-09-24T23:30:00+00:00')", (wid,))
+        self.assertEqual(dayclose.day_summary(s, wid, '2026-09-24')['items_sold'], 0)
+        self.assertEqual(dayclose.day_summary(s, wid, '2026-09-25')['items_sold'], 4)
+
+    def test_country_default(self):
+        s, wid, books = _store()
+        import store as store_mod, json as _json
+        from store import canon, sha256, utcnow
+        cfg = {'answers': {'country': 'India'}, 'config': {}}
+        checksum = sha256(canon(cfg['config']))
+        s._db.execute('INSERT INTO config_versions(workspace_id,version,answers_json,config_json,checksum,summary,actor_key_id,created_at) VALUES(?,?,?,?,?,?,?,?)',
+                      (wid, 1, _json.dumps(cfg['answers']), canon(cfg['config']), checksum, '', 'k', utcnow()))
+        s._db.commit()
+        self.assertEqual(dayclose.store_timezone(s, wid), 'Asia/Kolkata')
+
+
 class SaveAndList(unittest.TestCase):
     def test_save_then_list_matches(self):
         s, wid, books = _store()

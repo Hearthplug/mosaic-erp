@@ -10,15 +10,71 @@ snapshot.
 import json
 import re
 import secrets
-from datetime import date as _date
+from datetime import date as _date, datetime as _dt, time as _time, timedelta as _td, timezone as _tz
+from zoneinfo import ZoneInfo
 
-from store import utcnow
+from store import utcnow, NotFound
 
 _DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
 
 def _ident(prefix):
     return prefix + '_' + secrets.token_hex(8)
+
+
+# One default timezone per onboarding country; multi-zone countries get their
+# most-populated single zone and the store can change it on the Close page.
+COUNTRY_TIMEZONES = {
+    'India': 'Asia/Kolkata', 'UAE': 'Asia/Dubai', 'Singapore': 'Asia/Singapore',
+    'China': 'Asia/Shanghai', 'Vietnam': 'Asia/Ho_Chi_Minh', 'Malaysia': 'Asia/Kuala_Lumpur',
+    'United Kingdom': 'Europe/London', 'United States': 'America/New_York',
+    'Canada': 'America/Toronto', 'European Union': 'Europe/Brussels',
+    'Australia': 'Australia/Sydney', 'New Zealand': 'Pacific/Auckland',
+    'Japan': 'Asia/Tokyo', 'South Korea': 'Asia/Seoul', 'Saudi Arabia': 'Asia/Riyadh',
+    'South Africa': 'Africa/Johannesburg', 'Brazil': 'America/Sao_Paulo',
+    'Mexico': 'America/Mexico_City', 'Indonesia': 'Asia/Jakarta',
+    'Philippines': 'Asia/Manila', 'Thailand': 'Asia/Bangkok', 'Switzerland': 'Europe/Zurich',
+}
+
+
+def store_timezone(store, wid):
+    """The store's IANA timezone: its own setting, else a default from its region, else UTC."""
+    row = store._db.execute('SELECT timezone FROM workspace_prefs WHERE workspace_id=?', (wid,)).fetchone()
+    if row and row['timezone']:
+        return row['timezone']
+    country = ''
+    try:
+        country = (store.get_config(wid).get('answers') or {}).get('country') or ''
+    except NotFound:
+        country = ''
+    return COUNTRY_TIMEZONES.get(country, 'UTC')
+
+
+def set_timezone(store, wid, actor, tz_name):
+    try:
+        ZoneInfo(tz_name or '')
+    except Exception:
+        raise ValueError('That is not a valid timezone.')
+    with store.tx():
+        store._db.execute(
+            'INSERT INTO workspace_prefs(workspace_id,timezone) VALUES(?,?) '
+            'ON CONFLICT(workspace_id) DO UPDATE SET timezone=excluded.timezone', (wid, tz_name))
+    store._audit(wid, actor, 'workspace_prefs.timezone', {'timezone': tz_name})
+    return {'timezone': tz_name}
+
+
+def local_today(store, wid):
+    """Today as the store's wall clock sees it."""
+    return _dt.now(_tz.utc).astimezone(ZoneInfo(store_timezone(store, wid))).date().isoformat()
+
+
+def _day_window_utc(day, tz_name):
+    """[start, end) of one store-local day, as UTC ISO strings matching stored timestamps."""
+    z = ZoneInfo(tz_name)
+    d0 = _date.fromisoformat(day)
+    start = _dt.combine(d0, _time.min, z).astimezone(_tz.utc)
+    end = _dt.combine(d0 + _td(days=1), _time.min, z).astimezone(_tz.utc)
+    return start.isoformat(), end.isoformat()
 
 
 def day_summary(store, wid, day):
@@ -40,15 +96,18 @@ def day_summary(store, wid, day):
         "SELECT COALESCE(SUM(balance_minor),0) AS t FROM documents "
         "WHERE workspace_id=? AND kind='sales_invoice' AND status='posted' AND issue_date=? AND balance_minor>0",
         (wid, day)).fetchone()
+    tz_name = store_timezone(store, wid)
+    day_start, day_end = _day_window_utc(day, tz_name)
     items = store._db.execute(
         "SELECT COALESCE(SUM(-CAST(quantity_delta AS REAL)),0) AS t FROM stock_ledger "
-        "WHERE workspace_id=? AND kind='sale' AND date(effective_at)=?", (wid, day)).fetchone()
+        "WHERE workspace_id=? AND kind='sale' AND effective_at>=? AND effective_at<?", (wid, day_start, day_end)).fetchone()
     cash = store._db.execute(
         "SELECT COALESCE(SUM(jl.debit_minor - jl.credit_minor),0) AS t FROM journal_lines jl "
         "JOIN accounts a ON a.id=jl.account_id JOIN journals j ON j.id=jl.journal_id "
         "WHERE j.workspace_id=? AND a.system_key='cash' AND j.effective_date<=?", (wid, day)).fetchone()
     return {
         'date': day,
+        'timezone': tz_name,
         'sales_total_minor': int(sales['t']),
         'sales_count': int(sales['n']),
         'payments_cash_minor': paid.get('cash', 0),
@@ -67,7 +126,7 @@ def save_close(store, wid, actor, day, counted_cash_minor, note=''):
         _date.fromisoformat(day)
     except ValueError:
         raise ValueError('That is not a valid day.')
-    if day > utcnow()[:10]:
+    if day > local_today(store, wid):
         raise ValueError('You cannot close a day that has not happened yet.')
     try:
         counted = int(counted_cash_minor)

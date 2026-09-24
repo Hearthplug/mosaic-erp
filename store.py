@@ -30,6 +30,7 @@ from assistant_setup_schema import ASSISTANT_SETUP_SQLITE_SCHEMA
 from ai_prefs_schema import AI_PREFS_SQLITE_SCHEMA
 from assistant_preview_schema import ASSISTANT_PREVIEW_SQLITE_SCHEMA
 from dayclose_schema import DAYCLOSE_SQLITE_SCHEMA
+from workspace_prefs_schema import WORKSPACE_PREFS_SQLITE_SCHEMA
 
 MIGRATIONS = [
     # 1: core workspace schema
@@ -139,6 +140,7 @@ MIGRATIONS = [
     ALTER TABLE ai_answer_prefs_v12 RENAME TO ai_answer_prefs;
     """,
     DAYCLOSE_SQLITE_SCHEMA,
+    WORKSPACE_PREFS_SQLITE_SCHEMA,
 ]
 
 def utcnow() -> str:

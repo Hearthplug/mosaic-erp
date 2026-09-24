@@ -3,6 +3,11 @@
 .daybar input{height:30px;padding:0 9px;border:1px solid var(--line);border-radius:7px;font:13px var(--font);color:var(--ink);background:#fff}
 .daybar button{height:30px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);padding:0 11px;font:600 12px var(--font);cursor:pointer}
 .daybar button:hover{background:var(--fill)}
+.tzline{margin-left:auto;font-size:11.5px;color:var(--muted)}
+.tzline b{font-weight:600;color:var(--ink)}
+.linkbtn{border:0;background:none;padding:0;color:var(--accent);font:600 11.5px var(--font);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+#tz-editor{margin-left:6px}
+#tz-select{height:26px;border:1px solid var(--line);border-radius:6px;font:12px var(--font);background:#fff;color:var(--ink);max-width:170px}
 .close-stats{grid-template-columns:repeat(4,1fr)}
 .close-stats .money{font-variant-numeric:tabular-nums}
 .cashgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:2px 15px 0}
@@ -33,7 +38,10 @@
 #closes,#closes tbody,#closes tr,#closes td{display:block;width:100%}
 #closes tr{border-bottom:1px solid var(--line);padding:6px 0}
 #closes tr:last-child{border-bottom:0}
-#closes td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;height:auto;padding:4px 15px;white-space:normal}
+#closes td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;height:auto;padding:4px 15px;white-space:normal;background:transparent}
+#closes td>span{text-align:right}
+#closes td .noteval{max-width:65%}
+#closes td:nth-child(4){max-width:none}
 #closes td::before{content:attr(data-label);color:var(--muted);font-size:11px;font-weight:600}
 #closes td:first-child::before{content:none}
 #closes td[colspan]{display:block}

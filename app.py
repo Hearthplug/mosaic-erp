@@ -596,7 +596,7 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/accounting/document':
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.get_document(wid, qs.get('id',[''])[0]), rid=rid) or 200
         if p == '/api/dayclose/summary':
-            wid, _, _ = self._auth('viewer'); return self.out(200, dayclose.day_summary(STORE, wid, qs.get('date',[utcnow()[:10]])[0]), rid=rid) or 200
+            wid, _, _ = self._auth('viewer'); return self.out(200, dayclose.day_summary(STORE, wid, qs.get('date',[dayclose.local_today(STORE, wid)])[0]), rid=rid) or 200
         if p == '/api/dayclose/closes':
             wid, _, _ = self._auth('viewer'); return self.out(200, {'closes': dayclose.list_closes(STORE, wid)}, rid=rid) or 200
         if p == '/api/workspace/export':
@@ -777,6 +777,8 @@ class H(BaseHTTPRequestHandler):
             d=self._body(); wid, actor, _ = self._operational_auth('document.post','owner'); return self.out(201,build_registers.record_register(STORE,BOOKS,wid,actor,d),rid=rid) or 201
         if p == '/api/dayclose/save':
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,dayclose.save_close(STORE,wid,actor,d.get('date',''),d.get('counted_cash_minor'),d.get('note','')),rid=rid) or 200
+        if p == '/api/dayclose/timezone':
+            wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,dayclose.set_timezone(STORE,wid,actor,d.get('timezone','')),rid=rid) or 200
         if p == '/api/tax/verify':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,TAX.attest(wid,actor,d['verification'],d['rules']),rid=rid) or 201
         if p == '/api/tax/regression':
