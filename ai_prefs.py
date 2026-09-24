@@ -189,9 +189,50 @@ class AiPrefs:
                 client = ChatProviderClient(provider, key, timeout=15, max_retries=1)
             else:
                 return {'ok': False, 'detail': 'Only key providers and custom servers can be tested.'}
-            _chat_once(client, 'You are a connectivity check.', 'Reply with the word OK.')
             models = client.spec.get('models') or {}
-            caps = ', '.join(k + ': ' + v for k, v in models.items()) or client.spec['model']
-            return {'ok': True, 'detail': 'Connected. ' + caps + ' answered.'}
+            caps = [('chat', models.get('chat') or client.spec['model'])]
+            if models.get('vision'):
+                caps.append(('vision', models['vision']))
+            if models.get('transcription'):
+                caps.append(('transcription', models['transcription']))
+            answered = []
+            for cap, model in caps:
+                try:
+                    if cap == 'chat':
+                        _chat_once(client, 'You are a connectivity check.', 'Reply with the word OK.')
+                    elif cap == 'transcription':
+                        from voice_intake import transcribe_audio
+                        transcribe_audio(client, _silent_wav_b64(), name='probe.wav', mime='audio/wav')
+                    else:
+                        from byok_clients import _extract_chat_body, _vision_model
+                        body, _style = _extract_chat_body(client, _ONE_PIXEL_PNG, 'image/png')
+                        body['model'] = _vision_model(client)
+                        client._request(body)
+                    answered.append((cap, model))
+                except (ProviderError, ValueError) as e:
+                    names = ' and '.join(c + ' (' + m + ')' for c, m in answered)
+                    prefix = (names + ' answered, but ') if answered else 'Could not connect - '
+                    return {'ok': False, 'detail': prefix + cap + ' (' + model + ') did not answer: ' + str(e)}
+            names = [c + ' (' + m + ')' for c, m in answered]
+            if len(names) == 1:
+                listed = names[0]; verb = ' answered.'
+            elif len(names) == 2:
+                listed = ' and '.join(names); verb = ' both answered.'
+            else:
+                listed = ', '.join(names[:-1]) + ' and ' + names[-1]; verb = ' all answered.'
+            return {'ok': True, 'detail': 'Connected - ' + listed + verb}
         except (ProviderError, ValueError) as e:
             return {'ok': False, 'detail': str(e)}
+
+
+_ONE_PIXEL_PNG = ('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ'
+                  'AAAABJRU5ErkJggg==')
+
+
+def _silent_wav_b64():
+    import base64, struct
+    frames = b'\x00\x00' * 800  # 0.05s of silence, 16 kHz 16-bit mono
+    hdr = (b'RIFF' + struct.pack('<I', 36 + len(frames)) + b'WAVEfmt ' +
+           struct.pack('<IHHIIHH', 16, 1, 1, 16000, 32000, 2, 16) +
+           b'data' + struct.pack('<I', len(frames)))
+    return base64.b64encode(hdr + frames).decode()
