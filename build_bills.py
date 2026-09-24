@@ -112,7 +112,7 @@ def record_bill(store, books, wid, actor, payload):
         unit = int(unit)
         if unit < 0:
             raise ValueError('Line prices cannot be negative.')
-        clean.append({'description': desc, 'quantity': str(qty.normalize()) if qty == qty.to_integral() else str(qty), 'unit_price_minor': unit})
+        clean.append({'description': desc, 'quantity': format(qty.normalize(), 'f'), 'unit_price_minor': unit})
     total = sum(int((Decimal(c['quantity']) * c['unit_price_minor']).quantize(Decimal('1'))) for c in clean)
     stated = payload.get('stated_total_minor')
     if stated is None:

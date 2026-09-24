@@ -86,6 +86,16 @@ class Record(unittest.TestCase):
         party = s._db.execute("SELECT * FROM parties WHERE workspace_id=? AND name='Fresh Farms'", (wid,)).fetchone()
         self.assertIsNotNone(party)
 
+    def test_record_stores_plain_quantities(self):
+        s, wid = _store()
+        books = Accounting(s)
+        payload = {'vendor': 'Fresh Farms', 'stated_total_minor': 2650,
+                   'lines': [{'description': 'Tomatoes', 'quantity': '10', 'unit_price_minor': 240},
+                             {'description': 'Onions', 'quantity': '2.5', 'unit_price_minor': 100}]}
+        r = build_bills.record_bill(s, books, wid, 'o@t.co', payload)
+        rows = s._db.execute('SELECT quantity FROM document_lines WHERE document_id=? ORDER BY position', (r['id'],)).fetchall()
+        self.assertEqual([row['quantity'] for row in rows], ['10', '2.5'])
+
     def test_record_rejects_mismatched_total(self):
         s, wid = _store()
         books = Accounting(s)
