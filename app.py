@@ -14,7 +14,7 @@ from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
 from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
-import build_bills
+import build_bills, build_registers
 from tax_engine import TaxEngine
 from artifact_builder import ArtifactBuilder
 from assistant_setup import AssistantSetup
@@ -760,6 +760,12 @@ class H(BaseHTTPRequestHandler):
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,build_bills.draft_from_extraction(STORE,wid,d.get('extraction') or {}),rid=rid) or 200
         if p == '/api/build/record-bill':
             d=self._body(); wid, actor, _ = self._operational_auth('document.post','owner'); return self.out(201,build_bills.record_bill(STORE,BOOKS,wid,actor,d),rid=rid) or 201
+        if p == '/api/build/register-draft':
+            wid, actor, _ = self._auth('editor'); d=self._body()
+            if d.get('csv'):return self.out(200,build_registers.draft_from_csv(STORE,wid,d.get('register',''),d['csv']),rid=rid) or 200
+            return self.out(200,build_registers.draft_from_extraction(STORE,wid,d.get('register',''),d.get('extraction') or {}),rid=rid) or 200
+        if p == '/api/build/record-register':
+            d=self._body(); wid, actor, _ = self._operational_auth('document.post','owner'); return self.out(201,build_registers.record_register(STORE,BOOKS,wid,actor,d),rid=rid) or 201
         if p == '/api/tax/verify':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,TAX.attest(wid,actor,d['verification'],d['rules']),rid=rid) or 201
         if p == '/api/tax/regression':

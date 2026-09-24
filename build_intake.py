@@ -147,7 +147,7 @@ def read_file(name, declared_mime, data_b64):
         if pack:
             out['detected'] = {'type': 'migration', 'pack': pack, 'missing_columns': missing, 'csv': text}
         else:
-            out['detected'] = {'type': 'unknown'}
+            out['detected'] = {'type': 'unknown', 'csv': text}
     else:
         out['detected'] = {'type': 'document', 'hints': _document_hints(text)}
     return out
