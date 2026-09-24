@@ -104,6 +104,19 @@ def main():
     gate('Architecture and residual-risk documentation', docs.exists() and 'deployment-dependent' in docs.read_text().lower(),
          'ARCHITECTURE.md with decisions, official sources, threat model, deployment gaps')
 
+    sm = run([sys.executable, 'scripts/check_sitemap.py'])
+    sm_out = (sm.stdout or sm.stderr).strip().splitlines()
+    gate('Sitemap coverage', sm.returncode == 0, sm_out[-1] if sm_out else 'scripts/check_sitemap.py produced no output')
+
+    base = os.environ.get('GITHUB_BASE_REF')
+    if base:
+        run(['git', 'fetch', '--depth', '1', 'origin', f'+{base}:refs/remotes/base'])
+        changed = run(['git', 'diff', '--name-only', 'refs/remotes/base...HEAD']).stdout.splitlines()
+        html_touched = any(c.startswith('docs/') and c.endswith('.html') for c in changed)
+        sm_touched = 'docs/sitemap.xml' in changed
+        gate('Sitemap freshness on site changes', not html_touched or sm_touched,
+             'docs/sitemap.xml updated alongside the site changes' if (not html_touched or sm_touched) else 'docs/*.html changed without docs/sitemap.xml')
+
     fails = [n for n, ok, _ in RESULTS if not ok]
     print()
     print('OWNER ACTION (deployment-dependent, cannot be verified from source):')
