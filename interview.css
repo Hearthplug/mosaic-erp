@@ -29,3 +29,11 @@
 #reconfig-state{font-size:13px;color:#6d675d;margin:6px 0 0}
 @media (max-width:720px){.jev-row{grid-template-columns:1fr;gap:4px}.jev-arrow{transform:rotate(90deg)}}
 .jev-reconfig .jev-row{grid-template-columns:auto 1fr 24px 1fr auto}
+.templates{margin-top:22px;border-top:1px solid rgba(16,26,21,.08);padding-top:16px}
+.template-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:10px 0 12px}
+.template-card{text-align:left;background:var(--white,#fff);border:1px solid rgba(16,26,21,.14);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit;display:flex;flex-direction:column;gap:3px;transition:border-color .15s,box-shadow .15s}
+.template-card:hover{border-color:#0c5c43;box-shadow:0 4px 14px rgba(12,92,67,.12)}
+.template-card b{font-size:15px}
+.template-card .template-region{font-size:11.5px;font-weight:600;letter-spacing:.03em;color:#0c5c43;text-transform:uppercase}
+.template-card small{color:#5b6b62;font-size:12.5px;line-height:1.35}
+.templates-note{font-size:12.5px;color:#5b6b62;line-height:1.45;margin:0}
