@@ -6,12 +6,12 @@ const MosaicVoice=(()=>{
 function b64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]||'');r.onerror=rej;r.readAsDataURL(blob)})}
 async function attach(btn,statusEl,endpoint,onResult){
  let rec=null,chunks=[],busy=false;
- const setLabel=t=>{btn.textContent=t};
+ const lab=btn.querySelector('.miclabel');const setLabel=t=>{if(lab)lab.textContent=t;else btn.textContent=t};
  const say=t=>{if(statusEl)statusEl.textContent=t};
  let st={available:false,reason:'Checking voice entry…'};
  try{st=await (await fetch('/api/build/voice-status',{headers:{...MosaicAuth.headers}})).json()}catch(e){st={available:false,reason:'Could not check voice entry.'}}
  if(!navigator.mediaDevices||!window.MediaRecorder){st={available:false,reason:'This browser cannot record audio. Type instead.'}}
- if(!st.available){btn.disabled=true;setLabel('Mic off');say(st.reason);return}
+ if(!st.available){btn.disabled=true;say(st.reason);return}
  btn.disabled=false;setLabel('Speak');say(st.reason||'');
  btn.onclick=async()=>{
   if(busy)return;
