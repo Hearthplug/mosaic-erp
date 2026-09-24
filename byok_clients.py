@@ -153,3 +153,64 @@ class ChatProviderClient:
 def provider_client(provider, api_key, **kw):
     """Factory used by ai_prefs: the owner's own key selects the provider."""
     return ChatProviderClient(provider, api_key, **kw)
+
+
+VISION_PROVIDERS = ('openai', 'claude')
+
+_EXTRACT_SYSTEM = ("You read a photo of a business document, screen, or notebook page for a small business owner. "
+    "Reply with ONLY a JSON object: "
+    '{"document_type": "<short plain name>", '
+    '"fields": [{"name": "<field>", "value": "<what is written>", "confidence": <0..1>}], '
+    '"summary": "<one plain sentence about what this document shows>"}. '
+    "Copy values exactly as written, including currency symbols and non-Latin scripts. "
+    "Use a confidence below 0.6 for anything you are unsure about. No prose, no markdown fences.")
+
+
+def _extract_chat_body(client, image_b64, media_type):
+    if client.spec['style'] == 'openai':
+        return {'model': client.spec['model'], 'temperature': 0,
+                'response_format': {'type': 'json_object'},
+                'messages': [{'role': 'system', 'content': _EXTRACT_SYSTEM},
+                             {'role': 'user', 'content': [
+                                 {'type': 'text', 'text': 'Read this document.'},
+                                 {'type': 'image_url', 'image_url': {'url': f'data:{media_type};base64,{image_b64}'}}]}]}, 'openai'
+    return {'model': client.spec['model'], 'max_tokens': 2048, 'temperature': 0,
+            'system': _EXTRACT_SYSTEM,
+            'messages': [{'role': 'user', 'content': [
+                {'type': 'image', 'source': {'type': 'base64', 'media_type': media_type, 'data': image_b64}},
+                {'type': 'text', 'text': 'Read this document.'}]}]}, 'anthropic'
+
+
+def _extract_image(self, image_b64, media_type):
+    """Read a document photo with the owner's own vision-capable key.
+    Fail-closed: non-vision providers and unreadable answers raise ProviderError."""
+    if self.provider not in VISION_PROVIDERS:
+        raise ProviderError(f"{self.spec['brand']} cannot read photos. Switch the key in Assistant settings to OpenAI or Claude, or type what the document shows.")
+    body, style = _extract_chat_body(self, image_b64, media_type)
+    payload = self._request(body)
+    if style == 'openai':
+        try:
+            raw = payload['choices'][0]['message']['content']
+        except (KeyError, IndexError, TypeError):
+            raise ProviderError(f"{self.spec['brand']} returned an unexpected response. Try again, or switch to Standard.")
+    else:
+        try:
+            raw = next(b['text'] for b in payload['content'] if b.get('type') == 'text')
+        except (KeyError, IndexError, TypeError, StopIteration):
+            raise ProviderError(f"{self.spec['brand']} returned an unexpected response. Try again, or switch to Standard.")
+    data = _strict_json(raw)
+    fields = data.get('fields')
+    if not isinstance(fields, list) or not all(isinstance(f, dict) and isinstance(f.get('name'), str) for f in fields):
+        raise ProviderError(f"{self.spec['brand']} returned an unreadable extraction. Try again, or type the fields.")
+    cleaned = []
+    for f in fields[:40]:
+        try:
+            conf = float(f.get('confidence', 0))
+        except (TypeError, ValueError):
+            conf = 0.0
+        cleaned.append({'name': f['name'][:80], 'value': str(f.get('value', ''))[:500], 'confidence': min(max(conf, 0.0), 1.0)})
+    return {'document_type': str(data.get('document_type', 'document'))[:80],
+            'summary': str(data.get('summary', ''))[:300], 'fields': cleaned}
+
+
+ChatProviderClient.extract_image = _extract_image

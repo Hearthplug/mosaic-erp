@@ -14,3 +14,13 @@
 .builditem small{color:var(--muted);display:block;margin-top:2px}
 #file{max-width:260px}
 @media(max-width:600px){.buildreview{grid-template-columns:1fr}}
+.buildtarget{background:white;border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
+.buildtarget:hover{border-color:var(--accent)}
+.buildfield{display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:13px;align-items:baseline}
+.buildfield:first-of-type{border-top:0}
+.buildfield b{font-weight:600}
+.buildfield span{color:var(--muted)}
+.buildfield i{font-style:normal;font-size:11px;color:var(--muted)}
+.buildfield.low i{color:#b3541e;font-weight:600}
+.buildfield.low span{color:#b3541e}
+.excerpt{white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:12px}

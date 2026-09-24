@@ -31,6 +31,20 @@ class ArtifactBuilder:
    self.s._db.execute("INSERT INTO generated_artifacts(id,workspace_id,kind,name,specification_json,specification_hash,source_tables_json,config_version,status,legal_status,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,'draft',?,?,?)",(aid,wid,x['kind'],x['name'],canon(x['specification']),__import__('hashlib').sha256(canon(x['specification']).encode()).hexdigest(),canon(x['source_tables']),self._config_version(wid),x['legal_status'],actor,utcnow()))
    self.s._audit(wid,actor,'artifact.draft',{'artifact_id':aid,'kind':x['kind'],'name':x['name'],'source_tables':x['source_tables']})
   return {'id':aid,'status':'draft',**x,'message':'Draft created. Review the fields, filters, access and sample output before activation.'}
+ def draft_from_extraction(self,wid,actor,target,extraction,hint=''):
+  """Draft an artifact from a photo/PDF extraction. Maps onto the same
+  allow-lists as interpret(); fields that do not map are reported back so the
+  review screen can show them, never silently guessed."""
+  lead={'dashboard':'dashboard','report':'report','statutory_invoice':'statutory tax invoice'}.get(target)
+  if not lead:raise ValueError('Choose what to build: a report, a dashboard, or an invoice layout')
+  fields=[f for f in (extraction.get('fields') or []) if isinstance(f,dict)]
+  words=' '.join([str(extraction.get('document_type','')),str(extraction.get('summary','')),str(hint or '')]+[str(f.get('name','')) for f in fields])
+  message=(lead+' '+' '.join(words.split()))[:2000]
+  if len(message)<=len(lead)+1:raise ValueError('Nothing readable was found. Describe what you want in your own words.')
+  result=self.draft(wid,actor,message)
+  used=json.dumps(result['specification']).lower()
+  unmapped=[str(f.get('name','')) for f in fields if f.get('name') and str(f.get('name')).lower() not in used]
+  return {'draft':result,'unmapped':unmapped[:20]}
  def _config_version(self,wid):
   r=self.s._db.execute('SELECT MAX(version) v FROM config_versions WHERE workspace_id=?',(wid,)).fetchone();return r['v'] if r else None
  def list(self,wid):

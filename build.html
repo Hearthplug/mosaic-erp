@@ -2,11 +2,13 @@
 <section class="panel"><div class="panelhead"><div><h2>Describe what you need</h2><p>Everyday words are enough. Mosaic drafts a report, a dashboard, or a document layout - nothing is saved until you confirm it.</p></div></div>
 <div id="messages" class="messages" aria-live="polite"><div class="msg bot">Try: "a weekly sales by product report" or "an invoice layout for my shop". You can also paste the text of a document below.</div></div>
 <form id="chat"><label for="say">What do you need?</label><div class="row"><input id="say" autocomplete="off" placeholder="Build a monthly profit report"><button>Send</button></div></form></section>
-<section class="panel"><div class="panelhead"><div><h2>Show a file</h2><p>A digital PDF or a spreadsheet (CSV) works with no setup. Photos of paper documents need your own AI key - that arrives in a later update.</p></div></div>
-<div class="row"><input type="file" id="file" accept=".pdf,.csv,.txt"><span id="file-state" aria-live="polite"></span></div>
-<p class="buildnote" id="file-note">Spreadsheets go through the checked importer with reconciliation. PDF text is read on this computer; nothing leaves your workspace.</p></section>
+<section class="panel"><div class="panelhead"><div><h2>Show a file</h2><p>A digital PDF, Excel sheet or CSV works with no setup. Photos of paper documents use your own AI key (OpenAI or Claude) from Assistant settings. Everything is read here in your workspace.</p></div></div>
+<div class="row"><input type="file" id="file" accept=".pdf,.csv,.xlsx,.txt,.md,image/png,image/jpeg,image/webp"><span id="file-state" aria-live="polite"></span></div>
+<p class="buildnote" id="file-note">Product, supplier, stock and invoice sheets are imported with reconciliation - nothing is applied until you confirm. PDF and photo reading never sends your document to a service.</p>
+<div id="file-result" class="buildside" hidden style="margin-top:12px"><h3 id="file-result-head"></h3><div id="file-result-fields"></div><div class="row" id="file-result-actions" style="margin-top:10px"></div></div></section>
 <section class="panel" id="reviewPanel" hidden><div class="panelhead"><div><h2>Review before it is saved</h2><p>Your words on the left, Mosaic's draft on the right. Confirm only if it matches what you meant.</p></div><span class="chip orange">Draft</span></div>
 <div class="buildreview"><div class="buildside"><h3>You asked for</h3><p id="review-original"></p></div><div class="buildside"><h3>Mosaic drafted</h3><div id="review-spec"></div></div></div>
+<p class="buildnote" id="review-unmapped"></p>
 <div class="row"><button type="button" id="confirm">Looks right - save it</button><button type="button" id="discard" class="buildghost">Discard</button></div><p id="review-state" aria-live="polite"></p></section>
 <section class="panel"><div class="panelhead"><div><h2>Your builds</h2><p>Drafts wait for your review. Active ones are in use.</p></div></div><div id="builds"></div></section>
 <p class="foot">Mosaic always asks before saving anything. Tax invoice layouts are drafts for your accountant to confirm before filing.</p></main></div><script src="/auth.js"></script><script src="/build.js"></script></body></html>
