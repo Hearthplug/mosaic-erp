@@ -40,3 +40,8 @@
 .template-card .template-region{font-size:11.5px;font-weight:600;letter-spacing:.03em;color:#0c5c43;text-transform:uppercase}
 .template-card small{color:#5b6b62;font-size:12.5px;line-height:1.35}
 .templates-note{font-size:12.5px;color:#5b6b62;line-height:1.45;margin:0}
+
+.template-chips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 4px}
+.template-chip{border:1px solid rgba(16,26,21,.16);background:#fff;border-radius:999px;padding:4px 11px;font:600 11.5px var(--font);color:#3c4a42;cursor:pointer}
+.template-chip.on{background:#0c5c43;border-color:#0c5c43;color:#fff}
+@media(max-width:600px){.template-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.template-chip{white-space:nowrap}}
