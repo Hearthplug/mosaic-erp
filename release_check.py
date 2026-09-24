@@ -82,18 +82,18 @@ def main():
     finally:
         srv.terminate()
 
-    # Dependency scan: local modules are first-party; only pinned PostgreSQL drivers may be external
+    # Dependency scan: local modules are first-party; only the pinned runtime dependencies in requirements.txt may be external
     deps = set()
-    for f in ('app.py', 'oauth.py', 'store.py', 'postgres_store.py', 'install.py', 'extra_packs.py', 'test_customization.py', 'test_persistence.py', 'test_postgres_contract.py'):
+    for f in ('app.py', 'oauth.py', 'store.py', 'postgres_store.py', 'install.py', 'extra_packs.py', 'test_customization.py', 'test_persistence.py', 'test_postgres_contract.py', 'build_intake.py'):
         tree = ast.parse((ROOT / f).read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 deps.update(a.name.split('.')[0] for a in node.names)
             elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 deps.add(node.module.split('.')[0])
-    stdlib = set(sys.stdlib_module_names) | {'app','store','postgres_store','extra_packs','accounting','accounting_schema','retail','retail_schema','operational_profile','operating_model','operating_model_schema','onboarding','onboarding_schema','postgres_erp_schema','rbac','tax_engine','branding','business_twin','migration_schema','migration_packs','tax_verification_schema','tax_pack_operational','provisioning_schema','provisioning','oauth','provider_assets','assistant_setup','assistant_setup_schema','assistant_preview','assistant_preview_schema','artifact_builder','artifact_builder_schema','jev_client','jev_mapper','jev_reconfigure','ai_prefs','ai_prefs_schema'}
+    stdlib = set(sys.stdlib_module_names) | {'app','store','postgres_store','extra_packs','accounting','accounting_schema','retail','retail_schema','operational_profile','operating_model','operating_model_schema','onboarding','onboarding_schema','postgres_erp_schema','rbac','tax_engine','branding','business_twin','migration_schema','migration_packs','tax_verification_schema','tax_pack_operational','provisioning_schema','provisioning','oauth','provider_assets','assistant_setup','assistant_setup_schema','assistant_preview','assistant_preview_schema','artifact_builder','artifact_builder_schema','jev_client','jev_mapper','jev_reconfigure','ai_prefs','ai_prefs_schema','build_intake','byok_clients'}
     third = deps - stdlib
-    gate('Dependency scan', third <= {'psycopg','psycopg_pool','jwt'}, f'pinned runtime dependencies only: {third}' if third <= {'psycopg','psycopg_pool','jwt'} else f'unexpected third-party: {third}')
+    gate('Dependency scan', third <= {'psycopg','psycopg_pool','jwt','pypdf','openpyxl'}, f'pinned runtime dependencies only: {third}' if third <= {'psycopg','psycopg_pool','jwt','pypdf','openpyxl'} else f'unexpected third-party: {third}')
 
     # Secret scan: no private keys, tokens, or passwords in tracked files
     pat = re.compile(r'(-----BEGIN [A-Z ]*PRIVATE KEY|msk_[0-9a-f]{40}|ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|password\s*=\s*[\'"][^\'"]+)', re.I)
