@@ -41,6 +41,10 @@ class ArtifactBuilder:
   words=' '.join([str(extraction.get('document_type','')),str(extraction.get('summary','')),str(hint or '')]+[str(f.get('name','')) for f in fields])
   message=(lead+' '+' '.join(words.split()))[:2000]
   if len(message)<=len(lead)+1:raise ValueError('Nothing readable was found. Describe what you want in your own words.')
+  if target=='report':
+   low=message.lower()
+   if not any(x.replace('_',' ') in low for x in ALLOWED_REPORTS):
+    return {'needs_choice':True,'kind':'report','choices':sorted(ALLOWED_REPORTS),'message':'Which report should this become? Pick one and the draft appears for review.'}
   result=self.draft(wid,actor,message)
   used=json.dumps(result['specification']).lower()
   unmapped=[str(f.get('name','')) for f in fields if f.get('name') and str(f.get('name')).lower() not in used]

@@ -142,6 +142,20 @@ class DraftFromExtractionTest(unittest.TestCase):
         self.assertEqual(out['draft']['status'], 'draft')
         self.assertIn('zodiac sign', out['unmapped'])
 
+
+    def test_report_without_type_asks_owner_to_choose(self):
+        extraction = {'document_type': 'supplier bill', 'summary': 'Fresh Farms bill FF-1042',
+                      'fields': [{'name': 'total', 'value': '48.30', 'confidence': 0.9}]}
+        out = self.b.draft_from_extraction(self.w, 'owner', 'report', extraction, hint='bill.pdf')
+        self.assertTrue(out['needs_choice'])
+        self.assertIn('payables_aging', out['choices'])
+
+    def test_report_type_in_hint_drafts_normally(self):
+        extraction = {'document_type': 'supplier bill', 'summary': 'Fresh Farms bill FF-1042', 'fields': []}
+        out = self.b.draft_from_extraction(self.w, 'owner', 'report', extraction, hint='bill.pdf payables aging')
+        self.assertEqual(out['draft']['kind'], 'report')
+        self.assertEqual(out['draft']['specification']['report_type'], 'payables_aging')
+
     def test_invalid_target_rejected(self):
         with self.assertRaises(ValueError):
             self.b.draft_from_extraction(self.w, 'owner', 'delete_everything', {'summary': 'x'}, hint='y')
