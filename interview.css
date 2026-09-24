@@ -30,6 +30,7 @@
 @media (max-width:720px){.jev-row{grid-template-columns:1fr;gap:4px}.jev-arrow{transform:rotate(90deg)}}
 .jev-reconfig .jev-row{grid-template-columns:auto 1fr 24px 1fr auto}
 .templates{margin-top:22px;border-top:1px solid rgba(16,26,21,.08);padding-top:16px}
+.template-groups{display:block}
 .template-group{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#5b6b62;margin:14px 0 6px}
 .template-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 4px;grid-auto-rows:1fr}
 @media(max-width:600px){.template-cards{grid-template-columns:1fr;gap:8px}.template-card{padding:10px 12px}}
