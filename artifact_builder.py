@@ -46,6 +46,13 @@ class ArtifactBuilder:
    if not any(x.replace('_',' ') in low for x in ALLOWED_REPORTS):
     return {'needs_choice':True,'kind':'report','choices':sorted(ALLOWED_REPORTS),'message':'Which report should this become? Pick one and the draft appears for review.'}
   result=self.draft(wid,actor,message)
+  doc=str(extraction.get('document_type','')).strip() or 'document'
+  if result['kind']=='report':what=result['specification']['report_type'].replace('_',' ')+' report'
+  elif result['kind']=='dashboard':what='dashboard'
+  else:what='invoice layout'
+  pretty=(doc[:1].upper()+doc[1:]+' - '+what)[:100]
+  with self.s.tx():self.s._db.execute('UPDATE generated_artifacts SET name=? WHERE id=? AND workspace_id=?',(pretty,result['id'],wid))
+  result['name']=pretty
   used=json.dumps(result['specification']).lower()
   unmapped=[str(f.get('name','')) for f in fields if f.get('name') and str(f.get('name')).lower() not in used]
   return {'draft':result,'unmapped':unmapped[:20]}
