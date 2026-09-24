@@ -58,8 +58,8 @@
 .billlink:hover{text-decoration:underline}
 @media(max-width:600px){.billrow{grid-template-columns:96px 1fr}.billrow i{grid-column:2}.billhead{display:none}.billline{grid-template-columns:64px 96px 1fr 24px}.billline .billdesc{grid-column:1/-1}}
 
-.regseg{display:inline-flex;border:1px solid rgba(0,0,0,.14);border-radius:14px;overflow:hidden;background:#fff;height:26px}
-.regseg button{border:0;background:transparent;padding:0 7px;font:600 10px var(--font);color:#6b655d;cursor:pointer;white-space:nowrap}
+.regseg{display:inline-flex;align-items:stretch;border:1px solid rgba(0,0,0,.14);border-radius:8px;overflow:hidden;background:#fff;height:30px;box-sizing:border-box;align-self:center}
+.regseg button{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;padding:0 8px;font:600 10px/1 var(--font);color:#6b655d;cursor:pointer;white-space:nowrap}
 .regseg button.on.c-credit{background:#fdeede;color:#8a5800}
 .regseg button.on.c-paid{background:#e6f6ea;color:#1e7d34}
 .regseg .segs{display:none}
