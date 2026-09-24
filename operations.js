@@ -7,6 +7,7 @@ const VIEWS={
   money:{title:'Money',sub:'Till sessions and period locks.'}
 };
 let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='USD';
+let IDBY_LABEL={},PO_LINES={};
 
 function api(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}).then(r=>r.json().then(j=>{if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
 function get(path){return fetch(path,{headers:MosaicAuth.headers}).then(r=>{if(r.status===401){MosaicAuth.clear();throw Error('Signed out')}if(!r.ok)throw Error('Could not load');return r.json()})}
@@ -48,7 +49,10 @@ function renderSales(){const rows=LISTS.sales.map(r=>{const tr=document.createEl
   $('#kpi-sales').textContent=todays.length?fmtMoney(todays.reduce((a,r)=>a+r.total_minor,0),todays[0].currency):'—';
   $('#kpi-sales-sub').textContent=todays.length?todays.length+(todays.length===1?' bill':' bills')+' today':'no bills yet'}
 function renderBuying(){const rows=LISTS.buying.map(r=>{const tr=document.createElement('tr');
-  tr.appendChild(cell(r.number,'cell-main'));tr.appendChild(cell(r.vendor_name));tr.appendChild(cell(r.location_code));tr.appendChild(cell(fmtWhen(r.ordered_on)));tr.appendChild(cell(String(r.line_count),'num'));tr.appendChild(cell(fmtMoney(r.total_minor,r.currency),'num'));tr.appendChild(pillCell(r.status));return tr});
+  tr.appendChild(cell(r.number,'cell-main'));tr.appendChild(cell(r.vendor_name));tr.appendChild(cell(r.location_code));tr.appendChild(cell(fmtWhen(r.ordered_on)));tr.appendChild(cell(String(r.line_count),'num'));tr.appendChild(cell(fmtMoney(r.total_minor,r.currency),'num'));
+  const st=pillCell(r.status);
+  if(r.status==='draft'){const b=document.createElement('button');b.type='button';b.className='btn row-action';b.textContent='Approve';b.onclick=()=>run('/api/retail/purchases/approve',{purchase_order_id:r.id},'Purchase order approved');st.appendChild(b)}
+  tr.appendChild(st);return tr});
   fill('buying-table',rows,'No orders yet. Order from a supplier below.');
   $('#buying-count').textContent=LISTS.buying.length?'last '+LISTS.buying.length:'';
   $('#kpi-orders').textContent=String(LISTS.buying.filter(r=>['draft','approved','part_received'].includes(r.status)).length)}
@@ -70,8 +74,22 @@ function reload(){return Promise.all([
   get('/api/retail/cash-sessions').then(j=>{LISTS.money=j.rows;renderMoney()})
 ]).catch(e=>notice(false,e.message))}
 
-function run(path,body,okText){api(path,body).then(x=>{notice(true,okText,JSON.stringify(x,null,2));reload()}).catch(e=>notice(false,e.message))}
+function run(path,body,okText){api(path,body).then(x=>{notice(true,okText,JSON.stringify(x,null,2));reload();refreshContext();refreshExport()}).catch(e=>notice(false,e.message))}
 
+function register(kind,label,id){IDBY_LABEL[kind+':'+label]=id;return label}
+function resolveId(kind,val){return IDBY_LABEL[kind+':'+val]||val}
+function refreshLists(c){
+  IDBY_LABEL={};
+  const fill=(id,rows,kind,label)=>{$(id).innerHTML=rows.map(x=>'<option value="'+esc(register(kind,label(x),x.id))+'"></option>').join('')};
+  fill('#locations',c.locations,'loc',x=>x.code+' · '+x.name);
+  fill('#products',c.products,'prod',x=>x.sku+' · '+x.name);
+  c.products.forEach(x=>{IDBY_LABEL['prodbyid:'+x.id]=x.sku+' · '+x.name});
+  fill('#vendors',c.vendors,'vendor',x=>x.name);
+  fill('#orders',c.purchase_orders,'po',x=>x.number+' · '+(STATUS[x.status]?STATUS[x.status][1]:x.status));
+  fill('#bill-options',c.open_bills,'bill',x=>x.number+' · '+fmtMoney(x.balance_minor))}
+function refreshContext(){return get('/api/operations/context').then(c=>{refreshLists(c)}).catch(()=>{})}
+function refreshExport(){return get('/api/retail/export').then(x=>{PO_LINES={};(x.purchase_order_lines||[]).forEach(l=>{(PO_LINES[l.purchase_order_id]=PO_LINES[l.purchase_order_id]||[]).push(l)})}).catch(()=>{})}
+function productLabel(id){const o=IDBY_LABEL['prodbyid:'+id];return o||id}
 function updateMoneyLabels(){document.querySelectorAll('label').forEach(l=>{if(['Cash received','Unit cost','Amount'].includes(l.childNodes[0].textContent.trim()))l.childNodes[0].textContent=l.childNodes[0].textContent.trim()+' ('+CURRENCY+')'})}
 function connect(){if(!MosaicAuth.require())return;
   let identity=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');
@@ -79,26 +97,28 @@ function connect(){if(!MosaicAuth.require())return;
   $('#signout').onclick=()=>MosaicAuth.clear();
   Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
-    const fill=(id,rows,label)=>{$(id).innerHTML=rows.map(x=>'<option value="'+x.id+'">'+esc(label(x))+'</option>').join('')};
-    fill('#locations',c.locations,x=>x.code+' · '+x.name);
-    fill('#products',c.products,x=>x.sku+' · '+x.name);
-    fill('#vendors',c.vendors,x=>x.name);
-    fill('#orders',c.purchase_orders,x=>x.number+' · '+x.status);
-    fill('#bill-options',c.open_bills,x=>x.number+' · '+x.balance_minor);
+    refreshLists(c);
     const ol=$('#next');ol.innerHTML='';
     c.next_steps.forEach(s=>{const li=document.createElement('li');li.textContent=s;ol.appendChild(li)});
-    reload()
+    reload();refreshExport()
   }).catch(e=>{$('#state').textContent='Could not open workspace';notice(false,e.message)})}
 
-$('#stock').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/transfers',{product_id:d.product_id,from_location:d.from_location,to_location:d.to_location,quantity:d.quantity},'Stock transferred')};
-$('#sell').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/sales',{location_id:d.location_id,lines:[{product_id:d.product_id,quantity:d.quantity}],tenders:[{kind:'cash',amount_minor:Math.round(+d.amount_minor*100)}],currency:CURRENCY},'Sale completed')};
+$('#stock').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/transfers',{product_id:resolveId('prod',d.product_id),from_location:resolveId('loc',d.from_location),to_location:resolveId('loc',d.to_location),quantity:d.quantity},'Stock transferred')};
+$('#sell').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/sales',{location_id:resolveId('loc',d.location_id),lines:[{product_id:resolveId('prod',d.product_id),quantity:d.quantity}],tenders:[{kind:'cash',amount_minor:Math.round(+d.amount_minor*100)}],currency:CURRENCY},'Sale completed')};
 $('#return').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/returns',{sale_id:d.sale_id,lines:{[d.line_id]:d.quantity},reason:d.reason,approved_by:'manager',refund_kind:'cash'},'Return refunded')};
-$('#buy').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/purchases',{vendor_id:d.vendor_id,location_id:d.location_id,ordered_on:d.ordered_on,lines:[{product_id:d.product_id,quantity:d.quantity,unit_cost_minor:Math.round(+d.unit_cost_minor*100)}],currency:CURRENCY},'Purchase order saved')};
-$('#receive').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/purchases/receive',{purchase_order_id:d.purchase_order_id,received:{[d.line_id]:d.quantity}},'Stock received')};
-$('#bill-match').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/three-way-match',{purchase_order_id:d.purchase_order_id,bill_id:d.bill_id},'Match complete')};
+$('#buy').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/purchases',{vendor_id:resolveId('vendor',d.vendor_id),location_id:resolveId('loc',d.location_id),ordered_on:d.ordered_on,lines:[{product_id:resolveId('prod',d.product_id),quantity:d.quantity,unit_cost_minor:Math.round(+d.unit_cost_minor*100)}],currency:CURRENCY},'Purchase order saved')};
+const poInput=$('#receive input[name=purchase_order_id]'),lineSel=$('#receive select[name=line_id]');
+function fillLines(){const po=resolveId('po',poInput.value),lines=PO_LINES[po]||[];
+  lineSel.innerHTML=lines.length?lines.map(l=>'<option value="'+l.id+'">'+esc(productLabel(l.product_id))+' - '+esc(l.quantity)+' ordered, '+esc(l.received_quantity||'0')+' received</option>').join(''):'<option value="">No open lines on this order</option>'}
+poInput.addEventListener('input',fillLines);poInput.addEventListener('change',fillLines);
+$('#receive').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/purchases/receive',{purchase_order_id:resolveId('po',d.purchase_order_id),received:{[d.line_id]:d.quantity}},'Stock received')};
+$('#bill-match').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/three-way-match',{purchase_order_id:resolveId('po',d.purchase_order_id),bill_id:resolveId('bill',d.bill_id)},'Match complete')};
 $('#cash').onsubmit=e=>e.preventDefault();
-$('#cash button[name=open]').onclick=()=>{let d=data($('#cash'));run('/api/retail/cash/open',{location_id:d.location_id,opening_minor:Math.round(+d.amount_minor*100)},'Till opened')};
+$('#cash button[name=open]').onclick=()=>{let d=data($('#cash'));run('/api/retail/cash/open',{location_id:resolveId('loc',d.location_id),opening_minor:Math.round(+d.amount_minor*100)},'Till opened')};
 $('#cash button[name=close]').onclick=()=>{let d=data($('#cash'));run('/api/retail/cash/close',{session_id:d.session_id,actual_minor:Math.round(+d.amount_minor*100)},'Till closed')};
+$('#add-vendor').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/accounting/parties',{kind:'vendor',name:d.name},'Supplier added');e.target.reset()};
+$('#add-item').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/products',{sku:d.sku,name:d.name,selling_price_minor:Math.round(+d.price*100),cost_minor:Math.round(+d.cost*100)},'Item added');e.target.reset()};
+$('#add-location').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/locations',{code:d.code.toUpperCase(),name:d.name,kind:'store'},'Store added');e.target.reset()};
 $('#close').onsubmit=e=>{e.preventDefault();run('/api/accounting/periods/lock',{period_id:data(e.target).period_id},'Period locked')};
 
 select(location.hash.slice(1)||'today');
