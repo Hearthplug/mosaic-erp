@@ -38,3 +38,22 @@
 .buildsoon{font-size:11px;color:var(--muted);width:100%;margin:2px 0 0}
 .buildchosen{margin-top:10px;font-size:12px;color:var(--muted)}
 .buildchosen b{color:var(--ink);font-weight:600}
+#file-result-head{text-transform:none;font-size:14px;color:var(--ink);letter-spacing:0}
+#file-result-sub{margin:-4px 0 8px}
+.buildinput{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px;background:white;color:var(--ink)}
+.buildinput:focus{border-color:var(--accent);outline:none}
+.billrow{grid-template-columns:110px 1fr auto}
+.billhead{display:grid;grid-template-columns:1.5fr 64px 96px 84px 24px;gap:6px;font-size:11px;color:var(--muted);padding:8px 0 2px;border-top:1px solid var(--line)}
+.billline{display:grid;grid-template-columns:1.5fr 64px 96px 84px 24px;gap:6px;align-items:center}
+.billline-amt{text-align:right;font-size:13px;color:var(--ink)}
+.billremove{border:0;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 4px;height:auto;min-height:0}
+.billremove:hover{color:#b3261e}
+.billaddline{font-size:12px;padding:4px 10px;border-radius:8px}
+#bill-check.ok{color:#1e7a3c}
+#bill-check.warn{color:#b3541e;font-weight:600}
+.buildfield i:empty{display:none}
+.billwarn p{margin:0 0 4px;font-size:12px;color:#b3541e}
+.billtotal b{font-weight:700}
+.billlink{color:var(--accent);font-weight:600;text-decoration:none}
+.billlink:hover{text-decoration:underline}
+@media(max-width:600px){.billrow{grid-template-columns:96px 1fr}.billrow i{grid-column:2}.billhead{display:none}.billline{grid-template-columns:64px 96px 1fr 24px}.billline .billdesc{grid-column:1/-1}}
