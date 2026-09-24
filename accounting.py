@@ -211,7 +211,7 @@ class Accounting:
     def financial_statements(self,wid,from_date=None,to_date=None):
         tb=self.trial_balance(wid,to_date)['accounts']; pnl=[]; bs=[]
         for r in tb:
-            bal=r['debit_minor']-r['credit_minor']; item={'code':r['code'],'name':r['name'],'amount_minor': -bal if r['type'] in ('income','liability','equity') else bal}
+            bal=r['debit_minor']-r['credit_minor']; item={'code':r['code'],'name':r['name'],'type':r['type'],'amount_minor': -bal if r['type'] in ('income','liability','equity') else bal}
             (pnl if r['type'] in ('income','expense') else bs).append(item)
         income=sum(x['amount_minor'] for x in pnl if next(r for r in tb if r['code']==x['code'])['type']=='income'); expense=sum(x['amount_minor'] for x in pnl if next(r for r in tb if r['code']==x['code'])['type']=='expense')
         return {'profit_and_loss':pnl,'net_profit_minor':income-expense,'balance_sheet':bs,'as_of':to_date}
