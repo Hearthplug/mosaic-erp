@@ -690,7 +690,10 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,result,rid=rid) or 200
         if p == '/api/ai/preference/switch':
             wid, actor, _ = self._auth('owner'); d=self._body()
-            return self.out(200,AIPREFS.set_provider(wid,actor,d.get('provider',''),d.get('api_key','')),rid=rid) or 200
+            return self.out(200,AIPREFS.set_provider(wid,actor,d.get('provider',''),d.get('api_key',''),config=d.get('config')),rid=rid) or 200
+        if p == '/api/ai/preference/test':
+            wid, actor, _ = self._auth('owner'); d=self._body()
+            return self.out(200,AIPREFS.test_connection(wid,d.get('provider',''),d.get('api_key',''),config=d.get('config')),rid=rid) or 200
         if p == '/api/jev/map-interview':
             wid, actor, _ = self._auth('owner'); d=self._body()
             session=ONBOARDING.get(wid,d['id'])

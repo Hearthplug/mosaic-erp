@@ -21,7 +21,7 @@ class AiPrefsAPI(unittest.TestCase):
   r=call(self.p,'GET','/api/ai/preference',None,k)
   self.assertEqual(r['provider'],'standard');self.assertFalse(r['has_key'])
   opts={o['id']:o for o in r['options']}
-  self.assertEqual(set(opts),{'standard','jev','openai','claude','deepseek'})
+  self.assertEqual(set(opts),{'standard','jev','openai','claude','deepseek','custom'})
   for oid,o in opts.items():self.assertTrue(o['available'],oid)
   self.assertFalse(opts['standard']['needs_key'])
   for oid in ('jev','openai','claude','deepseek'):self.assertTrue(opts[oid]['needs_key'],oid)

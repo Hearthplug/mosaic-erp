@@ -83,23 +83,49 @@ def _scores_to_probs(data, options):
 
 
 class ChatProviderClient:
-    """One BYOK chat provider behind the shared choice() interface."""
-    def __init__(self, provider, api_key, timeout=30, max_retries=3, opener=None):
-        if provider not in PROVIDER_SPECS:
+    """One BYOK chat provider behind the shared choice() interface.
+    'custom' is any OpenAI-compatible server: the config carries the base URL
+    and a model per capability (chat / vision / transcription), since local
+    stacks often split them across models or ports."""
+    def __init__(self, provider, api_key, timeout=30, max_retries=3, opener=None, config=None):
+        if provider == 'custom':
+            cfg = config or {}
+            base = str(cfg.get('base_url') or '').rstrip('/')
+            models = cfg.get('models') or {}
+            if not base.startswith(('http://', 'https://')):
+                raise ProviderError('Set the custom server address in Assistant settings.')
+            if not models.get('chat'):
+                raise ProviderError('Set a chat model for the custom server in Assistant settings.')
+            spec = {'brand': 'Custom server', 'endpoint': base + '/chat/completions',
+                    'model': models['chat'], 'style': 'openai',
+                    'base_url': base, 'models': models}
+        elif provider in PROVIDER_SPECS:
+            spec = PROVIDER_SPECS[provider]
+            if not api_key:
+                raise ProviderError(f"{spec['brand']} needs the owner's own API key (BYOK)")
+        else:
             raise ProviderError(f'unknown provider: {provider}')
-        spec = PROVIDER_SPECS[provider]
-        if not api_key:
-            raise ProviderError(f"{spec['brand']} needs the owner's own API key (BYOK)")
-        self.provider, self.spec, self.api_key = provider, spec, api_key
+        self.provider, self.spec, self.api_key = provider, spec, api_key or ''
         self.label = provider
         self.timeout, self.max_retries = timeout, max_retries
         self._opener = opener or urllib.request.urlopen
+
+    def audio_spec(self):
+        """Transcription endpoint for this client, or None when it cannot transcribe."""
+        if self.provider == 'openai':
+            return {'endpoint': 'https://api.openai.com/v1/audio/transcriptions', 'model': 'whisper-1'}
+        if self.provider == 'custom':
+            m = (self.spec.get('models') or {}).get('transcription')
+            if m:
+                return {'endpoint': self.spec['base_url'] + '/audio/transcriptions', 'model': m}
+        return None
 
     def _request(self, body):
         data = json.dumps(body).encode()
         headers = {'Content-Type': 'application/json'}
         if self.spec['style'] == 'openai':
-            headers['Authorization'] = f'Bearer {self.api_key}'
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
         else:
             headers['x-api-key'] = self.api_key
             headers['anthropic-version'] = '2023-06-01'
@@ -156,6 +182,14 @@ def provider_client(provider, api_key, **kw):
 
 
 VISION_PROVIDERS = ('openai', 'claude')
+
+
+def _vision_model(client):
+    if client.provider in VISION_PROVIDERS:
+        return client.spec['model']
+    if client.provider == 'custom':
+        return (client.spec.get('models') or {}).get('vision')
+    return None
 
 _EXTRACT_SYSTEM = ("You read a photo of a business document, screen, or notebook page for a small business owner. "
     "Reply with ONLY a JSON object: "
@@ -253,9 +287,13 @@ def _extract_transcript(self, transcript):
 def _extract_image(self, image_b64, media_type):
     """Read a document photo with the owner's own vision-capable key.
     Fail-closed: non-vision providers and unreadable answers raise ProviderError."""
-    if self.provider not in VISION_PROVIDERS:
-        raise ProviderError(f"{self.spec['brand']} cannot read photos. Switch the key in Assistant settings to OpenAI or Claude, or type what the document shows.")
+    model = _vision_model(self)
+    if not model:
+        if self.provider == 'custom':
+            raise ProviderError("Your custom server has no vision model set. Add one in Assistant settings, or type what the document shows.")
+        raise ProviderError(f"{self.spec['brand']} cannot read photos. Switch the key in Assistant settings to OpenAI, Claude or a custom server with a vision model, or type what the document shows.")
     body, style = _extract_chat_body(self, image_b64, media_type)
+    body['model'] = model
     payload = self._request(body)
     if style == 'openai':
         try:

@@ -96,7 +96,8 @@ class PhotoExtractionTest(unittest.TestCase):
         c = ChatProviderClient('deepseek', 'k')
         with self.assertRaises(ProviderError) as ctx:
             c.extract_image(b64(b'jpeg-bytes'), 'image/jpeg')
-        self.assertIn('OpenAI or Claude', str(ctx.exception))
+        self.assertIn('cannot read photos', str(ctx.exception))
+        self.assertIn('OpenAI, Claude or a custom server with a vision model', str(ctx.exception))
 
     def test_openai_extraction_shape_and_confidence(self):
         payload = {'choices': [{'message': {'content': json.dumps({
