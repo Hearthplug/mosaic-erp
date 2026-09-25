@@ -109,7 +109,10 @@ $('#bill-match').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/
 $('#add-vendor').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/accounting/parties',{kind:'vendor',name:d.name},'Supplier added');e.target.reset()};
 $('#add-item').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/products',{sku:d.sku,name:d.name,selling_price_minor:Math.round(+d.price*100),cost_minor:Math.round(+d.cost*100)},'Item added');e.target.reset()};
 $('#add-location').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/locations',{code:d.code.toUpperCase(),name:d.name,kind:'store'},'Store added');e.target.reset()};
-$('#close').onsubmit=e=>{e.preventDefault();run('/api/accounting/periods/lock',{period_id:data(e.target).period_id},'Period locked')};
+const periodChips=$('#period-chips'),periodLockId=$('#period-lock-id'),periodLockBtn=$('#close button[type=submit]');
+const loadPeriods=async()=>{const ps=await get('/api/accounting/periods');periodChips.innerHTML='';const open=ps.filter(p=>p.status==='open');if(!open.length){periodChips.innerHTML='<span class="hint">No open periods to lock</span>';return;}open.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=p.name+' ('+p.starts_on+' to '+p.ends_on+')';b.onclick=()=>{periodChips.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));b.classList.add('on');periodLockId.value=p.id;periodLockBtn.disabled=false;};periodChips.appendChild(b);});};
+$('#close').onsubmit=e=>{e.preventDefault();if(!periodLockId.value)return;run('/api/accounting/periods/lock',{period_id:periodLockId.value},'Period locked').then(()=>{periodLockId.value='';periodLockBtn.disabled=true;loadPeriods();});};
+loadPeriods();
 
 select(location.hash.slice(1)||'today');
 connect();

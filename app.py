@@ -588,6 +588,8 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer'); return self.out(200,{'batches':MIGRATIONS_API.list(wid)},rid=rid) or 200
         if p == '/api/accounting/status':
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.status(wid), rid=rid) or 200
+        if p == '/api/accounting/periods':
+            wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.list_periods(wid), rid=rid) or 200
         if p == '/api/accounting/trial-balance':
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.trial_balance(wid, qs.get('as_of',[None])[0]), rid=rid) or 200
         if p == '/api/accounting/statements':

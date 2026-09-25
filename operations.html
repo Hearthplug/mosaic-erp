@@ -243,8 +243,10 @@
         <form class="card actioncard" id="close">
           <h3>Lock a finished period</h3>
           <p class="hint">Lock only after reconciliation is complete.</p>
-          <label>Period ID<input name="period_id"></label>
-          <div class="actionrow"><button class="btn danger" type="submit">Lock period</button></div>
+          <div class="pick-label">Open period</div>
+          <div class="chiprow" id="period-chips"></div>
+          <input name="period_id" id="period-lock-id" type="hidden">
+          <div class="actionrow"><button class="btn danger" type="submit" disabled>Lock period</button></div>
         </form>
       </div>
     </section>
