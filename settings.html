@@ -1,0 +1,91 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Settings | Mosaic ERP</title><link rel="icon" type="image/svg+xml" href="/mosaic-logo.svg"><link rel="stylesheet" href="/operations.css"><link rel="stylesheet" href="/settings.css"></head><body>
+<div class="appshell">
+  <aside class="rail">
+    <a class="rail-brand" href="/operations"><img src="/mosaic-logo.svg" alt="">Mosaic<span>ERP</span></a>
+    <nav class="rail-nav" aria-label="Modules">
+      <p class="rail-group">Daily work</p>
+      <a class="rail-item" href="/operations#today"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2.8 8.4 9 3l6.2 5.4M4.8 7.2V15h3.4v-3.8h1.6V15h3.4V7.2"/></svg>Today</a>
+      <a class="rail-item" href="/operations#stock"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2.8 5.6 9 2.4l6.2 3.2v6.8L9 15.6 2.8 12.4zM2.8 5.6 9 8.8l6.2-3.2M9 8.8v6.8"/></svg>Stock</a>
+      <a class="rail-item" href="/operations#sales"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2.6 8.2V3.6a1 1 0 0 1 1-1h4.6l6.2 6.2a1.2 1.2 0 0 1 0 1.7l-4.3 4.3a1.2 1.2 0 0 1-1.7 0z"/><circle cx="6.4" cy="6.4" r="1.1"/></svg>Sales</a>
+      <a class="rail-item" href="/operations#buying"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2.4 3.2h1.9l1.7 8.2h7.6l1.5-5.8H5.3"/><circle cx="7.6" cy="14.4" r="1.2"/><circle cx="12.6" cy="14.4" r="1.2"/></svg>Buying</a>
+      <a class="rail-item" href="/operations#money"><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="2.4" y="4.6" width="13.2" height="8.8" rx="1.8"/><circle cx="9" cy="9" r="2.2"/><path d="M5.2 7.2v.01M12.8 10.8v.01"/></svg>Money</a>
+      <p class="rail-group">Business</p>
+      <a class="rail-item" href="/accounting"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4.2 3h8.2a1.4 1.4 0 0 1 1.4 1.4V15H5.6a1.4 1.4 0 0 1-1.4-1.4zM4.2 13.6A1.4 1.4 0 0 1 5.6 12.2h8.2"/></svg>Books</a>
+      <a class="rail-item" href="/build"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 9.6 8.4 15l6.6-6.6M3 4.2h12M3 9h.01"/></svg>Build</a>
+      <a class="rail-item" href="/assistant"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2.4c.6 3.5 2.5 5.4 6 6-3.5.6-5.4 2.5-6 6-.6-3.5-2.5-5.4-6-6 3.5-.6 5.4-2.5 6-6z"/></svg>Assistant<span class="rail-badge">Preview</span></a>
+      <a class="rail-item on" href="/"><svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="2.2"/><path d="M9 2.8v1.8M9 13.4v1.8M2.8 9h1.8M13.4 9h1.8M4.9 4.9l1.3 1.3M11.8 11.8l-1.3 1.3M13.1 4.9l-1.3 1.3M6.2 11.8l-1.3 1.3"/></svg>Settings</a>
+    </nav>
+    <footer class="rail-foot">
+      <b id="company">Your company</b>
+      <span id="state" aria-live="polite">Opening settings…</span>
+      <button id="signout" type="button" class="rail-signout">Sign out</button>
+    </footer>
+  </aside>
+  <main class="main">
+    <header class="pagehead">
+      <div class="crumb"><span>Business</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4 4-4 4"/></svg><b>Settings</b></div>
+      <div class="titlebar"><div><h1>Settings</h1><p>Your shop, money, stores and tax. For bigger changes, re-run the interview.</p></div></div>
+    </header>
+
+    <section class="set-grid">
+      <div class="card set-card">
+        <div class="cardhead"><h2>Your shop</h2><span class="cardmeta" id="ws-meta"></span></div>
+        <div class="set-body">
+          <label class="set-label">Shop name
+            <input id="shop-name" maxlength="120" autocomplete="organization">
+          </label>
+          <p class="hint">Shown on bills, reports and every screen.</p>
+          <div class="actionrow"><button class="btn primary" id="name-save" type="button" disabled>Save name</button></div>
+        </div>
+      </div>
+
+      <div class="card set-card">
+        <div class="cardhead"><h2>Money</h2><span class="cardmeta">from your interview</span></div>
+        <div class="set-body">
+          <div class="set-row"><span>Currency</span><b id="currency">-</b></div>
+          <p class="hint">All amounts are kept in this currency.</p>
+          <div class="set-row"><span>Financial year starts</span><b id="fy">-</b></div>
+          <div class="set-row"><span>Books check</span><b id="verify-state">-</b></div>
+          <p class="hint">Books check means an accountant has reviewed the setup. Currency and tax come from your interview answers - re-run the interview below to change them.</p>
+        </div>
+      </div>
+
+      <div class="card set-card">
+        <div class="cardhead"><h2>Stores</h2><span class="cardmeta" id="store-count"></span></div>
+        <div class="set-body">
+          <div id="store-list" class="store-list"></div>
+          <p class="hint">A store is a place you sell from or keep stock - a shop, godown or warehouse.</p>
+          <div class="fieldrow">
+            <label>Store code<input id="store-code" maxlength="12" placeholder="GOD3"></label>
+            <label>Store name<input id="store-name" maxlength="80" placeholder="Back room"></label>
+          </div>
+          <div class="actionrow"><button class="btn" id="store-add" type="button">Add store</button></div>
+        </div>
+      </div>
+
+      <div class="card set-card">
+        <div class="cardhead"><h2>Tax</h2><span class="cardmeta" id="tax-tag"></span></div>
+        <div class="set-body">
+          <div class="set-row"><span>Tax profile</span><b id="tax-jurisdiction">-</b></div>
+          <div id="tax-verify-wrap">
+            <p class="set-sub">What your accountant should check:</p>
+            <ul id="tax-list" class="tax-list"></ul>
+          </div>
+          <div class="actionrow"><a class="btn" href="/accounting">Open your books</a></div>
+        </div>
+      </div>
+
+      <div class="card set-card set-wide">
+        <div class="cardhead"><h2>Business interview</h2><span class="cardmeta">the setup conversation</span></div>
+        <div class="set-body">
+          <p>Your interview answers shaped this workspace - currency, tax, and how daily work is set up. Something changed in the business? Re-run the interview. Mosaic proposes the updates and you confirm before anything changes.</p>
+          <div class="actionrow"><a class="btn primary" href="/interview">Re-run the interview</a></div>
+        </div>
+      </div>
+    </section>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </main>
+</div>
+<script src="/auth.js"></script>
+<script src="/settings.js"></script>
+</body></html>
