@@ -1,0 +1,3 @@
+# SaaS policy drafts, not yet adopted or published
+
+These templates are an internal launch checklist. Fill all `[OWNER REVIEW]` fields and verify actual Render, Neon, identity, payment and monitoring contracts and locations before publication. Do not imply certification, a response SLA, guaranteed uptime, or a deletion window that has not been operationally tested. The security and incident policies can be adopted only after assigning owners and rehearsing the steps. Privacy policy and terms need qualified legal review for the actual selling entity and target markets. No SaaS customer agreement exists merely because these files are in the repo.

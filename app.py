@@ -476,6 +476,16 @@ class H(BaseHTTPRequestHandler):
     def _identity(self):
         auth = self.headers.get('Authorization', '')
         return sha256(auth[7:])[:16] if auth.startswith('Bearer ') else (self.client_address[0] if self.client_address else 'unknown')
+    def _password_attempt(self, email, workspace_id=''):
+        # Account-scoped buckets survive process restarts and cannot be reset by
+        # rotating IPs. Hash the identifier so the limiter table holds no email.
+        # Check both a short burst and a long window. Count successful attempts
+        # as well; this prevents password guessing even with valid credentials.
+        account = sha256((email or '').strip().lower())
+        for limit, period in ((10, 60), (60, 3600)):
+            retry = STORE.rate_allow('password:'+account, limit, period)
+            if retry:
+                raise AuthError(429, 'Sign-in is temporarily unavailable. Try again later.')
     def _auth(self, minimum='viewer'):
         auth = self.headers.get('Authorization', '')
         token = auth[7:].strip() if auth.startswith('Bearer ') else ''
@@ -798,11 +808,12 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/oauth/link-instead':
             wid,actor,_=self._auth('owner');d=self._body();code=STORE.oauth_link_instead(wid,actor,d.get('email',''),d.get('password',''));return self.out(201,{'code':code},hdrs={'Cache-Control':'no-store'},rid=rid) or 201
         if p == '/api/oauth/link':
-            d=self._body();code=STORE.oauth_link(d.get('code',''),d.get('email',''),d.get('password',''));return self.out(201,{'code':code},hdrs={'Cache-Control':'no-store'},rid=rid) or 201
+            d=self._body();self._password_attempt(d.get('email',''));code=STORE.oauth_link(d.get('code',''),d.get('email',''),d.get('password',''));return self.out(201,{'code':code},hdrs={'Cache-Control':'no-store'},rid=rid) or 201
         if p == '/api/session/options':
-            d=self._body(); return self.out(200,{'workspaces':STORE.login_options(d.get('email',''),d.get('password',''))},hdrs={'Cache-Control':'no-store'},rid=rid) or 200
+            d=self._body(); self._password_attempt(d.get('email','')); return self.out(200,{'workspaces':STORE.login_options(d.get('email',''),d.get('password',''))},hdrs={'Cache-Control':'no-store'},rid=rid) or 200
         if p == '/api/session':
             d = self._body()
+            self._password_attempt(d.get('email',''))
             result = STORE.login(d.get('workspace_id',''), d.get('email',''), d.get('password',''))
             if not result:
                 raise AuthError(401, 'Invalid workspace, email, or password')

@@ -234,6 +234,14 @@ class PostgresStore(Store):
         if not row or row['accepted_at'] or row['revoked_at'] or datetime.fromisoformat(row['expires_at'])<=datetime.now(timezone.utc):return None
         return dict(row)
 
+    def rate_allow(self, identity, rpm, period_seconds=60):
+        # Serialize the read/refill/write on a shared bucket across app replicas.
+        # SQLite already serializes this through BEGIN IMMEDIATE; PostgreSQL needs
+        # a transaction-scoped key lock or simultaneous callers may both pass.
+        with self.tx():
+            self._db.execute('SELECT pg_advisory_xact_lock(hashtext(%s))',
+                             ('mosaic-rate:'+str(rpm)+':'+str(period_seconds)+':'+identity,))
+            return super().rate_allow(identity, rpm, period_seconds)
     def login_options(self,email,password):
         with self._pool.connection() as conn:rows=conn.execute('SELECT * FROM mosaic_login_options(%s)',((email or '').strip().lower(),)).fetchall()
         valid=[{'workspace_id':r['workspace_id'],'name':r['name'],'role':r['role']} for r in rows if self._password_ok(password or '',r['password_hash'])]
