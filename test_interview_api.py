@@ -60,3 +60,22 @@ class NonRetailInferenceHonestyTest(unittest.TestCase):
   self.assertEqual(set(ap['profile']['enabled_modules']),mods)
   st=call(self.p,'GET','/api/accounting/status',key=k)
   self.assertEqual(st['base_currency'],'INR')
+ def test_apply_renames_workspace_to_business_name(self):
+  w=call(self.p,'POST','/api/workspaces',{'name':'Old Working Title'});k=w['api_key']
+  x=call(self.p,'POST','/api/onboarding/start',{},k)
+  A={'business_name':'Sharma Kirana Store','vertical':'Repairs or services','locations':'One place','selling':'Students enroll for a coaching batch and pay a monthly fee at the front desk.','buying':'We rarely buy anything to resell. Occasionally books and stationery.','stock_pain':'I do not keep stock','credit_behavior':'Only customers use credit','discounts':'Only I can waive a fee.','returns':'Refund unused months after approval.','staff':'Owner, two teachers, one front desk.','money_view':['Sales','Money customers owe','Profit'],'country':'India','selling_locations':['Near my registered business'],'buying_locations':['Nearby suppliers'],'price_display':'Tax is included in the shown price','customer_type':'Households','product_tax_facts':'Coaching fees are services.','existing_records':'Spreadsheets','exceptions':'Instalment fees confuse the front desk.','brand_style':'Clean and professional','brand_colors':'Blue','logo':'No, use the business name for now','screen_preference':'Money and collections','goal':'Not sure'}
+  r=None
+  for q,v in A.items():r=call(self.p,'POST','/api/onboarding/answer',{'id':x['id'],'key':q,'value':v},k)
+  self.assertEqual(r['status'],'ready')
+  self.assertEqual(call(self.p,'GET','/api/workspace',key=k)['name'],'Old Working Title')
+  call(self.p,'POST','/api/onboarding/apply',{'id':x['id']},k)
+  self.assertEqual(call(self.p,'GET','/api/workspace',key=k)['name'],'Sharma Kirana Store')
+ def test_apply_keeps_workspace_name_when_answer_matches(self):
+  w=call(self.p,'POST','/api/workspaces',{'name':'Same Name Shop'});k=w['api_key']
+  x=call(self.p,'POST','/api/onboarding/start',{},k)
+  A={'business_name':'Same Name Shop','vertical':'Repairs or services','locations':'One place','selling':'Students enroll for a coaching batch and pay a monthly fee at the front desk.','buying':'We rarely buy anything to resell. Occasionally books and stationery.','stock_pain':'I do not keep stock','credit_behavior':'Only customers use credit','discounts':'Only I can waive a fee.','returns':'Refund unused months after approval.','staff':'Owner, two teachers, one front desk.','money_view':['Sales','Money customers owe','Profit'],'country':'India','selling_locations':['Near my registered business'],'buying_locations':['Nearby suppliers'],'price_display':'Tax is included in the shown price','customer_type':'Households','product_tax_facts':'Coaching fees are services.','existing_records':'Spreadsheets','exceptions':'Instalment fees confuse the front desk.','brand_style':'Clean and professional','brand_colors':'Blue','logo':'No, use the business name for now','screen_preference':'Money and collections','goal':'Not sure'}
+  r=None
+  for q,v in A.items():r=call(self.p,'POST','/api/onboarding/answer',{'id':x['id'],'key':q,'value':v},k)
+  self.assertEqual(r['status'],'ready')
+  call(self.p,'POST','/api/onboarding/apply',{'id':x['id']},k)
+  self.assertEqual(call(self.p,'GET','/api/workspace',key=k)['name'],'Same Name Shop')
