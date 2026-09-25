@@ -1,0 +1,9 @@
+# Subscription billing sandbox (not a live checkout)
+
+Mosaic stores provider-neutral subscription state without setting a plan price, granting entitlements, taking payments, or registering a payment provider. This code does not implement a production webhook adapter. Choose a provider first, then implement its native signature verification, event mapping, checkout and reconciliation. Never send live provider events to the test endpoint.
+
+To run the local test harness, set `MOSAIC_BILLING_TEST_MODE=true` and a unique high-entropy `MOSAIC_BILLING_TEST_SECRET`. The POST endpoint `/api/billing/test-webhook` accepts JSON with `id`, `workspace_id`, `subscription_id`, `plan_ref`, `status`, `event_at` (timezone-aware ISO timestamp), and optional `period_end`. Sign the **raw JSON bytes** with HMAC-SHA256: hex digest of `HMAC(secret, ascii_unix_seconds + b'.' + raw_json)`; set `X-Mosaic-Test-Timestamp` and `X-Mosaic-Test-Signature`. Requests expire in five minutes; replayed event IDs are idempotent. Set `MOSAIC_BILLING_TEST_MODE=false` or leave it unset in production. The owner-only GET `/api/billing/test-subscriptions` shows the authenticated workspace's sandbox records with `entitlements: none`.
+
+Webhook events are authoritative only after provider-specific verification is implemented. Event times decide whether an event may supersede older subscription state. This ledger is intentionally not a mechanism for authorizing access. PostgreSQL migration uses forced row-level security for both new tables; SQLite scopes reads/writes to the workspace and enforces global provider IDs to prevent conflicting ownership.
+
+Open decisions: provider selection and merchant acceptance, seller KYC/KYB and bank, plan catalog and currency amounts, cancellation/dunning/refund terms, India e-mandate constraints, tax treatment, sandbox-to-live credentials, and provider-specific end-to-end test. Do not enable checkout before those are settled.

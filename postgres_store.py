@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from store import Store, MIGRATIONS, Conflict, NotFound
 from postgres_erp_schema import POSTGRES_ERP_MIGRATION, ALL_ERP_TABLES, ASSISTANT_PREVIEW_PG
+from billing_schema import POSTGRES_BILLING_SCHEMA
 
 SCHEMA_VERSION = 1
 PG_MIGRATIONS = [r'''
@@ -46,6 +47,7 @@ REVOKE ALL ON FUNCTION mosaic_invitation(text) FROM PUBLIC; GRANT EXECUTE ON FUN
 CREATE OR REPLACE FUNCTION mosaic_session_workspace(p_id text,p_user text) RETURNS text LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT u.workspace_id FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=p_id AND u.id=p_user $$;
 REVOKE ALL ON FUNCTION mosaic_session_workspace(text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_session_workspace(text,text) TO CURRENT_USER;
 ''')
+PG_MIGRATIONS.append(POSTGRES_BILLING_SCHEMA)
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
 RLS_SQL=r'''
