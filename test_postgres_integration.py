@@ -51,6 +51,29 @@ class PostgreSQLIntegration(unittest.TestCase):
   self.assertIsNone(self.s.oauth_grant_consume(code,'signin'))
   invite=self.s.create_invitation(w,'invited@example.test','viewer',None,login['user_id'])
   self.assertEqual(self.s.invitation(invite['invite_token'])['workspace_id'],w)
+ def test_runtime_role_oauth_identity_to_interview(self):
+  from oauth import OAuth
+  from urllib.parse import urlparse,parse_qs
+  from unittest.mock import patch
+  from onboarding import Onboarding
+  from provisioning import Provisioner
+  from operational_profile import Profiles
+  # Exercise the callback's pre-auth lookup and its one-use grants with the
+  # same restricted role as production; no real provider credentials needed.
+  w,_=self.s.create_workspace('OAuth runtime');u=self.s.create_user(w,'oauth@example.test','a secure long password','owner','test')
+  with self.s.tx():
+   self.s._db.execute('INSERT INTO oauth_identities(provider,issuer,subject,user_id,workspace_id,created_at) VALUES(?,?,?,?,?,?)',('google','https://accounts.google.com','sub-runtime',u['user_id'],w,'2026-09-26'))
+  with patch.dict(os.environ,{'MOSAIC_PUBLIC_ORIGIN':'https://erp.example','MOSAIC_GOOGLE_CLIENT_ID':'id','MOSAIC_GOOGLE_CLIENT_SECRET':'secret'}):
+   oauth=OAuth(self.s)
+   link=oauth.start('google');params=parse_qs(urlparse(link).query)
+   claims={'sub':'sub-runtime','iss':'https://accounts.google.com','nonce':params['nonce'][0],'email':'oauth@example.test','email_verified':True}
+   with patch.object(oauth,'_token_and_claims',return_value=claims):code,mode=oauth.callback('google','dummy',params['state'][0])
+   self.assertEqual(mode,'signin')
+   selection=self.s.oauth_complete(code);self.assertEqual(selection['workspaces'][0]['workspace_id'],w)
+   session=self.s.oauth_enter(selection['enter_code'],w)
+   self.assertEqual(self.s.authenticate_session(session['session_token'])[0],w)
+   interview=Onboarding(self.s,Profiles(self.s),Provisioner(self.s)).start(w,u['user_id'])
+   self.assertEqual(interview['workspace_id'],w)
  def test_concurrent_writers_only_one_wins(self):
   w,k=self.s.create_workspace('C');actor=self.s.authenticate(k)[1];out=[]
   def f(v):
