@@ -18,7 +18,7 @@ class PostgreSQLIntegration(unittest.TestCase):
    conn.execute(f'GRANT USAGE ON SCHEMA public TO {cls.role}')
    conn.execute(f'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO {cls.role}')
    conn.execute(f'GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO {cls.role}')
-   conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_oauth_users(text,text,text) TO {cls.role}')
+   conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_login_options(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_invitation(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_oauth_users(text,text,text) TO {cls.role}')
   parts=conninfo_to_dict(url);parts.update(user=cls.role,password=runtime_secret)
   cls.s=PostgresStore(make_conninfo(**parts),min_size=1,max_size=8,auto_migrate=False)
  @classmethod
@@ -35,6 +35,22 @@ class PostgreSQLIntegration(unittest.TestCase):
   r2,replay=self.s.save_config(a,{}, {'v':1},0,'first',aa[1],idem_key='x',request_hash='h');self.assertTrue(replay);self.assertEqual(r,r2)
   with self.assertRaises(Exception): self.s.get_config(b)
   self.assertEqual(self.s.get_config(a)['config'],{'v':1});self.assertEqual(self.s.audit_trail(a)[0]['action'],'config.save')
+ def test_runtime_role_password_session_and_oauth_grants(self):
+  w,_=self.s.create_workspace('Runtime sign in');self.s.create_user(w,'runtime@example.test','a secure long password','owner','test')
+  options=self.s.login_options('runtime@example.test','a secure long password');self.assertEqual(options[0]['workspace_id'],w)
+  login=self.s.login(w,'runtime@example.test','a secure long password')
+  self.assertEqual(self.s.authenticate_session(login['session_token'])[:3],(w,login['user_id'],'owner'))
+  self.s.revoke_session(self.s.authenticate_session(login['session_token'])[3],login['user_id'])
+  self.assertIsNone(self.s.authenticate_session(login['session_token']))
+  state='state-'+secrets.token_urlsafe(16)
+  self.s.oauth_challenge_create(state,'google','nonce','verifier','/interview')
+  self.assertIsNotNone(self.s.oauth_challenge_consume(state,'google'))
+  self.assertIsNone(self.s.oauth_challenge_consume(state,'google'))
+  code,_=self.s.oauth_grant_create('google','https://accounts.google.com','subject','runtime@example.test',True,'/interview','signin')
+  self.assertIsNotNone(self.s.oauth_grant_consume(code,'signin'))
+  self.assertIsNone(self.s.oauth_grant_consume(code,'signin'))
+  invite=self.s.create_invitation(w,'invited@example.test','viewer',None,login['user_id'])
+  self.assertEqual(self.s.invitation(invite['invite_token'])['workspace_id'],w)
  def test_concurrent_writers_only_one_wins(self):
   w,k=self.s.create_workspace('C');actor=self.s.authenticate(k)[1];out=[]
   def f(v):

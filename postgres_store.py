@@ -39,6 +39,12 @@ CREATE OR REPLACE FUNCTION mosaic_oauth_users(p_provider text,p_issuer text,p_su
 REVOKE ALL ON FUNCTION mosaic_oauth_users(text,text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_oauth_users(text,text,text) TO CURRENT_USER;
 ''', ASSISTANT_PREVIEW_PG ]
 
+# Additive migration for a single invitation bearer lookup before workspace context.
+PG_MIGRATIONS.append(r'''
+CREATE OR REPLACE FUNCTION mosaic_invitation(p_hash text) RETURNS TABLE(id text,workspace_id text,email text,role text,operational_role text,expires_at text,accepted_at text,revoked_at text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT i.id,i.workspace_id,i.email,i.role,i.operational_role,i.expires_at,i.accepted_at,i.revoked_at FROM workspace_invitations i WHERE i.token_hash=p_hash $$;
+REVOKE ALL ON FUNCTION mosaic_invitation(text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_invitation(text) TO CURRENT_USER;
+''')
+
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
 RLS_SQL=r'''
 ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY; ALTER TABLE workspaces FORCE ROW LEVEL SECURITY;
@@ -72,9 +78,6 @@ def _context(sql_text, params):
     wid=next((x for x in vals if x.startswith('wsp_')),None)
     if 'api_keys WHERE key_hash=' in sql_text and vals: return ('mosaic.auth_key_hash',vals[0])
     if 'sessions s JOIN users' in sql_text and vals: return ('mosaic.auth_session_hash',vals[0])
-    if 'workspace_invitations WHERE token_hash=' in sql_text and vals:return ('mosaic.auth_invite_hash',vals[0])
-    if 'oauth_challenges' in sql_text and vals:return ('mosaic.oauth_state_hash',vals[0])
-    if 'oauth_grants' in sql_text and vals:return ('mosaic.oauth_grant_hash',vals[0])
     if not wid:
         # Child-table queries often carry only a parent id. Recover the tenant
         # from the parent while the connection is still outside tenant scope.
@@ -160,6 +163,48 @@ class PostgresStore(Store):
                 conn.execute(PG_MIGRATIONS[i]);
                 if i == 0: conn.execute(RLS_SQL)
                 conn.execute('INSERT INTO mosaic_schema_migrations(version) VALUES(%s)',(i+1,))
+    def oauth_challenge_create(self, state, *args, **kwargs):
+        with self.tx():
+            self._current().execute("SELECT set_config('mosaic.oauth_state_hash',%s,true)", (__import__('store').sha256(state),))
+            return super().oauth_challenge_create(state, *args, **kwargs)
+
+    def oauth_challenge_consume(self, state, *args, **kwargs):
+        with self.tx():
+            self._current().execute("SELECT set_config('mosaic.oauth_state_hash',%s,true)", (__import__('store').sha256(state or ''),))
+            return super().oauth_challenge_consume(state, *args, **kwargs)
+
+    def oauth_grant_create(self, provider, issuer, subject, email, verified, next_path, mode):
+        import secrets
+        from datetime import datetime, timedelta, timezone
+        from store import sha256
+        code='mog_'+secrets.token_urlsafe(32);now=datetime.now(timezone.utc);expires=now+timedelta(minutes=5)
+        with self.tx():
+            self._current().execute("SELECT set_config('mosaic.oauth_grant_hash',%s,true)",(sha256(code),))
+            self._db.execute('INSERT INTO oauth_grants(code_hash,provider,issuer,subject,email,email_verified,mode,next_path,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)',(sha256(code),provider,issuer,subject,email,int(verified),mode,next_path,now.isoformat(),expires.isoformat()))
+        return code,mode
+
+    def oauth_grant_consume(self, code, *args, **kwargs):
+        with self.tx():
+            self._current().execute("SELECT set_config('mosaic.oauth_grant_hash',%s,true)",(__import__('store').sha256(code or ''),))
+            return super().oauth_grant_consume(code,*args,**kwargs)
+
+    def authenticate_session(self, token):
+        from datetime import datetime, timezone
+        from store import sha256
+        if not token.startswith('mss_'):return None
+        with self._pool.connection() as conn:
+            row=conn.execute('SELECT * FROM mosaic_auth_session(%s)',(sha256(token),)).fetchone()
+        if not row or datetime.fromisoformat(row['expires_at'])<=datetime.now(timezone.utc):return None
+        return row['workspace_id'],row['user_id'],row['role'],row['id']
+
+    def invitation(self, token):
+        from datetime import datetime, timezone
+        from store import sha256
+        with self._pool.connection() as conn:
+            row=conn.execute('SELECT * FROM mosaic_invitation(%s)',(sha256(token or ''),)).fetchone()
+        if not row or row['accepted_at'] or row['revoked_at'] or datetime.fromisoformat(row['expires_at'])<=datetime.now(timezone.utc):return None
+        return dict(row)
+
     def login_options(self,email,password):
         with self._pool.connection() as conn:rows=conn.execute('SELECT * FROM mosaic_login_options(%s)',((email or '').strip().lower(),)).fetchall()
         valid=[{'workspace_id':r['workspace_id'],'name':r['name'],'role':r['role']} for r in rows if self._password_ok(password or '',r['password_hash'])]
