@@ -126,7 +126,7 @@ button{font-family:inherit}
 /* ===== Responsive ===== */
 @media(max-width:1000px){
   .appshell{grid-template-columns:1fr;height:auto}
-  .rail{flex-direction:row;align-items:center;gap:6px;overflow-x:auto;padding:10px 12px;border-right:0;border-bottom:1px solid var(--hairline)}
+  .rail{flex-direction:row;align-items:center;gap:6px;overflow-x:auto;padding:10px 12px;border-right:0;border-bottom:1px solid var(--hairline);height:auto}
   .rail-brand{padding:2px 8px}
   .rail-nav{display:flex;gap:2px}
   .rail-group,.rail-foot{display:none}
@@ -219,3 +219,40 @@ tr.sale-openable:hover td{background:var(--accent-soft)}
 .btn:disabled,.ghostbtn:disabled{opacity:.5;cursor:default}
 
 @media(max-width:720px){#view-sales{padding-bottom:84px}}
+
+/* ===== Pick-first patterns (Move stock, Order, Receive) ===== */
+.pick-label{display:block;font-size:11px;font-weight:600;color:var(--tertiary);margin:12px 0 5px}
+.chiprow{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:6px 12px;border:1px solid var(--hairline-strong);border-radius:999px;background:var(--card);font-size:12.5px;cursor:pointer;color:var(--ink)}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.tilegrid.compact{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:8px;padding:8px 0}
+.actioncard .tile{min-height:56px;padding:8px 10px}
+.actioncard .tile b{font-size:12px}
+.qtyrow{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px}
+.stepper.big button{width:32px;height:32px;font-size:16px}
+.stepper.big b{min-width:34px;font-size:14px}
+.movesearch{margin-top:8px}
+.buy-cost{width:76px;font:12.5px var(--font);padding:5px 7px;border:1px solid var(--hairline-strong);border-radius:8px;text-align:right;font-variant-numeric:tabular-nums}
+tr.po-picked td{background:var(--accent-soft)}
+#buy-date{font:12.5px var(--font);padding:6px 9px;border:1px solid var(--hairline-strong);border-radius:8px}
+#receive-lines,#buy-lines{margin-top:4px}
+
+/* ===== Responsive tables: stacked cards on phones ===== */
+@media(max-width:720px){
+.tablewrap{overflow:visible;max-height:none}
+.dt{min-width:0}
+.dt thead{display:none}
+.dt,.dt tbody{display:block;width:100%}
+.dt tbody tr{display:block;padding:8px 2px;border-bottom:1px solid var(--hairline)}
+.dt tbody td{display:flex;justify-content:space-between;align-items:baseline;gap:12px;height:auto;min-height:0;padding:2px 0;border:0!important;text-align:left!important;white-space:normal}
+.dt tbody td::before{content:attr(data-h);flex:none;font-size:11px;font-weight:600;color:var(--tertiary)}
+.dt tbody tr.empty-row td::before{content:none}
+.dt tbody td .cell-main{font-weight:600}
+}
+.actioncard .search{display:flex;flex:none;flex-direction:row;align-items:center;gap:7px;border:1px solid var(--hairline-strong);border-radius:9px;padding:7px 10px;margin:8px 0 2px;height:36px;min-width:0;max-width:none}
+.actioncard .search span{color:var(--tertiary);font-size:12px}
+.actioncard .search input{border:0;outline:none;flex:1;width:auto;min-width:0;height:auto;min-height:0;font:12.5px var(--font);background:transparent;padding:0;box-shadow:none}
+
+/* Tablet: keep the shell single-column so the rail stays a top strip */
+@media(max-width:1000px){.appshell{grid-template-columns:1fr}}

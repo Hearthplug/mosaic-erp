@@ -67,17 +67,21 @@
         </div>
       </div>
       <div class="actions">
-        <form class="card actioncard" id="stock">
+        <div class="card actioncard" id="move-card">
           <h3>Move stock</h3>
-          <p class="hint">Transfer between stores. Both sides stay in sync.</p>
-          <label>Item<input name="product_id" list="products" required></label>
-          <div class="fieldrow">
-            <label>From store<input name="from_location" list="locations"></label>
-            <label>To store<input name="to_location" list="locations"></label>
+          <p class="hint">Tap an item, pick the stores, set how many. Both sides stay in sync.</p>
+          <label class="search movesearch"><span>&#8982;</span><input type="search" id="move-search" placeholder="Search items" aria-label="Search items to move"></label>
+          <div class="tilegrid compact" id="move-tiles"></div>
+          <div class="pick-label">From store</div>
+          <div class="chiprow" id="move-from"></div>
+          <div class="pick-label">To store</div>
+          <div class="chiprow" id="move-to"></div>
+          <div class="qtyrow">
+            <span class="pick-label">How many</span>
+            <div class="stepper big"><button type="button" id="move-minus">&#8722;</button><b id="move-qty">1</b><button type="button" id="move-plus">+</button></div>
           </div>
-          <label>Quantity<input name="quantity" type="number" step="any"></label>
-          <div class="actionrow"><button class="btn primary" type="submit">Transfer stock</button></div>
-        </form>
+          <div class="actionrow"><button class="btn primary" id="move-go" type="button" disabled>Move stock</button></div>
+        </div>
         <form class="card actioncard" id="add-location">
           <h3>Add a store</h3>
           <p class="hint">Stores appear in orders, transfers and the stock register.</p>
@@ -152,29 +156,29 @@
         </div>
       </div>
       <div class="actions buying-actions">
-        <form class="card actioncard" id="buy">
+        <div class="card actioncard" id="buy-card">
           <h3>Order from a supplier</h3>
-          <p class="hint">Creates a draft order. Approve it before receiving.</p>
-          <div class="fieldrow">
-            <label>Supplier<input name="vendor_id" list="vendors" required></label>
-            <label>Store<input name="location_id" list="locations" required></label>
-          </div>
-          <label>Order date<input name="ordered_on" type="date" required></label>
-          <label>Item<input name="product_id" list="products" required></label>
-          <div class="fieldrow">
-            <label>Quantity<input name="quantity" type="number" min="0" step="any" required></label>
-            <label>Unit cost<input name="unit_cost_minor" type="number" min="0" step="any" required></label>
-          </div>
-          <div class="actionrow"><button class="btn primary" type="submit">Save purchase order</button></div>
-        </form>
-        <form class="card actioncard" id="receive">
+          <p class="hint">Tap a supplier and the items to order. Creates a draft order - approve it before receiving.</p>
+          <div class="pick-label">Supplier</div>
+          <div class="chiprow" id="buy-vendor"></div>
+          <div class="pick-label">Deliver to store</div>
+          <div class="chiprow" id="buy-store"></div>
+          <label class="search movesearch"><span>&#8982;</span><input type="search" id="buy-search" placeholder="Search items to order" aria-label="Search items to order"></label>
+          <div class="tilegrid compact" id="buy-tiles"></div>
+          <div id="buy-lines"></div>
+          <div class="qtyrow"><span class="pick-label">Order date</span><input id="buy-date" type="date"></div>
+          <div class="actionrow"><button class="btn primary" id="buy-go" type="button" disabled>Save purchase order</button></div>
+        </div>
+        <div class="card actioncard" id="receive-card">
           <h3>Confirm what arrived</h3>
-          <p class="hint">Receiving adds the stock to your register.</p>
-          <label>Purchase order<input name="purchase_order_id" list="orders" required></label>
-          <label>Item line from the order<select name="line_id" required><option value="">Choose a purchase order first</option></select></label>
-          <label>Quantity received<input name="quantity" type="number" min="0" step="any" required></label>
-          <div class="actionrow"><button class="btn primary" type="submit">Receive stock</button></div>
-        </form>
+          <p class="hint">Tap an order in the table above, then set what came in. Receiving adds the stock to your register.</p>
+          <div id="receive-empty" class="hint">No order picked yet - tap an order in Purchase orders above.</div>
+          <div id="receive-body" hidden>
+            <div class="pick-label" id="receive-title"></div>
+            <div id="receive-lines"></div>
+            <div class="actionrow"><button class="btn primary" id="receive-go" type="button" disabled>Receive stock</button></div>
+          </div>
+        </div>
         <form class="card actioncard" id="bill-match">
           <h3>Match supplier paperwork</h3>
           <p class="hint">Checks the order, delivery and supplier bill agree.</p>
