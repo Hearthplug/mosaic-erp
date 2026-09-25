@@ -61,6 +61,7 @@ function renderMoney(){const rows=LISTS.money.map(r=>{const tr=document.createEl
   const v=r.variance_minor;const td=document.createElement('td');td.className='num';
   if(v===null||v===undefined)td.textContent='—';else{const s=document.createElement('span');s.className='pill '+(v===0?'st-green':'st-red');s.textContent=(v>0?'+':'')+fmtMoney(v).replace(/^([^0-9-+]*)/,'$1');td.appendChild(s)}
   tr.appendChild(td);tr.appendChild(pillCell(r.status));return tr});
+  if($('#cash-sessions'))cashRender();
   fill('money-table',rows,'No till sessions yet. Open the till to start the day.');
   $('#money-count').textContent=LISTS.money.length?'last '+LISTS.money.length:'';
   const open=LISTS.money.filter(r=>r.status==='open');
@@ -97,7 +98,7 @@ function connect(){if(!MosaicAuth.require())return;
   $('#signout').onclick=()=>MosaicAuth.clear();
   Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
-    refreshLists(c);tillSetup(c.locations||[]);moveSetup();buySetup(c.vendors||[]);
+    refreshLists(c);tillSetup(c.locations||[]);moveSetup();buySetup(c.vendors||[]);cashSetup();
     const ol=$('#next');ol.innerHTML='';
     c.next_steps.forEach(s=>{const li=document.createElement('li');li.textContent=s;ol.appendChild(li)});
     reload();refreshExport()
@@ -105,9 +106,6 @@ function connect(){if(!MosaicAuth.require())return;
 
 
 $('#bill-match').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/three-way-match',{purchase_order_id:resolveId('po',d.purchase_order_id),bill_id:resolveId('bill',d.bill_id)},'Match complete')};
-$('#cash').onsubmit=e=>e.preventDefault();
-$('#cash button[name=open]').onclick=()=>{let d=data($('#cash'));run('/api/retail/cash/open',{location_id:resolveId('loc',d.location_id),opening_minor:Math.round(+d.amount_minor*100)},'Till opened')};
-$('#cash button[name=close]').onclick=()=>{let d=data($('#cash'));run('/api/retail/cash/close',{session_id:d.session_id,actual_minor:Math.round(+d.amount_minor*100)},'Till closed')};
 $('#add-vendor').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/accounting/parties',{kind:'vendor',name:d.name},'Supplier added');e.target.reset()};
 $('#add-item').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/products',{sku:d.sku,name:d.name,selling_price_minor:Math.round(+d.price*100),cost_minor:Math.round(+d.cost*100)},'Item added');e.target.reset()};
 $('#add-location').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/locations',{code:d.code.toUpperCase(),name:d.name,kind:'store'},'Store added');e.target.reset()};
@@ -309,3 +307,43 @@ function recGo(){if(!REC_PO)return;const received={};document.querySelectorAll('
   api('/api/retail/purchases/receive',{purchase_order_id:REC_PO,received})
     .then(()=>{notice(true,'Stock received');$('#receive-body').hidden=true;$('#receive-empty').hidden=false;REC_PO=null;reload();refreshExport();refreshContext()})
     .catch(e=>{notice(false,e.message);recCheck()})}
+
+/* ===== Till open/close (pick-first) ===== */
+let CASH={store:null,session:null};
+const openSessions=()=>LISTS.money.filter(s=>s.status==='open');
+function cashSetup(){if(!$('#cash-open-amt'))return;
+  const amt=(id,fn)=>{$(id).addEventListener('input',()=>{const el=$(id);el.value=el.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1');fn()})};
+  amt('#cash-open-amt',cashRender);amt('#cash-close-amt',cashRender);
+  $('#cash-open-go').onclick=()=>{const v=Math.round(parseFloat($('#cash-open-amt').value||'0')*100);if(!(CASH.store&&v>0))return;$('#cash-open-go').disabled=true;
+    api('/api/retail/cash/open',{location_id:CASH.store,opening_minor:v})
+      .then(()=>{notice(true,'Till opened with '+fmtMoney(v));$('#cash-open-amt').value='';CASH.store=null;cashRender();reload()})
+      .catch(e=>{notice(false,e.message);cashRender()})};
+  $('#cash-close-go').onclick=()=>{const v=Math.round(parseFloat($('#cash-close-amt').value||'0')*100);if(!(CASH.session&&$('#cash-close-amt').value))return;$('#cash-close-go').disabled=true;
+    api('/api/retail/cash/close',{session_id:CASH.session,actual_minor:v})
+      .then(()=>{notice(true,'Till closed');$('#cash-close-amt').value='';CASH.session=null;cashRender();reload();refreshExport()})
+      .catch(e=>{notice(false,e.message);cashRender()})};
+  cashRender()}
+function cashRender(){if(!$('#cash-store'))return;
+  const open=openSessions();
+  const sb=$('#cash-store');sb.innerHTML='';
+  TILL_LOCS.forEach(l=>{const hasOpen=open.some(s=>s.location_code===l.code);if(hasOpen)return;
+    const c=document.createElement('button');c.type='button';c.className='chip'+(CASH.store===l.id?' on':'');c.textContent=l.code;c.title=l.name;
+    c.onclick=()=>{CASH.store=l.id;cashRender()};sb.appendChild(c)});
+  if(!sb.children.length)sb.innerHTML='<span class="hint">Every store already has an open till.</span>';
+  if(CASH.store&&open.some(s=>{const l=TILL_LOCS.find(x=>x.id===CASH.store);return l&&s.location_code===l.code}))CASH.store=null;
+  const cb=$('#cash-sessions');cb.innerHTML='';
+  if(!open.length)cb.innerHTML='<span class="hint">No open tills. Open one on the left first.</span>';
+  open.forEach(s=>{const c=document.createElement('button');c.type='button';c.className='chip'+(CASH.session===s.id?' on':'');
+    c.textContent=s.location_code+' \u00b7 opened '+fmtWhen(s.opened_at)+(s.expected_minor!=null?' \u00b7 should have '+fmtMoney(s.expected_minor):'');
+    c.onclick=()=>{CASH.session=s.id;cashRender()};cb.appendChild(c)});
+  const openAmt=$('#cash-open-amt').value.trim();
+  $('#cash-open-go').disabled=!(CASH.store&&openAmt&&parseFloat(openAmt)>0);
+  $('#cash-open-go').textContent=CASH.store?'Open till':'Pick a store';
+  const ses=open.find(s=>s.id===CASH.session);
+  const closeAmt=$('#cash-close-amt').value.trim();
+  const diff=$('#cash-diff');
+  if(ses&&closeAmt&&ses.expected_minor!=null){const counted=Math.round(parseFloat(closeAmt)*100);const d=counted-ses.expected_minor;
+    diff.innerHTML=d===0?'Matches the books exactly.':(d>0?'<b>'+esc(fmtMoney(d))+'</b> more than the books expect.':'<b>'+esc(fmtMoney(-d))+'</b> short of what the books expect.')}
+  else diff.textContent=ses?'Count the drawer and type what you find.':'';
+  $('#cash-close-go').disabled=!(ses&&closeAmt);
+  $('#cash-close-go').textContent=ses?'Close '+ses.location_code+' till':'Pick an open session'}

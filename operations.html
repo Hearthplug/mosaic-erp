@@ -221,19 +221,25 @@
         </div>
       </div>
       <div class="actions">
-        <form class="card actioncard" id="cash">
-          <h3>Open or close the till</h3>
+        <div class="card actioncard" id="cash-open-card">
+          <h3>Open the till</h3>
+          <p class="hint">Do this at the start of the day, before the first sale.</p>
+          <div class="pick-label">Store</div>
+          <div class="chiprow" id="cash-store"></div>
+          <span class="pick-label">Opening float - the cash in the drawer at the start of the day</span>
+          <input id="cash-open-amt" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00">
+          <div class="actionrow"><button class="btn primary" id="cash-open-go" type="button" disabled>Open till</button></div>
+        </div>
+        <div class="card actioncard" id="cash-close-card">
+          <h3>Close the till</h3>
           <p class="hint">Close only after the final sale and refund.</p>
-          <div class="fieldrow">
-            <label>Store<input name="location_id" list="locations"></label>
-            <label>Cash session ID<input name="session_id"></label>
-          </div>
-          <label>Amount<input name="amount_minor" type="number" min="0" step="any" required></label>
-          <div class="actionrow">
-            <button class="btn primary" type="button" name="open">Open till</button>
-            <button class="btn" type="button" name="close">Close till</button>
-          </div>
-        </form>
+          <div class="pick-label">Open session</div>
+          <div class="chiprow" id="cash-sessions"></div>
+          <span class="pick-label">Counted cash - what is actually in the drawer now</span>
+          <input id="cash-close-amt" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00">
+          <div class="till-change" id="cash-diff"></div>
+          <div class="actionrow"><button class="btn primary" id="cash-close-go" type="button" disabled>Close till</button></div>
+        </div>
         <form class="card actioncard" id="close">
           <h3>Lock a finished period</h3>
           <p class="hint">Lock only after reconciliation is complete.</p>
