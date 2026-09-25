@@ -41,9 +41,9 @@ function renderStock(){const rows=LISTS.stock.map(r=>{const tr=document.createEl
   fill('stock-table',rows,'No items yet. Your first delivery appears here.');
   $('#stock-count').textContent=LISTS.stock.length?LISTS.stock.length+' rows':'';
   $('#kpi-stock').textContent=LISTS.stock.length?fmtQty(LISTS.stock.reduce((a,r)=>a+Number(r.on_hand||0),0)):'0'}
-function renderSales(){const rows=LISTS.sales.map(r=>{const tr=document.createElement('tr');
+function renderSales(){const rows=LISTS.sales.map(r=>{const tr=document.createElement('tr');tr.className='sale-openable';tr.title='Tap to see the bill or refund items';tr.onclick=()=>openSaleDetail(r.id);
   tr.appendChild(cell(r.number,'cell-main'));tr.appendChild(cell(fmtWhen(r.sold_at)));tr.appendChild(cell(r.location_code));tr.appendChild(cell(String(r.line_count),'num'));tr.appendChild(cell(fmtMoney(r.total_minor,r.currency),'num'));tr.appendChild(cell(fmtMoney(r.paid_minor,r.currency),'num'));tr.appendChild(pillCell(r.status));return tr});
-  fill('sales-table',rows,'No sales yet. Ring up your first sale below.');
+  fill('sales-table',rows,'No sales yet. Make your first sale on the till below.');
   $('#sales-count').textContent=LISTS.sales.length?'last '+LISTS.sales.length:'';
   const today=new Date().toDateString(),todays=LISTS.sales.filter(r=>new Date(r.sold_at).toDateString()===today);
   $('#kpi-sales').textContent=todays.length?fmtMoney(todays.reduce((a,r)=>a+r.total_minor,0),todays[0].currency):'—';
@@ -88,7 +88,7 @@ function refreshLists(c){
   fill('#orders',c.purchase_orders,'po',x=>x.number+' · '+(STATUS[x.status]?STATUS[x.status][1]:x.status));
   fill('#bill-options',c.open_bills,'bill',x=>x.number+' · '+fmtMoney(x.balance_minor))}
 function refreshContext(){return get('/api/operations/context').then(c=>{refreshLists(c)}).catch(()=>{})}
-function refreshExport(){return get('/api/retail/export').then(x=>{PO_LINES={};(x.purchase_order_lines||[]).forEach(l=>{(PO_LINES[l.purchase_order_id]=PO_LINES[l.purchase_order_id]||[]).push(l)})}).catch(()=>{})}
+function refreshExport(){return get('/api/retail/export').then(x=>{EXP=x;PO_LINES={};(x.purchase_order_lines||[]).forEach(l=>{(PO_LINES[l.purchase_order_id]=PO_LINES[l.purchase_order_id]||[]).push(l)});tillRenderTiles()}).catch(()=>{})}
 function productLabel(id){const o=IDBY_LABEL['prodbyid:'+id];return o||id}
 function updateMoneyLabels(){document.querySelectorAll('label').forEach(l=>{if(['Cash received','Unit cost','Amount'].includes(l.childNodes[0].textContent.trim()))l.childNodes[0].textContent=l.childNodes[0].textContent.trim()+' ('+CURRENCY+')'})}
 function connect(){if(!MosaicAuth.require())return;
@@ -97,15 +97,14 @@ function connect(){if(!MosaicAuth.require())return;
   $('#signout').onclick=()=>MosaicAuth.clear();
   Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
-    refreshLists(c);
+    refreshLists(c);tillSetup(c.locations||[]);
     const ol=$('#next');ol.innerHTML='';
     c.next_steps.forEach(s=>{const li=document.createElement('li');li.textContent=s;ol.appendChild(li)});
     reload();refreshExport()
   }).catch(e=>{$('#state').textContent='Could not open workspace';notice(false,e.message)})}
 
 $('#stock').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/transfers',{product_id:resolveId('prod',d.product_id),from_location:resolveId('loc',d.from_location),to_location:resolveId('loc',d.to_location),quantity:d.quantity},'Stock transferred')};
-$('#sell').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/sales',{location_id:resolveId('loc',d.location_id),lines:[{product_id:resolveId('prod',d.product_id),quantity:d.quantity}],tenders:[{kind:'cash',amount_minor:Math.round(+d.amount_minor*100)}],currency:CURRENCY},'Sale completed')};
-$('#return').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/returns',{sale_id:d.sale_id,lines:{[d.line_id]:d.quantity},reason:d.reason,approved_by:'manager',refund_kind:'cash'},'Return refunded')};
+
 $('#buy').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/purchases',{vendor_id:resolveId('vendor',d.vendor_id),location_id:resolveId('loc',d.location_id),ordered_on:d.ordered_on,lines:[{product_id:resolveId('prod',d.product_id),quantity:d.quantity,unit_cost_minor:Math.round(+d.unit_cost_minor*100)}],currency:CURRENCY},'Purchase order saved')};
 const poInput=$('#receive input[name=purchase_order_id]'),lineSel=$('#receive select[name=line_id]');
 function fillLines(){const po=resolveId('po',poInput.value),lines=PO_LINES[po]||[];
@@ -133,3 +132,89 @@ $$('.toolbar').forEach(bar=>{
   bar.querySelectorAll('.filter-chip:not(:disabled)').forEach(btn=>btn.onclick=()=>{bar.querySelectorAll('.filter-chip').forEach(x=>x.classList.remove('on'));btn.classList.add('on');apply()});
   bar.querySelector('.export-btn').onclick=()=>{const rows=[...table.rows].filter(r=>!r.hidden&&!r.classList.contains('empty-row'));const csv=rows.map(row=>[...row.cells].map(c=>'"'+c.innerText.trim().replaceAll('"','""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=table.id.replace('-table','')+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)};
 });
+
+/* ===== Till ===== */
+let EXP={},CART=new Map(),TILL_LOC='',TILL_LOCS=[],DETAIL_SALE=null;
+const tillProducts=()=>((EXP.retail_products||[]).filter(p=>p.active!==0)).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+const tillTotalMinor=()=>{let t=0;CART.forEach((q,id)=>{const p=(EXP.retail_products||[]).find(x=>x.id===id);if(p)t+=Math.round(q*int(p.selling_price_minor))});return t};
+function int(v){return parseInt(v,10)||0}
+function tillSetup(locs){TILL_LOCS=locs||[];const wrap=$('#till-store-wrap'),sel=$('#till-store');
+  if(TILL_LOCS.length===1){TILL_LOC=TILL_LOCS[0].id;wrap.hidden=true}
+  else if(TILL_LOCS.length>1){wrap.hidden=false;sel.innerHTML=TILL_LOCS.map(l=>'<option value="'+l.id+'">'+esc(l.code+' - '+l.name)+'</option>').join('');TILL_LOC=TILL_LOCS[0].id;sel.onchange=()=>{TILL_LOC=sel.value}}
+  $('#till-search').oninput=tillRenderTiles;
+  $('#till-given').oninput=()=>{const g=$('#till-given');g.value=g.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1');tillRefreshTender()};
+  $('#till-pad').querySelectorAll('button').forEach(b=>b.onclick=()=>{const g=$('#till-given');const k=b.dataset.k;if(k==='back')g.value=g.value.slice(0,-1);else if(k==='.'&&g.value.includes('.'))return;else g.value+=k;tillRefreshTender()});
+  $('#till-take').onclick=()=>tillComplete('cash');
+  $('#till-bank').onclick=()=>tillComplete('bank');
+  $('#cb-charge').onclick=()=>tillComplete('cash');
+  $('#refund-go').onclick=refundGo;
+  $('#sale-detail-close').onclick=()=>{$('#sale-detail').hidden=true;DETAIL_SALE=null};
+  tillRenderCart()}
+function tillRenderTiles(){const box=$('#till-tiles');if(!box)return;const q=($('#till-search').value||'').toLowerCase();
+  const prods=tillProducts().filter(p=>!q||String(p.name).toLowerCase().includes(q)||String(p.sku).toLowerCase().includes(q));
+  if(!prods.length){box.innerHTML='<p class="tilegrid-empty">'+((EXP.retail_products||[]).length?'Nothing matches that search.':'No items yet - add your first item on the Stock page, then sell it here.')+'</p>';return}
+  box.innerHTML='';prods.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='tile'+(CART.has(p.id)?' incart':'');
+    const inCart=CART.get(p.id)||0;
+    b.innerHTML='<b>'+esc(p.name)+'</b><span>'+esc(fmtMoney(p.selling_price_minor))+'</span>'+(inCart?'<span class="tile-qty">'+inCart+' in this sale</span>':'');
+    b.onclick=()=>{CART.set(p.id,(CART.get(p.id)||0)+1);tillRenderTiles();tillRenderCart()};box.appendChild(b)})}
+function tillRenderCart(){const box=$('#till-lines');const n=CART.size;
+  $('#till-count').textContent=n?'':'';
+  if(!n){box.innerHTML='<p class="hint">Nothing added yet - tap an item'+(window.innerWidth<=720?' above':' on the left')+'.</p>'}
+  else{box.innerHTML='';CART.forEach((q,id)=>{const p=(EXP.retail_products||[]).find(x=>x.id===id);if(!p)return;
+    const row=document.createElement('div');row.className='till-line';
+    row.innerHTML='<div class="tl-name">'+esc(p.name)+'<small>'+q+' &times; '+esc(fmtMoney(p.selling_price_minor))+'</small></div>';
+    const st=document.createElement('div');st.className='stepper';
+    const minus=document.createElement('button');minus.type='button';minus.textContent='\u2212';minus.onclick=()=>{if(q<=1)CART.delete(id);else CART.set(id,q-1);tillRenderTiles();tillRenderCart()};
+    const qb=document.createElement('b');qb.textContent=q;
+    const plus=document.createElement('button');plus.type='button';plus.textContent='+';plus.onclick=()=>{CART.set(id,q+1);tillRenderTiles();tillRenderCart()};
+    st.append(minus,qb,plus);row.appendChild(st);
+    const amt=document.createElement('div');amt.className='tl-amt';amt.textContent=fmtMoney(Math.round(q*int(p.selling_price_minor)));row.appendChild(amt);
+    box.appendChild(row)})}
+  tillRefreshTender()}
+function tillRefreshTender(){const t=tillTotalMinor();$('#till-total').textContent=fmtMoney(t);
+  const n=[...CART.values()].reduce((a,b)=>a+b,0);
+  $('#cb-total').textContent=fmtMoney(t);$('#cb-count').textContent=n?n+(n===1?' item':' items'):'No items yet';
+  const givenStr=$('#till-given').value.trim();const given=givenStr?Math.round(parseFloat(givenStr)*100):null;
+  const ch=$('#till-change');
+  if(!t){ch.textContent='';$('#till-take').disabled=true;$('#till-take').textContent='Take cash';$('#till-bank').disabled=true;$('#till-bank').textContent='Card or bank';$('#cb-charge').disabled=true;return}
+  if(given===null){ch.textContent='Type the cash given, or take exact cash.'}else if(given<t){ch.textContent='That is '+fmtMoney(t-given)+' short of the total.'}else if(given===t){ch.textContent='Exact cash.'}else{ch.innerHTML='Change to give back: <b>'+esc(fmtMoney(given-t))+'</b>'}
+  const cashOk=given===null||given>=t;
+  $('#till-take').disabled=!cashOk;$('#till-take').textContent=given&&given>=t?'Take '+fmtMoney(given)+' cash':'Take '+fmtMoney(t)+' cash';
+  $('#till-bank').disabled=false;$('#till-bank').textContent='Card or bank - '+fmtMoney(t);
+  $('#cb-charge').disabled=false}
+function tillComplete(kind){const t=tillTotalMinor();if(!t)return;
+  const lines=[...CART.entries()].map(([id,q])=>({product_id:id,quantity:String(q)}));
+  const givenStr=$('#till-given').value.trim();const given=givenStr?Math.round(parseFloat(givenStr)*100):null;
+  if(kind==='cash'&&given!==null&&given<t){notice(false,'The cash given is short of the total.');return}
+  const btn=kind==='cash'?$('#till-take'):$('#till-bank');btn.disabled=true;
+  api('/api/retail/sales',{location_id:TILL_LOC,lines,tenders:[{kind,amount_minor:t}],currency:CURRENCY})
+    .then(x=>{notice(true,'Sale '+x.number+' completed - '+fmtMoney(x.total_minor));CART.clear();$('#till-given').value='';tillRenderTiles();tillRenderCart();reload();refreshContext();refreshExport()})
+    .catch(e=>{notice(false,e.message);tillRefreshTender()})}
+function openSaleDetail(id){const s=LISTS.sales.find(r=>r.id===id);if(!s)return;DETAIL_SALE=id;
+  const lines=(EXP.sale_lines||[]).filter(l=>l.sale_id===id);
+  const returned={};(EXP.retail_return_lines||[]).forEach(rl=>{if(lines.some(l=>l.id===rl.sale_line_id))returned[rl.sale_line_id]=(returned[rl.sale_line_id]||0)+Number(rl.quantity)});
+  $('#sale-detail-title').textContent='Bill '+s.number;
+  $('#sale-detail-sub').textContent=fmtWhen(s.sold_at)+' \u00b7 '+s.location_code+' \u00b7 '+fmtMoney(s.total_minor)+' \u00b7 '+(STATUS[s.status]?STATUS[s.status][1]:s.status);
+  const box=$('#sale-detail-lines');box.innerHTML='';
+  if(!lines.length){box.innerHTML='<p class="hint" style="padding:10px 14px">Quick sale without item lines - nothing to refund item by item.</p>'}
+  lines.forEach(l=>{const p=(EXP.retail_products||[]).find(x=>x.id===l.product_id);const left=Number(l.quantity)-(returned[l.id]||0);
+    const row=document.createElement('div');row.className='sd-line';
+    row.innerHTML='<div class="sd-name">'+esc(p?p.name:'Item')+'<small>'+l.quantity+' sold at '+esc(fmtMoney(l.unit_price_minor))+(left<Number(l.quantity)?' \u00b7 '+left+' left to return':'')+'</small></div>';
+    if(left>0){const st=document.createElement('div');st.className='stepper';st.dataset.line=l.id;st.dataset.max=left;
+      const minus=document.createElement('button');minus.type='button';minus.textContent='\u2212';
+      const qb=document.createElement('b');qb.textContent='0';
+      const plus=document.createElement('button');plus.type='button';plus.textContent='+';
+      minus.onclick=()=>{const v=Math.max(0,int(qb.textContent)-1);qb.textContent=v;refundCheck()};
+      plus.onclick=()=>{const v=Math.min(Number(left),int(qb.textContent)+1);qb.textContent=v;refundCheck()};
+      st.append(minus,qb,plus);row.appendChild(st)}
+    box.appendChild(row)});
+  $('#refund-reason').value='';refundCheck();
+  $('#sale-detail').hidden=false;$('#sale-detail').scrollIntoView({behavior:'smooth',block:'nearest'})}
+function refundCheck(){let any=false;document.querySelectorAll('#sale-detail-lines .stepper').forEach(st=>{if(int(st.querySelector('b').textContent)>0)any=true});
+  $('#refund-go').disabled=!any||!$('#refund-reason').value.trim();
+  if(!$('#refund-reason').oninput)$('#refund-reason').oninput=refundCheck}
+function refundGo(){if(!DETAIL_SALE)return;const lines={};document.querySelectorAll('#sale-detail-lines .stepper').forEach(st=>{const q=int(st.querySelector('b').textContent);if(q>0)lines[st.dataset.line]=q});
+  $('#refund-go').disabled=true;
+  api('/api/retail/returns',{sale_id:DETAIL_SALE,lines,reason:$('#refund-reason').value.trim(),approved_by:'manager',refund_kind:'cash'})
+    .then(x=>{notice(true,'Return refunded');$('#sale-detail').hidden=true;DETAIL_SALE=null;reload();refreshExport()})
+    .catch(e=>{notice(false,e.message);refundCheck()})}

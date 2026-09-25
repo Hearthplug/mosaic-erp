@@ -100,32 +100,45 @@
           </table>
         </div>
       </div>
-      <div class="actions">
-        <form class="card actioncard" id="sell">
-          <h3>Ring up a sale</h3>
-          <p class="hint">Stock, money and the books update together.</p>
-          <label>Store<input name="location_id" list="locations" required></label>
-          <label>Item<input name="product_id" list="products" required></label>
-          <div class="fieldrow">
-            <label>Quantity<input name="quantity" type="number" min="0" step="any" required></label>
-            <label>Cash received<input name="amount_minor" type="number" min="0" step="any" required></label>
+      <div class="till">
+        <div class="card till-products">
+          <div class="cardhead"><h2>New sale</h2><span class="cardmeta">Tap items to add them - stock, money and the books update together</span></div>
+          <div class="tillbar">
+            <label class="tillstore" id="till-store-wrap" hidden>Store <select id="till-store"></select></label>
+            <label class="search tillsearch"><span>&#8982;</span><input type="search" id="till-search" placeholder="Search items" aria-label="Search items to sell"></label>
           </div>
-          <div class="actionrow"><button class="btn primary" type="submit">Complete sale</button></div>
-        </form>
-        <form class="card actioncard" id="return">
-          <h3>Refund a return</h3>
-          <p class="hint">Refunds a checked return and restocks the item.</p>
-          <div class="fieldrow">
-            <label>Sale ID<input name="sale_id" required></label>
-            <label>Item line from the bill<input name="line_id" required></label>
+          <div class="tilegrid" id="till-tiles"></div>
+        </div>
+        <div class="card till-cart">
+          <div class="cardhead"><h2>This sale</h2><span class="cardmeta" id="till-count"></span></div>
+          <div class="till-lines" id="till-lines"><p class="hint">Nothing added yet - tap an item on the left.</p></div>
+          <div class="till-total"><span>Total</span><b class="money" id="till-total">0.00</b></div>
+          <div class="till-tender">
+            <label class="till-cash-label">Cash given<input id="till-given" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00"></label>
+            <div class="numpad" id="till-pad">
+              <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+              <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+              <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+              <button type="button" data-k=".">.</button><button type="button" data-k="0">0</button><button type="button" data-k="back" aria-label="Delete">&#9003;</button>
+            </div>
+            <p class="till-change" id="till-change"></p>
+            <div class="till-actions">
+              <button class="btn primary" id="till-take" type="button" disabled>Take cash</button>
+              <button class="btn ghostbtn" id="till-bank" type="button" disabled>Card or bank</button>
+            </div>
+            <p class="hint">Selling on credit? Say it on the Build page instead - for example "Ravi took rice, 500 on credit".</p>
           </div>
-          <div class="fieldrow">
-            <label>Quantity<input name="quantity" type="number" min="0" step="any" required></label>
-            <label>Reason<input name="reason" required></label>
-          </div>
-          <div class="actionrow"><button class="btn danger" type="submit">Approve return and refund</button></div>
-        </form>
+        </div>
       </div>
+      <div class="card" id="sale-detail" hidden>
+        <div class="cardhead"><h2 id="sale-detail-title">Bill</h2><span class="cardmeta" id="sale-detail-sub"></span></div>
+        <div id="sale-detail-lines"></div>
+        <div class="fieldrow salerefundrow">
+          <label>Reason for the return<input id="refund-reason" placeholder="For example: damaged, wrong item"></label>
+        </div>
+        <div class="actionrow"><button class="btn danger" id="refund-go" type="button" disabled>Refund the selected items</button><button class="btn ghostbtn" id="sale-detail-close" type="button">Close</button></div>
+      </div>
+      <div class="till-chargebar" id="till-chargebar"><div><div class="cb-total" id="cb-total">0.00</div><div class="cb-count" id="cb-count">No items yet</div></div><button id="cb-charge" type="button" disabled>Charge</button></div>
     </section>
 
     <section id="view-buying" class="view" hidden>

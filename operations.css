@@ -156,3 +156,64 @@ button{font-family:inherit}
 @media(max-width:720px){.main{padding:16px 12px 36px}.pagehead{margin-bottom:12px}.pagehead h1{font-size:22px}.pagehead p{font-size:12px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.cardhead{padding:11px 13px}.toolbar{padding:8px;gap:6px}.search{flex:1 0 100%;min-width:0}.search input{width:100%}.tablewrap{-webkit-overflow-scrolling:touch;scrollbar-width:thin}.dt{min-width:590px}.actiongrid,.buying-actions{gap:8px}.actioncard{padding:13px 12px}.actioncard input,.actioncard select{min-height:40px}.btn{min-height:40px}.steps{padding:0 12px}.steps li{padding:10px 0}}
 .row-action{margin-left:8px;padding:2px 10px;font-size:12px;line-height:1.6}
 .actioncard select{width:100%;padding:8px 10px;border:1px solid var(--line,#d8d2c4);border-radius:8px;background:#fff;font:inherit}
+
+/* ===== Till (New sale) ===== */
+.till{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start;margin-top:14px}
+.tillbar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--hairline)}
+.tillstore{font-size:12.5px;color:var(--secondary);display:flex;align-items:center;gap:6px}
+.tillstore select{font:13px var(--font);padding:5px 8px;border:1px solid var(--hairline-strong);border-radius:8px;background:var(--card)}
+.tillsearch{flex:1}
+.tilegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px;padding:14px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-height:72px;padding:11px 12px;border:1px solid var(--hairline);border-radius:12px;background:var(--card);cursor:pointer;text-align:left;transition:border-color .12s,background .12s}
+.tile:hover{border-color:var(--accent)}
+.tile:active,.tile.incart{background:var(--accent-soft);border-color:var(--accent)}
+.tile b{font-size:12.5px;font-weight:600;line-height:1.3}
+.tile span{font-size:12px;color:var(--secondary);font-variant-numeric:tabular-nums}
+.tile .tile-qty{margin-left:auto;font-size:11px;font-weight:700;color:var(--accent-ink)}
+.tilegrid-empty{grid-column:1/-1;color:var(--secondary);font-size:12.5px;padding:8px 2px}
+.till-cart{position:sticky;top:14px}
+.till-lines{max-height:300px;overflow-y:auto;padding:4px 14px}
+.till-line{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--hairline)}
+.till-line .tl-name{flex:1;font-size:12.5px;font-weight:600;line-height:1.3}
+.till-line .tl-name small{display:block;font-weight:400;color:var(--secondary);font-variant-numeric:tabular-nums}
+.till-line .tl-amt{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.stepper{display:flex;align-items:center;gap:2px}
+.stepper button{width:26px;height:26px;border:1px solid var(--hairline-strong);border-radius:8px;background:var(--card);font-size:14px;cursor:pointer;line-height:1}
+.stepper button:active{background:var(--fill)}
+.stepper b{min-width:24px;text-align:center;font-size:12.5px}
+.till-total{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;border-top:1px solid var(--hairline);font-size:14px;font-weight:600}
+.till-total b{font-size:19px}
+.till-tender{padding:0 14px 14px}
+.till-cash-label{display:block;font-size:12px;color:var(--secondary);margin-bottom:8px}
+.till-cash-label input{display:block;width:100%;margin-top:4px;font:16px var(--font);padding:9px 11px;border:1px solid var(--hairline-strong);border-radius:10px;font-variant-numeric:tabular-nums}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}
+.numpad button{font-size:17px;padding:11px 0;border:1px solid var(--hairline);border-radius:10px;background:var(--fill);cursor:pointer}
+.numpad button:active{background:var(--hairline)}
+.till-change{min-height:18px;font-size:12.5px;color:var(--secondary);margin:2px 0 10px}
+.till-change b{color:var(--ink)}
+.till-actions{display:flex;gap:8px}
+.till-actions .btn{flex:1;padding:12px 0;font-size:14px;border-radius:10px}
+.ghostbtn{background:var(--card);color:var(--ink);border:1px solid var(--hairline-strong)}
+.ghostbtn:hover{border-color:var(--ink)}
+.till-chargebar{display:none}
+#sale-detail{margin-top:14px}
+.sd-line{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--hairline)}
+.sd-line .sd-name{flex:1;font-size:12.5px;font-weight:600}
+.sd-line .sd-name small{display:block;font-weight:400;color:var(--secondary)}
+.salerefundrow{padding:12px 14px 4px}
+#sale-detail .actionrow{padding:0 14px 14px;gap:8px}
+tr.sale-openable{cursor:pointer}
+tr.sale-openable:hover td{background:var(--accent-soft)}
+@media(max-width:1000px){.till{grid-template-columns:1fr}.till-cart{position:static}}
+@media(max-width:720px){
+.tilegrid{grid-template-columns:repeat(2,1fr)}
+.numpad{display:none}
+.view-sales-pad{padding-bottom:76px}
+.till-chargebar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--ink);color:#fff;padding:11px 14px;align-items:center;justify-content:space-between}
+.till-chargebar .cb-total{font-size:16px;font-weight:700}
+.till-chargebar .cb-count{font-size:11.5px;color:#b9bebb}
+.till-chargebar button{background:var(--accent);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:600;padding:11px 20px}
+.till-chargebar button:disabled{opacity:.45}
+}
+
+.btn:disabled,.ghostbtn:disabled{opacity:.5;cursor:default}
