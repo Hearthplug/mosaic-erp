@@ -169,3 +169,22 @@ class SettingsScreen(unittest.TestCase):
     html=r.read().decode()
     self.assertIn('Settings',html)
     self.assertNotIn('Early technical prototype',html)
+
+class PackagingCompleteness(unittest.TestCase):
+    """Every page and asset app.py can serve must ship in the Docker image and exist on disk."""
+    def test_served_files_are_in_dockerfile_and_on_disk(self):
+        app_src = open('app.py').read()
+        served = set(re.findall(r"ROOT ?/ ?'([a-z0-9_\-]+\.(?:html|css|js|svg|png))'", app_src))
+        for m in re.findall(r"if p in \(([^)]+)\):", app_src):
+            for x in m.split(','):
+                f = x.strip().strip("'").lstrip('/')
+                if f.endswith(('.html','.css','.js','.svg')):
+                    served.add(f)
+        served.discard('')
+        served -= {'google-signin.png', 'microsoft-signin.svg'}  # embedded in provider_assets.py, not disk files
+        dockerfile = open('Dockerfile').read()
+        import os as _os
+        missing_docker = [f for f in sorted(served) if f not in dockerfile]
+        missing_disk = [f for f in sorted(served) if not _os.path.exists(f)]
+        self.assertEqual(missing_docker, [], 'served but not in Dockerfile: ' + str(missing_docker))
+        self.assertEqual(missing_disk, [], 'served but missing on disk: ' + str(missing_disk))
