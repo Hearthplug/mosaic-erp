@@ -43,6 +43,8 @@ REVOKE ALL ON FUNCTION mosaic_oauth_users(text,text,text) FROM PUBLIC; GRANT EXE
 PG_MIGRATIONS.append(r'''
 CREATE OR REPLACE FUNCTION mosaic_invitation(p_hash text) RETURNS TABLE(id text,workspace_id text,email text,role text,operational_role text,expires_at text,accepted_at text,revoked_at text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT i.id,i.workspace_id,i.email,i.role,i.operational_role,i.expires_at,i.accepted_at,i.revoked_at FROM workspace_invitations i WHERE i.token_hash=p_hash $$;
 REVOKE ALL ON FUNCTION mosaic_invitation(text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_invitation(text) TO CURRENT_USER;
+CREATE OR REPLACE FUNCTION mosaic_session_workspace(p_id text,p_user text) RETURNS text LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT u.workspace_id FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=p_id AND u.id=p_user $$;
+REVOKE ALL ON FUNCTION mosaic_session_workspace(text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_session_workspace(text,text) TO CURRENT_USER;
 ''')
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
@@ -196,6 +198,18 @@ class PostgresStore(Store):
             row=conn.execute('SELECT * FROM mosaic_auth_session(%s)',(sha256(token),)).fetchone()
         if not row or datetime.fromisoformat(row['expires_at'])<=datetime.now(timezone.utc):return None
         return row['workspace_id'],row['user_id'],row['role'],row['id']
+
+    def revoke_session(self, session_id, actor_id):
+        # The API authenticates actor_id first. Resolve only the session that
+        # belongs to that actor, then scope the UPDATE and audit to its tenant.
+        from store import NotFound
+        with self.tx():
+            row=self._current().execute('SELECT mosaic_session_workspace(%s,%s) AS workspace_id',
+                                        (session_id,actor_id)).fetchone()
+            wid=row['workspace_id'] if row else None
+            if not wid:raise NotFound('Session not found')
+            self._current().execute("SELECT set_config('mosaic.workspace_id',%s,true)",(wid,))
+            return super().revoke_session(session_id,actor_id)
 
     def invitation(self, token):
         from datetime import datetime, timezone
