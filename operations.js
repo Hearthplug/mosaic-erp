@@ -99,8 +99,19 @@ function connect(){if(!MosaicAuth.require())return;
   Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
     refreshLists(c);tillSetup(c.locations||[]);moveSetup();buySetup(c.vendors||[]);cashSetup();
-    const ol=$('#next');ol.innerHTML='';
-    c.next_steps.forEach(s=>{const li=document.createElement('li');li.textContent=s;ol.appendChild(li)});
+    const ol=$('#next');ol.innerHTML='';ol.classList.remove('checklist');
+    if(!c.products.length){
+      ol.classList.add('checklist');
+      const steps=[
+        {label:'Add your first item',view:'stock',done:false},
+        {label:'Add a store to sell from',view:'stock',done:(c.locations||[]).length>0},
+        {label:'Open a till to take cash',view:'money',done:(c.cash_sessions||[]).length>0},
+        {label:'Ring up your first sale',view:'sales',done:false}
+      ];
+      steps.forEach(s=>{const li=document.createElement('li');li.className='todo-step'+(s.done?' done':'');li.textContent=s.label;li.onclick=()=>select(s.view);ol.appendChild(li)});
+    }else{
+      c.next_steps.forEach(s=>{const li=document.createElement('li');li.textContent=s;ol.appendChild(li)});
+    }
     reload();refreshExport()
   }).catch(e=>{$('#state').textContent='Could not open workspace';notice(false,e.message)})}
 

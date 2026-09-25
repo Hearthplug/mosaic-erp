@@ -260,3 +260,7 @@ tr.po-picked td{background:var(--accent-soft)}
 @media(min-width:721px) and (max-width:1000px){.till{grid-template-columns:minmax(0,1fr) 360px}.till-cart{position:sticky;top:14px}}
 .tillsearch{min-width:0;flex:1;max-width:none}
 @media(max-width:1000px){.appshell{min-height:100vh;grid-template-rows:auto minmax(0,1fr)}}
+.steps.checklist li.todo-step{cursor:pointer}
+.steps.checklist li.todo-step::before{content:'';background:transparent;border:1.5px solid var(--accent-ink)}
+.steps.checklist li.todo-step.done{color:var(--secondary)}
+.steps.checklist li.todo-step.done::before{content:'✓';background:var(--accent-soft);border-color:transparent}
