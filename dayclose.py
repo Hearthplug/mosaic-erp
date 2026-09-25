@@ -84,6 +84,12 @@ def day_summary(store, wid, day):
     sales = store._db.execute(
         "SELECT COALESCE(SUM(total_minor),0) AS t, COUNT(*) AS n FROM documents "
         "WHERE workspace_id=? AND kind='sales_invoice' AND status='posted' AND issue_date=?", (wid, day)).fetchone()
+    # Counter sales through the till never create documents; count them too.
+    tz_name = store_timezone(store, wid)
+    day_start, day_end = _day_window_utc(day, tz_name)
+    pos = store._db.execute(
+        "SELECT COALESCE(SUM(total_minor),0) AS t, COUNT(*) AS n FROM sales "
+        "WHERE workspace_id=? AND status='completed' AND sold_at>=? AND sold_at<?", (wid, day_start, day_end)).fetchone()
     pay = store._db.execute(
         "SELECT a.system_key AS k, COALESCE(SUM(jl.debit_minor),0) AS t FROM journal_lines jl "
         "JOIN accounts a ON a.id=jl.account_id "
@@ -92,12 +98,18 @@ def day_summary(store, wid, day):
         "WHERE d.workspace_id=? AND d.kind='payment' AND d.status='posted' AND d.issue_date=? "
         "AND a.system_key IN ('cash','bank') GROUP BY a.system_key", (wid, day)).fetchall()
     paid = {r['k']: int(r['t']) for r in pay}
+    tenders = store._db.execute(
+        "SELECT t.kind AS k, COALESCE(SUM(t.amount_minor),0) AS t FROM tender_entries t "
+        "JOIN sales sl ON sl.id=t.sale_id "
+        "WHERE t.workspace_id=? AND sl.status='completed' AND t.received_at>=? AND t.received_at<? "
+        "GROUP BY t.kind", (wid, day_start, day_end)).fetchall()
+    pos_paid = {'cash': 0, 'bank': 0}
+    for r in tenders:
+        pos_paid['cash' if r['k'] == 'cash' else 'bank'] += int(r['t'])
     credit = store._db.execute(
         "SELECT COALESCE(SUM(balance_minor),0) AS t FROM documents "
         "WHERE workspace_id=? AND kind='sales_invoice' AND status='posted' AND issue_date=? AND balance_minor>0",
         (wid, day)).fetchone()
-    tz_name = store_timezone(store, wid)
-    day_start, day_end = _day_window_utc(day, tz_name)
     items = store._db.execute(
         "SELECT COALESCE(SUM(-CAST(quantity_delta AS REAL)),0) AS t FROM stock_ledger "
         "WHERE workspace_id=? AND kind='sale' AND effective_at>=? AND effective_at<?", (wid, day_start, day_end)).fetchone()
@@ -108,10 +120,10 @@ def day_summary(store, wid, day):
     return {
         'date': day,
         'timezone': tz_name,
-        'sales_total_minor': int(sales['t']),
-        'sales_count': int(sales['n']),
-        'payments_cash_minor': paid.get('cash', 0),
-        'payments_bank_minor': paid.get('bank', 0),
+        'sales_total_minor': int(sales['t']) + int(pos['t']),
+        'sales_count': int(sales['n']) + int(pos['n']),
+        'payments_cash_minor': paid.get('cash', 0) + pos_paid['cash'],
+        'payments_bank_minor': paid.get('bank', 0) + pos_paid['bank'],
         'credit_minor': int(credit['t']),
         'items_sold': items['t'],
         'expected_cash_minor': int(cash['t']),
