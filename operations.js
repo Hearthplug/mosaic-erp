@@ -91,6 +91,29 @@ function refreshLists(c){
   fill('#orders',c.purchase_orders,'po',x=>x.number+' · '+(STATUS[x.status]?STATUS[x.status][1]:x.status));
   fill('#bill-options',c.open_bills,'bill',x=>x.number+' · '+fmtMoney(x.balance_minor))}
 function refreshContext(){return get('/api/operations/context').then(c=>{refreshLists(c)}).catch(()=>{})}
+
+const XLSX={crc:(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})(),
+crc32(s){let c=0xFFFFFFFF;for(let i=0;i<s.length;i++)c=this.crc[(c^s.charCodeAt(i))&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0},
+zip(files){const enc=s=>unescape(encodeURIComponent(s));let out=[],central=[],off=0;
+files.forEach(f=>{const name=enc(f.name),data=enc(f.data),crc=this.crc32(data),head=[0x50,0x4b,3,4,20,0,0,0,0,0,0,0,0,0,crc&255,crc>>>8&255,crc>>>16&255,crc>>>24&255,data.length&255,data.length>>>8&255,data.length>>>16&255,data.length>>>24&255,data.length&255,data.length>>>8&255,data.length>>>16&255,data.length>>>24&255,name.length&255,name.length>>>8&255,0,0];
+out=out.concat(head);for(let i=0;i<name.length;i++)out.push(name.charCodeAt(i));for(let i=0;i<data.length;i++)out.push(data.charCodeAt(i));
+const cd=[0x50,0x4b,1,2,20,0,20,0,0,0,0,0,0,0,0,0,crc&255,crc>>>8&255,crc>>>16&255,crc>>>24&255,data.length&255,data.length>>>8&255,data.length>>>16&255,data.length>>>24&255,data.length&255,data.length>>>8&255,data.length>>>16&255,data.length>>>24&255,name.length&255,name.length>>>8&255,0,0,0,0,0,0,0,0,0,0,0,0,off&255,off>>>8&255,off>>>16&255,off>>>24&255];
+central=central.concat(cd);for(let i=0;i<name.length;i++)central.push(name.charCodeAt(i));off+=head.length+name.length+data.length});
+const end=[0x50,0x4b,5,6,0,0,0,0,files.length&255,files.length>>>8&255,files.length&255,files.length>>>8&255,central.length&255,central.length>>>8&255,central.length>>>16&255,central.length>>>24&255,off&255,off>>>8&255,off>>>16&255,off>>>24&255,0,0];
+const bytes=new Uint8Array(out.concat(central,end));return bytes},
+col(n){let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-1-m)/26|0}return s},
+esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))},
+sheet(rows){let xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+rows.forEach((r,ri)=>{xml+='<row r="'+(ri+1)+'">';r.forEach((v,ci)=>{const ref=this.col(ci)+(ri+1);const num=typeof v==='number'&&isFinite(v);xml+=num?'<c r="'+ref+'"><v>'+v+'</v></c>':'<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+this.esc(v)+'</t></is></c>'});xml+='</row>'});
+return xml+'</sheetData></worksheet>'},
+blob(rows){const files=[
+{name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'},
+{name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'},
+{name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Export" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+{name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'},
+{name:'xl/worksheets/sheet1.xml',data:this.sheet(rows)}];
+return new Blob([this.zip(files)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}};
+
 function refreshExport(){return get('/api/retail/export').then(x=>{EXP=x;PO_LINES={};(x.purchase_order_lines||[]).forEach(l=>{(PO_LINES[l.purchase_order_id]=PO_LINES[l.purchase_order_id]||[]).push(l)});tillRenderTiles();if($('#move-tiles'))moveRender();if($('#buy-tiles'))buyRender()}).catch(()=>{})}
 function productLabel(id){const o=IDBY_LABEL['prodbyid:'+id];return o||id}
 function updateMoneyLabels(){document.querySelectorAll('label').forEach(l=>{if(['Cash received','Unit cost','Amount'].includes(l.childNodes[0].textContent.trim()))l.childNodes[0].textContent=l.childNodes[0].textContent.trim()+' ('+CURRENCY+')'})}
@@ -149,7 +172,16 @@ $$('.toolbar').forEach(bar=>{
   const apply=()=>{const term=input.value.trim().toLowerCase(),filter=bar.querySelector('.filter-chip.on')?.dataset.filter||'all';tableRows(table).forEach(row=>{const text=row.textContent.toLowerCase();row.hidden=!(text.includes(term)&&(filter==='all'||(filter==='low'?row.dataset.low==='1':text.includes(filter))))})};
   input.addEventListener('input',apply);
   bar.querySelectorAll('.filter-chip:not(:disabled)').forEach(btn=>btn.onclick=()=>{bar.querySelectorAll('.filter-chip').forEach(x=>x.classList.remove('on'));btn.classList.add('on');apply()});
-  bar.querySelector('.export-btn').onclick=()=>{const rows=[...table.rows].filter(r=>!r.hidden&&!r.classList.contains('empty-row'));const csv=rows.map(row=>[...row.cells].map(c=>'"'+c.innerText.trim().replaceAll('"','""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=table.id.replace('-table','')+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)};
+  const menu=document.createElement('div');menu.className='export-menu';menu.hidden=true;menu.innerHTML='<button type="button" data-kind="csv">CSV file</button><button type="button" data-kind="xlsx">XLSX file (Excel)</button>';bar.appendChild(menu);
+  const btn=bar.querySelector('.export-btn');btn.textContent='Export ▾';btn.title='Download this table as a CSV or XLSX file';
+  const visibleRows=()=>[...table.rows].filter(r=>!r.hidden&&!r.classList.contains('empty-row'));
+  const grid=()=>visibleRows().map(row=>[...row.cells].map(c=>c.innerText.trim()));
+  const save=(blob,name)=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)};
+  btn.onclick=e=>{e.stopPropagation();menu.hidden=!menu.hidden};
+  document.addEventListener('click',()=>{menu.hidden=true});
+  menu.onclick=e=>{const kind=e.target.dataset.kind;if(!kind)return;menu.hidden=true;const rows=grid();const stem=table.id.replace('-table','')+'-'+new Date().toISOString().slice(0,10);
+    if(kind==='csv'){const csv=rows.map(r=>r.map(c=>'"'+c.replaceAll('"','""')+'"').join(',')).join('\n');save(new Blob([csv],{type:'text/csv'}),stem+'.csv')}
+    else{save(XLSX.blob(rows),stem+'.xlsx')}};
 });
 
 /* ===== Till ===== */
@@ -339,6 +371,28 @@ function recGo(){if(!REC_PO)return;const received={};document.querySelectorAll('
 /* ===== Till open/close (pick-first) ===== */
 let CASH={store:null,session:null};
 const openSessions=()=>LISTS.money.filter(s=>s.status==='open');
+
+const DENOMS={USD:[10000,5000,2000,1000,500,200,100,25,10,5,1],INR:[50000,20000,10000,5000,2000,1000,500,200,100],EUR:[50000,20000,10000,5000,2000,1000,500,200,100,50,20,10,5,2,1],GBP:[5000,2000,1000,500,200,100,50,20,10,5,2,1]};
+let DENOM_COUNTS={};
+function denomRender(){const box=$('#denom'),tog=$('#denom-toggle');if(!box)return;const ds=DENOMS[CURRENCY];tog.hidden=!ds;if(!ds)return;
+  box.innerHTML='';
+  ds.forEach(v=>{const row=document.createElement('div');row.className='denom-row';
+    const lab=document.createElement('span');lab.className='denom-label';lab.textContent=fmtMoney(v,CURRENCY);
+    const step=document.createElement('div');step.className='stepper';
+    const minus=document.createElement('button');minus.type='button';minus.textContent='-';
+    const cnt=document.createElement('span');cnt.className='stepper-val';cnt.textContent=String(DENOM_COUNTS[v]||0);
+    const plus=document.createElement('button');plus.type='button';plus.textContent='+';
+    const total=document.createElement('span');total.className='denom-total';total.textContent=fmtMoney((DENOM_COUNTS[v]||0)*v,CURRENCY);
+    const bump=d=>{DENOM_COUNTS[v]=Math.max((DENOM_COUNTS[v]||0)+d,0);denomRender();denomApply()};
+    minus.onclick=()=>bump(-1);plus.onclick=()=>bump(1);
+    step.appendChild(minus);step.appendChild(cnt);step.appendChild(plus);
+    row.appendChild(lab);row.appendChild(step);row.appendChild(total);box.appendChild(row)});
+  const sum=document.createElement('div');sum.className='denom-sum';
+  const tot=Object.entries(DENOM_COUNTS).reduce((a,[v,n])=>a+Number(v)*n,0);
+  sum.textContent='Counted: '+fmtMoney(tot,CURRENCY);box.appendChild(sum)}
+function denomApply(){const tot=Object.entries(DENOM_COUNTS).reduce((a,[v,n])=>a+Number(v)*n,0);
+  $('#cash-close-amt').value=(tot/100).toFixed(2);cashRender()}
+
 function cashSetup(){if(!$('#cash-open-amt'))return;
   const amt=(id,fn)=>{$(id).addEventListener('input',()=>{const el=$(id);el.value=el.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1');fn()})};
   amt('#cash-open-amt',cashRender);amt('#cash-close-amt',cashRender);
@@ -350,6 +404,7 @@ function cashSetup(){if(!$('#cash-open-amt'))return;
     api('/api/retail/cash/close',{session_id:CASH.session,actual_minor:v})
       .then(()=>{notice(true,'Till closed');$('#cash-close-amt').value='';CASH.session=null;cashRender();reload();refreshExport()})
       .catch(e=>{notice(false,e.message);cashRender()})};
+  const togBtn=$('#denom-toggle');if(togBtn)togBtn.onclick=()=>{const box=$('#denom');box.hidden=!box.hidden;if(!box.hidden)denomRender();togBtn.textContent=box.hidden?'Count by notes and coins':'Hide the note and coin counter'};
   cashRender()}
 function cashRender(){if(!$('#cash-store'))return;
   const open=openSessions();
