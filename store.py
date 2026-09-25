@@ -399,6 +399,32 @@ class Store:
                 self._db.execute('INSERT INTO oauth_identities(provider,issuer,subject,user_id,workspace_id,created_at) VALUES(?,?,?,?,?,?)',(g['provider'],g['issuer'],g['subject'],u['id'],u['workspace_id'],utcnow()))
                 self._audit(u['workspace_id'],u['id'],'identity.link',{'provider':g['provider']})
         return self.oauth_grant_create(g['provider'],g['issuer'],g['subject'],email,bool(g['email_verified']),g['next_path'],'signin')[0]
+
+    def oauth_link_instead(self,workspace_id,user_id,email,password):
+        rows=self._db.execute('SELECT provider,issuer,subject FROM oauth_identities WHERE user_id=? AND workspace_id=?',(user_id,workspace_id)).fetchall()
+        if not rows:raise Conflict('no Google or Microsoft identity is linked to this sign-in')
+        auto=self._db.execute("SELECT 1 FROM audit_events WHERE workspace_id=? AND action='identity.sso_signup' LIMIT 1",(workspace_id,)).fetchone()
+        if not auto:raise Conflict('this company was not created by a Google or Microsoft sign-in')
+        email=(email or '').strip().lower();options=self.login_options(email,password)
+        if not options:raise Conflict('email or password did not match an existing Mosaic account')
+        with self.tx():
+            for r in rows:
+                for o in options:
+                    u=self._db.execute('SELECT id,workspace_id FROM users WHERE workspace_id=? AND email=? AND disabled_at IS NULL',(o['workspace_id'],email)).fetchone()
+                    self._db.execute('INSERT INTO oauth_identities(provider,issuer,subject,user_id,workspace_id,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING',(r['provider'],r['issuer'],r['subject'],u['id'],u['workspace_id'],utcnow()))
+                    self._audit(u['workspace_id'],u['id'],'identity.link',{'provider':r['provider']})
+            self._db.execute("UPDATE workspaces SET status='closed' WHERE id=?",(workspace_id,))
+            self._audit(workspace_id,user_id,'workspace.close',{'reason':'sso_link_instead'})
+        r=rows[0]
+        return self.oauth_grant_create(r['provider'],r['issuer'],r['subject'],email,True,'/','signin')[0]
+    def oauth_auto_provision(self,provider,issuer,subject,email):
+        email=(email or '').strip().lower() or f"user-{sha256(issuer+'|'+subject)[:16]}@sso.local"
+        with self.tx():
+            wid,_=self.create_workspace('My company')
+            user=self.create_user(wid,email,secrets.token_urlsafe(48),'owner','signup')
+            self._db.execute('INSERT INTO oauth_identities(provider,issuer,subject,user_id,workspace_id,created_at) VALUES(?,?,?,?,?,?)',(provider,issuer,subject,user['user_id'],wid,utcnow()))
+            self._audit(wid,user['user_id'],'identity.sso_signup',{'provider':provider,'email':email})
+        return {'user_id':user['user_id'],'workspace_id':wid,'email':email}
     def accept_invitation_federated(self,token,provider,issuer,subject):
         invite=self.invitation(token)
         if not invite:raise Conflict('invitation is invalid or expired')

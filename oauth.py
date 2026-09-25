@@ -55,7 +55,8 @@ class OAuth:
             created=self.store.accept_invitation_federated(challenge['invite_token'],provider,issuer,sub)
             if created.get('operational_role') and self.provisioner:self.provisioner.rbac.bind_role(created['workspace_id'],created['user_id'],created['user_id'],created['operational_role'])
             return self.store.oauth_grant_create(provider,issuer,sub,email,verified,challenge['next_path'],'signin')
-        return self.store.oauth_grant_create(provider,issuer,sub,email,verified,challenge['next_path'],'link')
+        self.store.oauth_auto_provision(provider,issuer,sub,email)
+        return self.store.oauth_grant_create(provider,issuer,sub,email,verified,challenge['next_path'],'signin')
     def _token_and_claims(self,p,code,verifier,redirect_uri):
         body=urlencode({'client_id':p.client_id,'client_secret':p.client_secret,'code':code,'code_verifier':verifier,'grant_type':'authorization_code','redirect_uri':redirect_uri}).encode()
         try:
