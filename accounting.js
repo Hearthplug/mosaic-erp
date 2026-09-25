@@ -1,7 +1,8 @@
 const $=s=>document.querySelector(s);let currency='USD';const money=(n,c)=>new Intl.NumberFormat(undefined,{style:'currency',currency:c||currency}).format((n||0)/100);
 async function api(path){const r=await fetch(path,{headers:{...MosaicAuth.headers}});if(r.status===401){MosaicAuth.expired();throw Error('Signed out')};if(!r.ok)throw Error((await r.json()).error||'Could not load');return r.json()}
 async function load(){try{const [s,t,ar,ap,f]=await Promise.all([api('/api/accounting/status').catch(()=>({verification_state:'not_ready',invalidation_reason:'finish accounting setup'})),api('/api/accounting/trial-balance'),api('/api/accounting/aging?as_of=2026-09-17&kind=receivable'),api('/api/accounting/aging?as_of=2026-09-17&kind=payable'),api('/api/accounting/statements?as_of=2026-09-17')]);currency=s.base_currency||'USD';$('#dashboard').hidden=false;loadBills();$('#verify-title').textContent=s.verification_state==='verified'?'Setup checked':'Setup needs attention';$('#verify-copy').textContent=s.verification_state==='verified'?'Your accounting setup is ready.':(s.invalidation_reason?String(s.invalidation_reason).replace(/^finish /i,'Finish ')+' before filing.':'Finish accounting setup before filing.');$('#verify-chip').textContent=s.verification_state==='verified'?'Ready':'Review';$('#verify-chip').className='chip '+(s.verification_state==='verified'?'green':'amber');$('#status').textContent=s.verification_state==='verified'?'Ready':'Review needed';$('#ar').textContent=money(Object.values(ar.buckets).reduce((a,b)=>a+b,0));$('#ap').textContent=money(Object.values(ap.buckets).reduce((a,b)=>a+b,0));$('#tb').textContent=money(t.total_debit_minor)+' = '+money(t.total_credit_minor);$('#pnl').textContent=money(f.net_profit_minor);const assets=f.balance_sheet.filter(x=>x.type==='asset').reduce((a,x)=>a+x.amount_minor,0),owed=f.balance_sheet.filter(x=>x.type==='liability').reduce((a,x)=>a+x.amount_minor,0);$('#bs').textContent=money(assets)+' in assets, '+money(owed)+' owed';}catch(e){$('#verify-title').textContent='Could not load books';$('#verify-copy').textContent=e.message;$('#verify-chip').textContent='Offline';$('#verify-chip').className='chip red'}}
-if(MosaicAuth.require()){let x=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');$('#company').textContent=x.workspace_name||'Your company';$('#authstate').textContent='Books · '+(x.role||'your role');$('#signout').onclick=()=>MosaicAuth.clear();load()}
+if(MosaicAuth.require()){let x=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');$('#company').textContent=x.workspace_name||'Your company';
+if(!x.workspace_name)fetch('/api/workspace',{headers:{...MosaicAuth.headers}}).then(r=>r.ok?r.json():null).then(w=>{if(w&&w.name)$('#company').textContent=w.name}).catch(()=>{});$('#authstate').textContent='Books · '+(x.role||'your role');$('#signout').onclick=()=>MosaicAuth.clear();load()}
 
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function statusChip(status,balance){if(status==='voided')return['Voided','red'];if(status==='draft')return['Draft','amber'];if(status==='approved')return['Approved','amber'];return balance>0?['Open','amber']:['Paid','green']}
@@ -10,3 +11,51 @@ async function openBill(id){$('#dashboard').hidden=true;$('#bill-detail').hidden
 function routeBill(){const m=(location.hash||'').match(/^#bill\/(.+)$/);if(m){openBill(m[1])}else{$('#bill-detail').hidden=true;$('#dashboard').hidden=false}}
 addEventListener('hashchange',routeBill);routeBill();
 const onNav=document.querySelector('.rail nav a.on');if(onNav)onNav.scrollIntoView({inline:'center',block:'nearest'});
+
+async function dlReport(report,fmt,btn){try{btn.disabled=true;
+  const r=await fetch('/api/reports/export?report='+report+'&fmt='+fmt,{headers:{...MosaicAuth.headers}});
+  if(r.status===401){MosaicAuth.expired();return}
+  if(!r.ok)throw Error((await r.json()).error||'Could not download');
+  const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download='mosaic-'+report+'.'+fmt;a.click();URL.revokeObjectURL(url)}
+  catch(e){alert(e.message)}finally{btn.disabled=false}}
+document.querySelectorAll('.dlcell').forEach(cell=>{const rep=cell.dataset.report;
+  [['PDF','pdf'],['XLSX','xlsx'],['CSV','csv']].forEach(([label,fmt])=>{
+    const b=document.createElement('button');b.type='button';b.className='dl-btn';b.textContent=label;
+    b.title=fmt==='pdf'?'A clean printable copy':fmt==='xlsx'?'Opens in Excel':'Plain spreadsheet text';
+    b.onclick=()=>dlReport(rep,fmt,b);cell.appendChild(b)})});
+
+let CUSTOMQ='';
+async function customBuild(q){const err=$('#customerr'),out=$('#customout');err.hidden=true;out.hidden=true;
+  if(!q.trim()){err.textContent='Describe the report you want, like "sales by item last month".';err.hidden=false;return}
+  const r=await fetch('/api/reports/custom?q='+encodeURIComponent(q),{headers:{...MosaicAuth.headers}});
+  if(r.status===401){MosaicAuth.expired();return}
+  const d=await r.json();
+  if(d.clarify){err.textContent=d.clarify+' Try: '+(d.examples||[]).join(' · ');err.hidden=false;return}
+  CUSTOMQ=q;
+  $('#customline').textContent=d.understood+' - check this is what you meant.';
+  $('#customhead').innerHTML='<tr>'+d.columns.map(c=>'<th>'+c+'</th>').join('')+'</tr>';
+  const all=d.totals?[...d.rows,d.totals]:d.rows;
+  $('#custombody').innerHTML=all.length?all.map(row=>'<tr>'+row.map((c,i)=>'<td data-label="'+d.columns[i]+'">'+String(c)+'</td>').join('')+'</tr>').join(''):'<tr><td>Nothing matched.</td></tr>';
+  out.hidden=false}
+async function customExport(fmt,btn){btn.disabled=true;try{
+  const r=await fetch('/api/reports/custom-export?q='+encodeURIComponent(CUSTOMQ)+'&fmt='+fmt,{headers:{...MosaicAuth.headers}});
+  if(r.status===401){MosaicAuth.expired();return}
+  if(!r.ok)throw Error((await r.json()).error||'Could not download');
+  const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='mosaic-custom-report.'+fmt;a.click();URL.revokeObjectURL(url)}
+  catch(e){alert(e.message)}finally{btn.disabled=false}}
+async function customSavedLoad(){const box=$('#customsaved');if(!box)return;
+  try{const r=await fetch('/api/reports/saved',{headers:{...MosaicAuth.headers}});if(!r.ok)return;const d=await r.json();
+  box.innerHTML='';
+  (d.reports||[]).forEach(rep=>{const b=document.createElement('button');b.type='button';b.className='dl-btn';b.style.marginBottom='4px';b.textContent=rep.name;b.title=rep.query;
+    b.onclick=()=>{$('#customq').value=rep.query;customBuild(rep.query)};box.appendChild(b)})}catch(e){}}
+$('#customgo').onclick=()=>customBuild($('#customq').value);
+$('#customq').addEventListener('keydown',e=>{if(e.key==='Enter')customBuild($('#customq').value)});
+$('#custompdf').onclick=e=>customExport('pdf',e.target);
+$('#customxlsx').onclick=e=>customExport('xlsx',e.target);
+$('#customcsv').onclick=e=>customExport('csv',e.target);
+$('#customsave').onclick=async e=>{const name=prompt('Name this report',CUSTOMQ);if(!name)return;
+  try{const r=await fetch('/api/reports/saved',{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify({name,query:CUSTOMQ})});
+  if(r.status===401){MosaicAuth.expired();return}
+  if(!r.ok)throw Error((await r.json()).error||'Could not save');customSavedLoad()}catch(err){alert(err.message)}};
+customSavedLoad();

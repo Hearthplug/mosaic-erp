@@ -13,6 +13,7 @@ from retail import Retail
 from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
+import report_export, custom_report
 from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
 import build_bills, build_registers
 import dayclose, dayclose_share, voice_intake
@@ -602,6 +603,43 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.get_document(wid, qs.get('id',[''])[0]), rid=rid) or 200
         if p == '/api/dayclose/summary':
             wid, _, _ = self._auth('viewer'); return self.out(200, dayclose.day_summary(STORE, wid, qs.get('date',[dayclose.local_today(STORE, wid)])[0]), rid=rid) or 200
+        if p == '/api/reports/export':
+            wid, _, _ = self._auth('viewer')
+            rep=qs.get('report',[''])[0]; fmt=qs.get('fmt',['pdf'])[0]
+            if rep not in report_export.REPORTS: raise ValueError('Unknown report. Pick one of: '+', '.join(report_export.REPORTS))
+            if fmt not in ('pdf','xlsx','csv'): raise ValueError('Unknown format. Use pdf, xlsx or csv.')
+            title,sub,cols,rows,totals=report_export.build_report(rep,wid,qs,STORE,BOOKS,lambda w,d: dayclose.day_summary(STORE,w,d or dayclose.local_today(STORE,w)))
+            if fmt=='pdf': body,k=report_export.render_pdf(title,sub,cols,rows,totals),'application/pdf'
+            elif fmt=='xlsx': body,k=report_export.render_xlsx(title,cols,rows,totals),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            else: body,k=report_export.render_csv(cols,rows,totals),'text/csv'
+            fname='mosaic-%s-%s.%s'%(rep,dayclose.local_today(STORE,wid),fmt)
+            return self.out(200,body,k,hdrs={'Content-Disposition':'attachment; filename="%s"'%fname},rid=rid) or 200
+        if p == '/api/reports/custom':
+            wid, _, _ = self._auth('viewer')
+            q=qs.get('q',[''])[0].strip()
+            if not q: raise ValueError('Describe the report you want, like "sales by item last month".')
+            parsed=custom_report.parse(q)
+            if 'clarify' in parsed: return self.out(200,parsed,rid=rid) or 200
+            cur=BOOKS.status(wid).get('base_currency','USD')
+            title,sub,cols,rows,totals=custom_report.run(STORE,wid,parsed,cur)
+            return self.out(200,{'understood':custom_report.understood_line(parsed),'title':title,'subtitle':sub,'columns':[c[0] for c in cols],'rows':[list(r) for r in rows],'totals':list(totals) if totals else None},rid=rid) or 200
+        if p == '/api/reports/custom-export':
+            wid, _, _ = self._auth('viewer')
+            q=qs.get('q',[''])[0].strip(); fmt=qs.get('fmt',['pdf'])[0]
+            if fmt not in ('pdf','xlsx','csv'): raise ValueError('Unknown format. Use pdf, xlsx or csv.')
+            parsed=custom_report.parse(q)
+            if 'clarify' in parsed: raise ValueError(parsed['clarify'])
+            cur=BOOKS.status(wid).get('base_currency','USD')
+            title,sub,cols,rows,totals=custom_report.run(STORE,wid,parsed,cur)
+            if fmt=='pdf': body,k=report_export.render_pdf(title,sub,cols,rows,totals),'application/pdf'
+            elif fmt=='xlsx': body,k=report_export.render_xlsx(title,cols,rows,totals),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            else: body,k=report_export.render_csv(cols,rows,totals),'text/csv'
+            fname='mosaic-custom-report-%s.%s'%(dayclose.local_today(STORE,wid),fmt)
+            return self.out(200,body,k,hdrs={'Content-Disposition':'attachment; filename="%s"'%fname},rid=rid) or 200
+        if p == '/api/reports/saved':
+            wid, _, _ = self._auth('viewer')
+            rows=STORE._db.execute('SELECT id,name,query FROM saved_reports WHERE workspace_id=? ORDER BY created_at DESC LIMIT 50',(wid,)).fetchall()
+            return self.out(200,{'reports':[dict(r) for r in rows]},rid=rid) or 200
         if p == '/api/dayclose/closes':
             wid, _, _ = self._auth('viewer'); return self.out(200, {'closes': dayclose.list_closes(STORE, wid)}, rid=rid) or 200
         if p == '/api/dayclose/share':
@@ -817,6 +855,18 @@ class H(BaseHTTPRequestHandler):
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,TAX.attest(wid,actor,d['verification'],d['rules']),rid=rid) or 201
         if p == '/api/tax/regression':
             wid, _, _ = self._auth('owner'); d=self._body(); return self.out(200,TAX.regression(wid,d['jurisdiction'],d['cases']),rid=rid) or 200
+        if p == '/api/reports/saved':
+            wid, _, _ = self._auth('editor'); d=self._body()
+            name=(d.get('name') or '').strip(); query=(d.get('query') or '').strip()
+            if not name or not query: raise ValueError('Name the report and keep its question.')
+            import secrets
+            rid2='srep_'+secrets.token_hex(8)
+            STORE._db.execute('INSERT INTO saved_reports(id,workspace_id,name,query,created_at) VALUES(?,?,?,?,?)',(rid2,wid,name,query,utcnow())); STORE._db.commit()
+            return self.out(200,{'id':rid2},rid=rid) or 200
+        if p == '/api/reports/saved/delete':
+            wid, _, _ = self._auth('editor'); d=self._body()
+            STORE._db.execute('DELETE FROM saved_reports WHERE workspace_id=? AND id=?',(wid,d.get('id',''))); STORE._db.commit()
+            return self.out(200,{'deleted':True},rid=rid) or 200
         if p == '/api/migrations/stage':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,MIGRATIONS_API.stage(wid,actor,d['kind'],d['csv'],d.get('source_system','upload')),rid=rid) or 201
         if p == '/api/migrations/apply':
