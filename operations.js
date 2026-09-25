@@ -120,6 +120,7 @@ function updateMoneyLabels(){document.querySelectorAll('label').forEach(l=>{if([
 function connect(){if(!MosaicAuth.require())return;
   let identity=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');
   $('#company').textContent=identity.workspace_name||'Your company';
+  if(!identity.workspace_name)get('/api/workspace').then(w=>{if(w&&w.name)$('#company').textContent=w.name}).catch(()=>{});
   $('#signout').onclick=()=>MosaicAuth.clear();
   Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(async([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
