@@ -49,7 +49,7 @@
 .dl-btn:hover{background:#f2f0eb}
 .dl-btn:disabled{opacity:.45;cursor:not-allowed}
 
-.askbody{padding:0 15px 14px}
+.askbody{padding:13px 15px 14px}
 .askrow{display:flex;gap:8px}
 .askrow input{flex:1;min-width:0;height:34px;border:1px solid var(--hairline-strong,#d0ccc2);border-radius:7px;background:#fff;padding:0 10px;font:13px var(--font);color:var(--ink,#1c211f)}
 .askrow input:focus{outline:2px solid rgba(240,100,55,.35);outline-offset:1px}
@@ -60,4 +60,4 @@
 .asksaved:empty{margin-top:0}
 .askactions{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
 #customline{margin:10px 0 6px}
-@media(max-width:760px){.askrow{flex-direction:column}.askrow input{width:100%;height:40px}.askrow button{width:100%;height:40px}}
+@media(max-width:760px){.askrow{flex-direction:column}.askrow input{width:100%;height:44px}.askrow button{width:100%;height:44px}}

@@ -159,7 +159,8 @@ def run(store, wid, parsed, currency='USD'):
         rows = [(r['label'], str(r['docs']), _money(r['bal'], currency)) for r in store._db.execute(sql, (wid, kind)).fetchall()]
         total = store._db.execute("SELECT COALESCE(SUM(balance_minor),0) AS t FROM documents WHERE workspace_id=? AND kind=? AND status='posted' AND balance_minor>0", (wid, kind)).fetchone()['t']
         title = 'What you owe each supplier' if metric == 'owed_by_me' else 'What each customer owes you'
-        return (title, shop, [(party_label, 0.5, 'left'), ('Open docs', 0.2, 'right'), ('Owed', 0.3, 'right')], rows, ('Totals', '', _money(total, currency)))
+        count_label = 'Open bills' if metric == 'owed_by_me' else 'Unpaid invoices'
+        return (title, shop, [(party_label, 0.5, 'left'), (count_label, 0.2, 'right'), ('Owed', 0.3, 'right')], rows, ('Totals', '', _money(total, currency)))
 
     raise ValueError('That combination is not available yet.')
 
