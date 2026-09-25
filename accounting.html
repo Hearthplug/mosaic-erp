@@ -1,12 +1,32 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mosaic Books</title><link rel="icon" type="image/svg+xml" href="/mosaic-logo.svg"><link rel="stylesheet" href="/accounting.css"></head>
 <body><div class="appshell">
-<aside class="rail"><a class="brand" href="/operations"><img src="/mosaic-logo.svg" alt="">Mosaic <span>ERP</span></a><nav aria-label="Modules"><p>Daily work</p><a href="/operations#today">Today</a><a href="/operations#stock">Stock</a><a href="/operations#sales">Sales</a><a href="/operations#buying">Buying</a><a href="/operations#money">Money</a><p>Business</p><a class="on" href="/accounting">Books</a><a href="/assistant">Assistant <small>Preview</small></a></nav><footer><b id="company">Your company</b><span id="authstate">Opening your books…</span><button id="signout" type="button">Sign out</button></footer></aside>
+<aside class="rail">
+    <a class="rail-brand" href="/operations"><img src="/mosaic-logo.svg" alt="">Mosaic<span>ERP</span></a>
+    <nav class="rail-nav" aria-label="Modules">
+      <p class="rail-group">Daily work</p>
+      <a class="rail-item" href="/operations#today"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2.8 8.4 9 3l6.2 5.4M4.8 7.2V15h3.4v-3.8h1.6V15h3.4V7.2"/></svg>Today</a>
+      <a class="rail-item" href="/operations#stock"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2.8 5.6 9 2.4l6.2 3.2v6.8L9 15.6 2.8 12.4zM2.8 5.6 9 8.8l6.2-3.2M9 8.8v6.8"/></svg>Stock</a>
+      <a class="rail-item" href="/operations#sales"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2.6 8.2V3.6a1 1 0 0 1 1-1h4.6l6.2 6.2a1.2 1.2 0 0 1 0 1.7l-4.3 4.3a1.2 1.2 0 0 1-1.7 0z"/><circle cx="6.4" cy="6.4" r="1.1"/></svg>Sales</a>
+      <a class="rail-item" href="/operations#buying"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M2.4 3.2h1.9l1.7 8.2h7.6l1.5-5.8H5.3"/><circle cx="7.6" cy="14.4" r="1.2"/><circle cx="12.6" cy="14.4" r="1.2"/></svg>Buying</a>
+      <a class="rail-item" href="/operations#money"><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="2.4" y="4.6" width="13.2" height="8.8" rx="1.8"/><circle cx="9" cy="9" r="2.2"/><path d="M5.2 7.2v.01M12.8 10.8v.01"/></svg>Money</a>
+      <p class="rail-group">Business</p>
+      <a class="rail-item on" href="/accounting"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4.2 3h8.2a1.4 1.4 0 0 1 1.4 1.4V15H5.6a1.4 1.4 0 0 1-1.4-1.4zM4.2 13.6A1.4 1.4 0 0 1 5.6 12.2h8.2"/></svg>Books</a>
+      <a class="rail-item" href="/build"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 9.6 8.4 15l6.6-6.6M3 4.2h12M3 9h.01"/></svg>Build</a>
+      <a class="rail-item" href="/assistant"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2.4c.6 3.5 2.5 5.4 6 6-3.5.6-5.4 2.5-6 6-.6-3.5-2.5-5.4-6-6 3.5-.6 5.4-2.5 6-6z"/></svg>Assistant<span class="rail-badge">Preview</span></a>
+      <a class="rail-item" href="/"><svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="2.2"/><path d="M9 2.8v1.8M9 13.4v1.8M2.8 9h1.8M13.4 9h1.8M4.9 4.9l1.3 1.3M11.8 11.8l1.3 1.3M13.1 4.9l-1.3 1.3M6.2 11.8l-1.3 1.3"/></svg>Settings</a>
+    </nav>
+    <footer class="rail-foot">
+      <b id="company">Your company</b>
+      <span id="authstate" aria-live="polite">Opening your books…</span>
+      <button id="signout" type="button" class="rail-signout">Sign out</button>
+    </footer>
+  </aside>
 <main class="main"><header><div class="crumb">Business <span>›</span> Books</div><h1>Books</h1><p>Money owed, checks and reports in one place.</p></header>
 <section class="status" id="verify"><div><b id="verify-title">Checking your books</b><p id="verify-copy">Loading the latest setup check…</p></div><span class="chip amber" id="verify-chip">Checking</span></section>
 <section id="dashboard" hidden>
 <div class="stats"><article><span>Money owed to you</span><strong class="money" id="ar">—</strong><small>Open customer invoices</small></article><article><span>Money you owe</span><strong class="money" id="ap">—</strong><small>Open supplier bills</small></article><article><span>Setup check</span><strong class="status-value" id="status">—</strong><small>Changes that need attention</small></article></div>
-<section class="card"><div class="cardhead"><div><h2>Reports</h2><p>Current balances from posted entries.</p></div><button type="button" disabled title="Report downloads are not available yet">Export</button></div><div class="tablewrap"><table><thead><tr><th>Report</th><th>What it tells you</th><th>Latest result</th><th>Status</th></tr></thead><tbody><tr><td><b>Trial balance</b></td><td data-label="Tells you">Checks that debits and credits match</td><td data-label="Result" class="num" id="tb">—</td><td data-label="Status"><span class="chip green">Ready</span></td></tr><tr><td><b>Profit and loss</b></td><td data-label="Tells you">Income, costs and current profit</td><td data-label="Result" class="num" id="pnl">—</td><td data-label="Status"><span class="chip green">Ready</span></td></tr><tr><td><b>Balance sheet</b></td><td data-label="Tells you">What the business owns and owes</td><td data-label="Result" class="num" id="bs">—</td><td data-label="Status"><span class="chip green">Ready</span></td></tr></tbody></table></div></section>
+<section class="card"><div class="cardhead"><div><h2>Reports</h2><p>Current balances from posted entries.</p></div></div><div class="tablewrap"><table><thead><tr><th>Report</th><th>What it tells you</th><th>Latest result</th><th>Status</th></tr></thead><tbody><tr><td><b>Trial balance</b></td><td data-label="Tells you">Checks the books are balanced - for every entry, money in equals money out</td><td data-label="Result" class="num" id="tb">—</td><td data-label="Status"><span class="chip green">Ready</span></td></tr><tr><td><b>Profit and loss</b></td><td data-label="Tells you">Income, costs and current profit</td><td data-label="Result" class="num" id="pnl">—</td><td data-label="Status"><span class="chip green">Ready</span></td></tr><tr><td><b>Balance sheet</b></td><td data-label="Tells you">What the business owns and owes</td><td data-label="Result" class="num" id="bs">—</td><td data-label="Status"><span class="chip green">Ready</span></td></tr></tbody></table></div></section>
 <section class="card"><div class="cardhead"><div><h2>Supplier bills</h2><p>What suppliers have billed you, newest first. Pick one to see its lines and payments.</p></div></div><div class="tablewrap"><table><thead><tr><th>Bill</th><th>Supplier</th><th>Bill date</th><th>Due</th><th class="num">Total</th><th class="num">Still owed</th><th>Status</th></tr></thead><tbody id="bills-body"><tr><td colspan="7">Loading bills…</td></tr></tbody></table></div></section>
 <p class="note">Posted records stay in the audit trail. If something is wrong, reverse it instead of deleting it.</p>
 </section>

@@ -4,9 +4,9 @@ const VIEWS={
   stock:{title:'Stock',sub:'What you have, and where it is.'},
   sales:{title:'Sales',sub:'Every bill, payment and refund.'},
   buying:{title:'Buying',sub:'Orders, deliveries and supplier bills.'},
-  money:{title:'Money',sub:'Till sessions and period locks.'}
+  money:{title:'Money',sub:'Tills (cash drawers) and period locks (stopping changes to a finished month).'}
 };
-let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='USD';
+let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='USD',LOW_SET=new Set();
 let IDBY_LABEL={},PO_LINES={};
 
 function api(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}).then(r=>r.json().then(j=>{if(r.status===401){MosaicAuth.expired();throw Error('Signed out')};if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
@@ -34,17 +34,19 @@ function select(name){if(!VIEWS[name])name='today';
   $('#page-title').textContent=VIEWS[name].title;$('#page-crumb').textContent=VIEWS[name].title;$('#page-sub').textContent=VIEWS[name].sub;
   if(('#'+name)!==location.hash)history.replaceState(null,'','#'+name)}
 $$('.rail-item[data-view]').forEach(b=>b.onclick=()=>select(b.dataset.view));
+const sf=$('#sales-from'),sto=$('#sales-to');if(sf){sf.onchange=()=>{SALES_FROM=sf.value;renderSales()};sto.onchange=()=>{SALES_TO=sto.value;renderSales()}}
 addEventListener('hashchange',()=>select(location.hash.slice(1)));
 
-function renderStock(){const rows=LISTS.stock.map(r=>{const tr=document.createElement('tr');
+function renderStock(){const rows=LISTS.stock.map(r=>{const tr=document.createElement('tr');if(LOW_SET.has(r.location_id+':'+r.product_id))tr.dataset.low='1';
   tr.appendChild(cell(r.name,'',r.sku));tr.appendChild(cell(r.location_name,'',r.location_code));tr.appendChild(cell(fmtQty(r.on_hand)+(r.unit&&r.unit!=='each'?' '+r.unit:''),'num'));return tr});
   fill('stock-table',rows,'No items yet. Your first delivery appears here.');
   $('#stock-count').textContent=LISTS.stock.length?LISTS.stock.length+' rows':'';
   $('#kpi-stock').textContent=LISTS.stock.length?fmtQty(LISTS.stock.reduce((a,r)=>a+Number(r.on_hand||0),0)):'0';if($('#move-tiles'))moveRender()}
-function renderSales(){const rows=LISTS.sales.map(r=>{const tr=document.createElement('tr');tr.className='sale-openable';tr.title='Tap to see the bill or refund items';tr.onclick=()=>openSaleDetail(r.id);
+let SALES_FROM='',SALES_TO='';
+function renderSales(){const vis=LISTS.sales.filter(r=>{const d=(r.sold_at||'').slice(0,10);return (!SALES_FROM||d>=SALES_FROM)&&(!SALES_TO||d<=SALES_TO)});const rows=vis.map(r=>{const tr=document.createElement('tr');tr.className='sale-openable';tr.title='Tap to see the bill or refund items';tr.onclick=()=>openSaleDetail(r.id);
   tr.appendChild(cell(r.number,'cell-main'));tr.appendChild(cell(fmtWhen(r.sold_at)));tr.appendChild(cell(r.location_code));tr.appendChild(cell(String(r.line_count),'num'));tr.appendChild(cell(fmtMoney(r.total_minor,r.currency),'num'));tr.appendChild(cell(fmtMoney(r.paid_minor,r.currency),'num'));tr.appendChild(pillCell(r.status));return tr});
   fill('sales-table',rows,'No sales yet. Make your first sale on the till below.');
-  $('#sales-count').textContent=LISTS.sales.length?'last '+LISTS.sales.length:'';
+  $('#sales-count').textContent=vis.length?((SALES_FROM||SALES_TO)?vis.length+' in range':'last '+vis.length):'';
   const today=new Date().toDateString(),todays=LISTS.sales.filter(r=>new Date(r.sold_at).toDateString()===today);
   $('#kpi-sales').textContent=todays.length?fmtMoney(todays.reduce((a,r)=>a+r.total_minor,0),todays[0].currency):'—';
   $('#kpi-sales-sub').textContent=todays.length?todays.length+(todays.length===1?' bill':' bills')+' today':'no bills yet'}
@@ -89,6 +91,29 @@ function refreshLists(c){
   fill('#orders',c.purchase_orders,'po',x=>x.number+' · '+(STATUS[x.status]?STATUS[x.status][1]:x.status));
   fill('#bill-options',c.open_bills,'bill',x=>x.number+' · '+fmtMoney(x.balance_minor))}
 function refreshContext(){return get('/api/operations/context').then(c=>{refreshLists(c)}).catch(()=>{})}
+
+const XLSX={crc:(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})(),
+crc32(s){let c=0xFFFFFFFF;for(let i=0;i<s.length;i++)c=this.crc[(c^s.charCodeAt(i))&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0},
+zip(files){const enc=s=>unescape(encodeURIComponent(s));let out=[],central=[],off=0;
+files.forEach(f=>{const name=enc(f.name),data=enc(f.data),crc=this.crc32(data),head=[0x50,0x4b,3,4,20,0,0,0,0,0,0,0,0,0,crc&255,crc>>>8&255,crc>>>16&255,crc>>>24&255,data.length&255,data.length>>>8&255,data.length>>>16&255,data.length>>>24&255,data.length&255,data.length>>>8&255,data.length>>>16&255,data.length>>>24&255,name.length&255,name.length>>>8&255,0,0];
+out=out.concat(head);for(let i=0;i<name.length;i++)out.push(name.charCodeAt(i));for(let i=0;i<data.length;i++)out.push(data.charCodeAt(i));
+const cd=[0x50,0x4b,1,2,20,0,20,0,0,0,0,0,0,0,0,0,crc&255,crc>>>8&255,crc>>>16&255,crc>>>24&255,data.length&255,data.length>>>8&255,data.length>>>16&255,data.length>>>24&255,data.length&255,data.length>>>8&255,data.length>>>16&255,data.length>>>24&255,name.length&255,name.length>>>8&255,0,0,0,0,0,0,0,0,0,0,0,0,off&255,off>>>8&255,off>>>16&255,off>>>24&255];
+central=central.concat(cd);for(let i=0;i<name.length;i++)central.push(name.charCodeAt(i));off+=head.length+name.length+data.length});
+const end=[0x50,0x4b,5,6,0,0,0,0,files.length&255,files.length>>>8&255,files.length&255,files.length>>>8&255,central.length&255,central.length>>>8&255,central.length>>>16&255,central.length>>>24&255,off&255,off>>>8&255,off>>>16&255,off>>>24&255,0,0];
+const bytes=new Uint8Array(out.concat(central,end));return bytes},
+col(n){let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-1-m)/26|0}return s},
+esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))},
+sheet(rows){let xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+rows.forEach((r,ri)=>{xml+='<row r="'+(ri+1)+'">';r.forEach((v,ci)=>{const ref=this.col(ci)+(ri+1);const num=typeof v==='number'&&isFinite(v);xml+=num?'<c r="'+ref+'"><v>'+v+'</v></c>':'<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+this.esc(v)+'</t></is></c>'});xml+='</row>'});
+return xml+'</sheetData></worksheet>'},
+blob(rows){const files=[
+{name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'},
+{name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'},
+{name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Export" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+{name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'},
+{name:'xl/worksheets/sheet1.xml',data:this.sheet(rows)}];
+return new Blob([this.zip(files)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}};
+
 function refreshExport(){return get('/api/retail/export').then(x=>{EXP=x;PO_LINES={};(x.purchase_order_lines||[]).forEach(l=>{(PO_LINES[l.purchase_order_id]=PO_LINES[l.purchase_order_id]||[]).push(l)});tillRenderTiles();if($('#move-tiles'))moveRender();if($('#buy-tiles'))buyRender()}).catch(()=>{})}
 function productLabel(id){const o=IDBY_LABEL['prodbyid:'+id];return o||id}
 function updateMoneyLabels(){document.querySelectorAll('label').forEach(l=>{if(['Cash received','Unit cost','Amount'].includes(l.childNodes[0].textContent.trim()))l.childNodes[0].textContent=l.childNodes[0].textContent.trim()+' ('+CURRENCY+')'})}
@@ -96,11 +121,34 @@ function connect(){if(!MosaicAuth.require())return;
   let identity=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');
   $('#company').textContent=identity.workspace_name||'Your company';
   $('#signout').onclick=()=>MosaicAuth.clear();
-  Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
+  Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(async([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
     refreshLists(c);tillSetup(c.locations||[]);moveSetup();buySetup(c.vendors||[]);cashSetup();
-    const ol=$('#next');ol.innerHTML='';
-    c.next_steps.forEach(s=>{const li=document.createElement('li');li.textContent=s;ol.appendChild(li)});
+    Promise.all((c.locations||[]).map(l=>get('/api/retail/reorder?location_id='+encodeURIComponent(l.id)).then(r=>(r.items||[]).forEach(i=>{if(Number(i.suggested)>0)LOW_SET.add(l.id+':'+i.product_id)})).catch(()=>{}))).then(()=>renderStock());
+    const ol=$('#next');ol.innerHTML='';ol.classList.remove('checklist');
+    if(!c.products.length){
+      ol.classList.add('checklist');
+      const steps=[
+        {label:'Add your first item',view:'stock',done:false},
+        {label:'Add a store to sell from',view:'stock',done:(c.locations||[]).length>0},
+        {label:'Open a till to take cash',view:'money',done:(c.cash_sessions||[]).length>0},
+        {label:'Ring up your first sale',view:'sales',done:false}
+      ];
+      steps.forEach(s=>{const li=document.createElement('li');li.className='todo-step'+(s.done?' done':'');li.textContent=s.label;li.onclick=()=>select(s.view);ol.appendChild(li)});
+    }else{
+      ol.classList.add('checklist');
+      const tasks=[];
+      const lowSet=new Set();
+      await Promise.all((c.locations||[]).map(l=>get('/api/retail/reorder?location_id='+encodeURIComponent(l.id)).then(r=>(r.items||[]).forEach(i=>{if(Number(i.suggested)>0)lowSet.add(i.product_id)})).catch(()=>{})));
+      if(lowSet.size)tasks.push({label:lowSet.size+(lowSet.size===1?' item':' items')+' running low - reorder soon',view:'stock'});
+      (c.cash_sessions||[]).forEach(s=>{const t=new Date(s.opened_at);const clock=t.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});tasks.push({label:'1 till still open at '+s.location_name+' since '+clock,view:'money'})});
+      const drafts=(c.purchase_orders||[]).filter(o=>o.status==='draft').length;
+      if(drafts)tasks.push({label:drafts+(drafts===1?' draft order':' draft orders')+' to approve',view:'buying'});
+      const unpaid=(c.open_bills||[]).filter(b=>Number(b.balance_minor)>0).length;
+      if(unpaid)tasks.push({label:unpaid+(unpaid===1?' supplier bill':' supplier bills')+' unpaid',view:'buying'});
+      if(!tasks.length){const li=document.createElement('li');li.className='todo-step done';li.textContent='All caught up';ol.appendChild(li)}
+      tasks.forEach(t=>{const li=document.createElement('li');li.className='todo-step';li.textContent=t.label;li.onclick=()=>select(t.view);ol.appendChild(li)});
+    }
     reload();refreshExport()
   }).catch(e=>{$('#state').textContent='Could not open workspace';notice(false,e.message)})}
 
@@ -109,7 +157,10 @@ $('#bill-match').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/
 $('#add-vendor').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/accounting/parties',{kind:'vendor',name:d.name},'Supplier added');e.target.reset()};
 $('#add-item').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/products',{sku:d.sku,name:d.name,selling_price_minor:Math.round(+d.price*100),cost_minor:Math.round(+d.cost*100)},'Item added');e.target.reset()};
 $('#add-location').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/locations',{code:d.code.toUpperCase(),name:d.name,kind:'store'},'Store added');e.target.reset()};
-$('#close').onsubmit=e=>{e.preventDefault();run('/api/accounting/periods/lock',{period_id:data(e.target).period_id},'Period locked')};
+const periodChips=$('#period-chips'),periodLockId=$('#period-lock-id'),periodLockBtn=$('#close button[type=submit]');
+const loadPeriods=async()=>{const ps=await get('/api/accounting/periods');periodChips.innerHTML='';const today=new Date().toISOString().slice(0,10);const open=ps.filter(p=>p.status==='open');const lockable=open.filter(p=>p.ends_on<today);const running=open.filter(p=>p.ends_on>=today);if(!lockable.length){periodChips.innerHTML='<span class="hint">No finished periods to lock yet</span>';}lockable.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=p.name+' ('+p.starts_on+' to '+p.ends_on+')';b.onclick=()=>{periodChips.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));b.classList.add('on');periodLockId.value=p.id;periodLockBtn.disabled=false;};periodChips.appendChild(b);});running.forEach(p=>{const s=document.createElement('span');s.className='hint';s.textContent=p.name+' is still running - it can be locked after '+p.ends_on+'.';periodChips.appendChild(s);});};
+$('#close').onsubmit=e=>{e.preventDefault();if(!periodLockId.value)return;run('/api/accounting/periods/lock',{period_id:periodLockId.value},'Period locked').then(()=>{periodLockId.value='';periodLockBtn.disabled=true;loadPeriods();});};
+loadPeriods();
 
 select(location.hash.slice(1)||'today');
 connect();
@@ -118,10 +169,19 @@ connect();
 function tableRows(table){return [...table.tBodies[0].rows].filter(r=>!r.classList.contains('empty-row'))}
 $$('.toolbar').forEach(bar=>{
   const table=$('#'+bar.dataset.table),input=bar.querySelector('input[type=search]');
-  const apply=()=>{const term=input.value.trim().toLowerCase(),filter=bar.querySelector('.filter-chip.on')?.dataset.filter||'all';tableRows(table).forEach(row=>{const text=row.textContent.toLowerCase();row.hidden=!(text.includes(term)&&(filter==='all'||text.includes(filter)))})};
+  const apply=()=>{const term=input.value.trim().toLowerCase(),filter=bar.querySelector('.filter-chip.on')?.dataset.filter||'all';tableRows(table).forEach(row=>{const text=row.textContent.toLowerCase();row.hidden=!(text.includes(term)&&(filter==='all'||(filter==='low'?row.dataset.low==='1':text.includes(filter))))})};
   input.addEventListener('input',apply);
   bar.querySelectorAll('.filter-chip:not(:disabled)').forEach(btn=>btn.onclick=()=>{bar.querySelectorAll('.filter-chip').forEach(x=>x.classList.remove('on'));btn.classList.add('on');apply()});
-  bar.querySelector('.export-btn').onclick=()=>{const rows=[...table.rows].filter(r=>!r.hidden&&!r.classList.contains('empty-row'));const csv=rows.map(row=>[...row.cells].map(c=>'"'+c.innerText.trim().replaceAll('"','""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=table.id.replace('-table','')+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)};
+  const menu=document.createElement('div');menu.className='export-menu';menu.hidden=true;menu.innerHTML='<button type="button" data-kind="csv">CSV file</button><button type="button" data-kind="xlsx">XLSX file (Excel)</button>';bar.appendChild(menu);
+  const btn=bar.querySelector('.export-btn');btn.textContent='Export ▾';btn.title='Download this table as a CSV or XLSX file';
+  const visibleRows=()=>[...table.rows].filter(r=>!r.hidden&&!r.classList.contains('empty-row'));
+  const grid=()=>visibleRows().map(row=>[...row.cells].map(c=>c.innerText.trim()));
+  const save=(blob,name)=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)};
+  btn.onclick=e=>{e.stopPropagation();menu.hidden=!menu.hidden};
+  document.addEventListener('click',()=>{menu.hidden=true});
+  menu.onclick=e=>{const kind=e.target.dataset.kind;if(!kind)return;menu.hidden=true;const rows=grid();const stem=table.id.replace('-table','')+'-'+new Date().toISOString().slice(0,10);
+    if(kind==='csv'){const csv=rows.map(r=>r.map(c=>'"'+c.replaceAll('"','""')+'"').join(',')).join('\n');save(new Blob([csv],{type:'text/csv'}),stem+'.csv')}
+    else{save(XLSX.blob(rows),stem+'.xlsx')}};
 });
 
 /* ===== Till ===== */
@@ -311,6 +371,33 @@ function recGo(){if(!REC_PO)return;const received={};document.querySelectorAll('
 /* ===== Till open/close (pick-first) ===== */
 let CASH={store:null,session:null};
 const openSessions=()=>LISTS.money.filter(s=>s.status==='open');
+
+const DENOMS={USD:[10000,5000,2000,1000,500,200,100,25,10,5,1],INR:[50000,20000,10000,5000,2000,1000,500,200,100],EUR:[50000,20000,10000,5000,2000,1000,500,200,100,50,20,10,5,2,1],GBP:[5000,2000,1000,500,200,100,50,20,10,5,2,1]};
+let DENOM_COUNTS={};
+function denomRender(){const box=$('#denom'),tog=$('#denom-toggle');if(!box)return;const ds=DENOMS[CURRENCY];tog.hidden=!ds;if(!ds)return;
+  box.innerHTML='';
+  const notes=ds.filter(v=>v>=100),coins=ds.filter(v=>v<100);
+  const coinBox=document.createElement('div');coinBox.className='denom-coins';coinBox.hidden=true;
+  const addRow=v=>{const row=document.createElement('div');row.className='denom-row';
+    const lab=document.createElement('span');lab.className='denom-label';lab.textContent=fmtMoney(v,CURRENCY);
+    const step=document.createElement('div');step.className='stepper';
+    const minus=document.createElement('button');minus.type='button';minus.textContent='-';
+    const cnt=document.createElement('span');cnt.className='stepper-val';cnt.textContent=String(DENOM_COUNTS[v]||0);
+    const plus=document.createElement('button');plus.type='button';plus.textContent='+';
+    const total=document.createElement('span');total.className='denom-total';total.textContent=fmtMoney((DENOM_COUNTS[v]||0)*v,CURRENCY);
+    const bump=d=>{DENOM_COUNTS[v]=Math.max((DENOM_COUNTS[v]||0)+d,0);denomRender();denomApply()};
+    minus.onclick=()=>bump(-1);plus.onclick=()=>bump(1);
+    step.appendChild(minus);step.appendChild(cnt);step.appendChild(plus);
+    row.appendChild(lab);row.appendChild(step);row.appendChild(total);return row};
+  notes.forEach(v=>box.appendChild(addRow(v)));
+  if(coins.length){coins.forEach(v=>coinBox.appendChild(addRow(v)));box.appendChild(coinBox);
+    const ct=document.createElement('button');ct.type='button';ct.className='denom-toggle';ct.textContent='Show coins';ct.onclick=()=>{coinBox.hidden=!coinBox.hidden;ct.textContent=coinBox.hidden?'Show coins':'Hide coins'};box.appendChild(ct)}
+  const sum=document.createElement('div');sum.className='denom-sum';
+  const tot=Object.entries(DENOM_COUNTS).reduce((a,[v,n])=>a+Number(v)*n,0);
+  sum.textContent='Counted: '+fmtMoney(tot,CURRENCY);box.appendChild(sum)}
+function denomApply(){const tot=Object.entries(DENOM_COUNTS).reduce((a,[v,n])=>a+Number(v)*n,0);
+  $('#cash-close-amt').value=(tot/100).toFixed(2);cashRender()}
+
 function cashSetup(){if(!$('#cash-open-amt'))return;
   const amt=(id,fn)=>{$(id).addEventListener('input',()=>{const el=$(id);el.value=el.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1');fn()})};
   amt('#cash-open-amt',cashRender);amt('#cash-close-amt',cashRender);
@@ -322,6 +409,7 @@ function cashSetup(){if(!$('#cash-open-amt'))return;
     api('/api/retail/cash/close',{session_id:CASH.session,actual_minor:v})
       .then(()=>{notice(true,'Till closed');$('#cash-close-amt').value='';CASH.session=null;cashRender();reload();refreshExport()})
       .catch(e=>{notice(false,e.message);cashRender()})};
+  const togBtn=$('#denom-toggle');if(togBtn)togBtn.onclick=()=>{const box=$('#denom');box.hidden=!box.hidden;if(!box.hidden)denomRender();togBtn.textContent=box.hidden?'Count by notes and coins':'Hide the note and coin counter'};
   cashRender()}
 function cashRender(){if(!$('#cash-store'))return;
   const open=openSessions();

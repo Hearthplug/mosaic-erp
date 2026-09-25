@@ -105,6 +105,9 @@ class Accounting:
             self.s._db.execute('INSERT INTO fiscal_periods(id,workspace_id,name,starts_on,ends_on) VALUES(?,?,?,?,?)',(pid,wid,name,starts_on,ends_on))
             self.s._audit(wid,actor,'period.create',{'period_id':pid,'starts_on':starts_on,'ends_on':ends_on})
         return {'id':pid,'name':name,'starts_on':starts_on,'ends_on':ends_on,'status':'open'}
+    def list_periods(self,wid):
+        rows=self.s._db.execute('SELECT id,name,starts_on,ends_on,status FROM fiscal_periods WHERE workspace_id=? ORDER BY starts_on DESC',(wid,)).fetchall()
+        return [{'id':r['id'],'name':r['name'],'starts_on':r['starts_on'],'ends_on':r['ends_on'],'status':r['status']} for r in rows]
     def lock_period(self,wid,actor,period_id):
         with self.s.tx():
             self.s.accounting_lock(wid,'period')
