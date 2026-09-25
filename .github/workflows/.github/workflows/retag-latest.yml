@@ -1,0 +1,57 @@
+name: Retag latest container tags
+run-name: Point latest at ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Released SemVer version that latest must point at, for example 1.2.0
+        required: true
+        type: string
+
+permissions:
+  packages: write
+
+env:
+  GHCR_IMAGE: ghcr.io/hearthplug/mosaic-erp
+  DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test -n "$DOCKERHUB_IMAGE"
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Point latest at the release digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ inputs.version }}"
+          minor="${version%.*}"
+          digest_of() {
+            docker buildx imagetools inspect "$1" | awk '$1=="Digest:"{print $2;exit}'
+          }
+          for image in "$GHCR_IMAGE" "$DOCKERHUB_IMAGE"; do
+            digest="$(digest_of "$image:$version")"
+            test -n "$digest"
+            test "$(digest_of "$image:$minor")" = "$digest"
+            docker buildx imagetools create --tag "$image:latest" "$image@$digest"
+            test "$(digest_of "$image:latest")" = "$digest"
+            echo "$image:latest -> $digest"
+          done
