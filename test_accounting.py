@@ -15,6 +15,10 @@ class AccountingCase(unittest.TestCase):
   j=self.a.post_journal(self.w,'owner','2026-01-02','Mistake',[{'account_id':self.account('cash'),'debit_minor':500},{'account_id':self.account('expense'),'credit_minor':500}])
   self.a.reverse_journal(self.w,'owner',j['id'],'2026-01-03','wrong account'); self.assertEqual(self.a.trial_balance(self.w)['total_debit_minor'],1000)
   with self.assertRaises(Conflict): self.a.reverse_journal(self.w,'owner',j['id'],'2026-01-04','again')
+ def test_list_periods(self):
+  ps=self.a.list_periods(self.w); self.assertEqual(len(ps),1); self.assertEqual(ps[0]['name'],'FY26'); self.assertEqual(ps[0]['status'],'open')
+  self.a.lock_period(self.w,'owner',ps[0]['id'])
+  ps=self.a.list_periods(self.w); self.assertEqual(ps[0]['status'],'locked')
  def test_period_lock_blocks_posting(self):
   p=self.s._db.execute('SELECT id FROM fiscal_periods WHERE workspace_id=?',(self.w,)).fetchone()['id']; self.a.lock_period(self.w,'owner',p)
   with self.assertRaises(Conflict): self.a.post_journal(self.w,'owner','2026-02-01','No',[{'account_id':self.account('cash'),'debit_minor':1},{'account_id':self.account('equity'),'credit_minor':1}])
