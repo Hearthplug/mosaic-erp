@@ -376,7 +376,9 @@ const DENOMS={USD:[10000,5000,2000,1000,500,200,100,25,10,5,1],INR:[50000,20000,
 let DENOM_COUNTS={};
 function denomRender(){const box=$('#denom'),tog=$('#denom-toggle');if(!box)return;const ds=DENOMS[CURRENCY];tog.hidden=!ds;if(!ds)return;
   box.innerHTML='';
-  ds.forEach(v=>{const row=document.createElement('div');row.className='denom-row';
+  const notes=ds.filter(v=>v>=100),coins=ds.filter(v=>v<100);
+  const coinBox=document.createElement('div');coinBox.className='denom-coins';coinBox.hidden=true;
+  const addRow=v=>{const row=document.createElement('div');row.className='denom-row';
     const lab=document.createElement('span');lab.className='denom-label';lab.textContent=fmtMoney(v,CURRENCY);
     const step=document.createElement('div');step.className='stepper';
     const minus=document.createElement('button');minus.type='button';minus.textContent='-';
@@ -386,7 +388,10 @@ function denomRender(){const box=$('#denom'),tog=$('#denom-toggle');if(!box)retu
     const bump=d=>{DENOM_COUNTS[v]=Math.max((DENOM_COUNTS[v]||0)+d,0);denomRender();denomApply()};
     minus.onclick=()=>bump(-1);plus.onclick=()=>bump(1);
     step.appendChild(minus);step.appendChild(cnt);step.appendChild(plus);
-    row.appendChild(lab);row.appendChild(step);row.appendChild(total);box.appendChild(row)});
+    row.appendChild(lab);row.appendChild(step);row.appendChild(total);return row};
+  notes.forEach(v=>box.appendChild(addRow(v)));
+  if(coins.length){coins.forEach(v=>coinBox.appendChild(addRow(v)));box.appendChild(coinBox);
+    const ct=document.createElement('button');ct.type='button';ct.className='denom-toggle';ct.textContent='Show coins';ct.onclick=()=>{coinBox.hidden=!coinBox.hidden;ct.textContent=coinBox.hidden?'Show coins':'Hide coins'};box.appendChild(ct)}
   const sum=document.createElement('div');sum.className='denom-sum';
   const tot=Object.entries(DENOM_COUNTS).reduce((a,[v,n])=>a+Number(v)*n,0);
   sum.textContent='Counted: '+fmtMoney(tot,CURRENCY);box.appendChild(sum)}

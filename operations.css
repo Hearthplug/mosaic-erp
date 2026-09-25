@@ -178,9 +178,11 @@ button{font-family:inherit}
 .till-line .tl-name small{display:block;font-weight:400;color:var(--secondary);font-variant-numeric:tabular-nums}
 .till-line .tl-amt{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
 .stepper{display:flex;align-items:center;gap:2px}
-.stepper button{width:26px;height:26px;border:1px solid var(--hairline-strong);border-radius:8px;background:var(--card);font-size:14px;cursor:pointer;line-height:1}
+.stepper button{width:36px;height:36px;border:1px solid var(--hairline-strong);border-radius:8px;background:var(--card);font-size:16px;cursor:pointer;line-height:1}
+@media(max-width:720px){.stepper button{width:44px;height:44px;font-size:18px}}
 .stepper button:active{background:var(--fill)}
 .stepper b{min-width:24px;text-align:center;font-size:12.5px}
+.stepper-val{min-width:32px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums;display:inline-block}
 .till-total{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;border-top:1px solid var(--hairline);font-size:14px;font-weight:600}
 .till-total b{font-size:19px}
 .till-tender{padding:0 14px 14px}
@@ -278,7 +280,9 @@ tr.po-picked td{background:var(--accent-soft)}
 #stock-table td::before{content:none}
 #stock-table td:nth-child(1){grid-area:item}
 #stock-table td:nth-child(2){grid-area:store;color:var(--secondary);font-size:11.5px;margin-top:3px}
-#stock-table td:nth-child(3){grid-area:qty;font-size:20px;font-weight:600;text-align:right}}
+#stock-table td:nth-child(3){grid-area:qty;font-size:20px;font-weight:600;text-align:right}
+#stock-table tbody tr:nth-child(even) td{background:transparent}
+#stock-table tbody tr:nth-child(even){background:#f8f6f1}}
 
 .denom-toggle{margin-top:8px;background:none;border:1px dashed var(--hairline);border-radius:8px;padding:8px 10px;font:inherit;font-size:12px;color:var(--secondary);cursor:pointer;width:100%;text-align:left}
 .denom{margin-top:8px;display:flex;flex-direction:column;gap:6px}
@@ -286,3 +290,4 @@ tr.po-picked td{background:var(--accent-soft)}
 .denom-label{font-weight:600;font-variant-numeric:tabular-nums}
 .denom-total{text-align:right;color:var(--secondary);font-variant-numeric:tabular-nums;font-size:12px}
 .denom-sum{margin-top:4px;font-weight:600;text-align:right}
+.denom-coins{display:flex;flex-direction:column;gap:6px}
