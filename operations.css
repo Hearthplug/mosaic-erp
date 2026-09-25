@@ -256,3 +256,5 @@ tr.po-picked td{background:var(--accent-soft)}
 
 /* Tablet: keep the shell single-column so the rail stays a top strip */
 @media(max-width:1000px){.appshell{grid-template-columns:1fr}}
+/* Tablet: keep the till two-column so the cart and numpad stay compact */
+@media(min-width:721px) and (max-width:1000px){.till{grid-template-columns:minmax(0,1fr) 360px}.till-cart{position:sticky;top:14px}}
