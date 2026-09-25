@@ -5,7 +5,7 @@
 @media(max-width:760px){.main{padding:16px 12px 36px}.main>header{margin-bottom:12px}.stats{gap:8px;margin-bottom:10px}.stats article{min-height:0;padding:11px 13px}.status{min-height:0;padding:10px 13px;margin-bottom:10px}.tablewrap{-webkit-overflow-scrolling:touch;scrollbar-width:thin}table{min-width:640px}.cardhead{padding:11px 13px}}
 
 @media(max-width:760px){.rail{display:flex;flex-wrap:nowrap;overflow-x:auto}.rail nav{display:flex;flex-wrap:nowrap}}
-@media(max-width:760px){.tablewrap{overflow:visible}table{min-width:0}thead{display:none}tbody{display:block}tbody tr{display:block;height:auto;padding:9px 15px}tbody tr+tr{border-top:1px solid var(--line)}tbody tr td{display:flex;justify-content:space-between;align-items:center;gap:14px;height:auto;padding:2px 0;border:0;white-space:normal;text-align:left}tbody tr td::before{content:attr(data-label);color:var(--muted);font-size:11px;font-weight:600}tbody tr td:first-child{display:block;font-weight:600;padding-bottom:4px}tbody tr td:first-child::before{content:none}tbody tr td .chip{margin-left:auto}tbody tr:hover{background:inherit}.num{text-align:left}}
+@media(max-width:760px){.tablewrap{overflow:visible}table{min-width:0}thead{display:none}tbody{display:block}tbody tr{display:block;height:auto;padding:9px 15px}tbody tr+tr{border-top:1px solid var(--line)}tbody tr td{display:flex;justify-content:space-between;align-items:center;gap:14px;height:auto;padding:2px 0;border:0;white-space:normal;text-align:left}tbody tr td::before{content:attr(data-label);color:var(--muted);font-size:11px;font-weight:600}tbody tr td:first-child{display:block;font-weight:600;padding-bottom:4px}tbody tr td:first-child::before{content:none}tbody tr td .chip{margin-left:auto}tbody tr:nth-child(even){background:#f8f6f1}tbody tr:nth-child(even) td{background:transparent}tbody tr:hover{background:inherit}.num{text-align:left}}
 .note.flush{margin-top:0}
 
 
@@ -60,4 +60,4 @@
 .asksaved:empty{margin-top:0}
 .askactions{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
 #customline{margin:10px 0 6px}
-@media(max-width:760px){.askrow{flex-direction:column}.askrow input{width:100%;height:44px}.askrow button{width:100%;height:44px}}
+@media(max-width:760px){.askrow{flex-direction:column}.askrow input{flex:0 0 auto;width:100%;height:44px}.askrow button{width:100%;height:44px}}
