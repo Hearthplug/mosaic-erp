@@ -20,7 +20,7 @@
 <meta name="twitter:description" content="A self-hosted retail ERP for inventory and core accounting, configured through a plain-English owner interview.">
 <meta name="twitter:image" content="https://mosaic-erp.pages.dev/assets/ml-workspace.png">
 <link rel="icon" href="assets/mosaic-logo.svg" type="image/svg+xml">
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","name":"Mosaic ERP","applicationCategory":"BusinessApplication","applicationSubCategory":"Retail ERP software","operatingSystem":"Windows, macOS (Apple Silicon), Docker","description":"Open-source, self-hosted retail ERP for inventory, purchasing, sales and core accounting, configured through a plain-English owner interview.","softwareVersion":"1.4.1","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/Hearthplug/mosaic-erp","downloadUrl":"https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.4.1","url":"https://mosaic-erp.pages.dev/","image":"https://mosaic-erp.pages.dev/assets/ml-workspace.png","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Retail inventory management","Purchasing and receiving","Sales and returns","Supplier bills and payments","Bank reconciliation","Core accounting reports","Multi-store configuration","Plain-English ERP configuration"],"alternateName":"Mosaic ERP by Hearthplug","author":{"@type":"Organization","name":"Hearthplug","url":"https://github.com/Hearthplug"},"publisher":{"@type":"Organization","name":"Hearthplug","url":"https://github.com/Hearthplug"},"sameAs":["https://github.com/Hearthplug/mosaic-erp","https://sourceforge.net/projects/mosaic-erp","https://www.producthunt.com/products/mosaic-erp","https://dev.to/hearthplug","https://www.youtube.com/@hearthplug"]},{"@type":"WebSite","name":"Mosaic ERP","url":"https://mosaic-erp.pages.dev/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","name":"Mosaic ERP","applicationCategory":"BusinessApplication","applicationSubCategory":"Retail ERP software","operatingSystem":"Windows, macOS (Apple Silicon), Docker","description":"Open-source, self-hosted retail ERP for inventory, purchasing, sales and core accounting, configured through a plain-English owner interview.","softwareVersion":"2.0.0","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/Hearthplug/mosaic-erp","downloadUrl":"https://github.com/Hearthplug/mosaic-erp/releases/latest","url":"https://mosaic-erp.pages.dev/","image":"https://mosaic-erp.pages.dev/assets/ml-workspace.png","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Retail inventory management","Purchasing and receiving","Sales and returns","Supplier bills and payments","Bank reconciliation","Core accounting reports","Multi-store configuration","Plain-English ERP configuration"],"alternateName":"Mosaic ERP by Hearthplug","author":{"@type":"Organization","name":"Hearthplug","url":"https://github.com/Hearthplug"},"publisher":{"@type":"Organization","name":"Hearthplug","url":"https://github.com/Hearthplug"},"sameAs":["https://github.com/Hearthplug/mosaic-erp","https://sourceforge.net/projects/mosaic-erp","https://www.producthunt.com/products/mosaic-erp","https://dev.to/hearthplug","https://www.youtube.com/@hearthplug"]},{"@type":"WebSite","name":"Mosaic ERP","url":"https://mosaic-erp.pages.dev/"}]}</script>
 <style>
 :root{
   --ink:#0c1f19;
@@ -169,7 +169,7 @@ footer a:hover{color:var(--ink)}
     <a href="#story">How it works</a>
     <a href="#benefits">Benefits</a>
     <a href="#faq">Questions</a>
-    <a class="cta-nav" href="https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.4.1">Review v1.4.1</a>
+    <a class="cta-nav" href="https://github.com/Hearthplug/mosaic-erp/releases/latest">Review the latest release</a>
   </div>
 </div></nav>
 
@@ -202,7 +202,7 @@ footer a:hover{color:var(--ink)}
   </div>
   <div class="shot reveal">
     <div class="frame"><img src="assets/ml-interview.png" width="2880" height="1800" loading="lazy" decoding="async" alt="The real Mosaic owner interview asking one plain question at a time, with the reason for the question shown alongside"></div>
-    <div class="figure-note">The real owner interview in Mosaic v1.4.1 - one plain question at a time, with the reason explained</div>
+    <div class="figure-note">The real owner interview in Mosaic v2.0.0 - one plain question at a time, with the reason explained</div>
   </div>
 </div></section>
 
@@ -265,7 +265,7 @@ footer a:hover{color:var(--ink)}
     <article class="reveal"><div class="when">During the day</div><h3>Keep work moving</h3><p>Raise and approve purchases, receive stock, sell with exact tenders, process returns, move and count stock, and close cash.</p></article>
     <article class="reveal"><div class="when">When things change</div><h3>Stay in control</h3><p>Add a store, staff role or reviewed configuration change with an audit trail. Reconcile bills, payments and the bank, then lock a closed period.</p></article>
   </div>
-  <div class="notice reveal" style="border-color:#275045;color:#a9bdb4"><b style="color:#fff">Release boundary:</b> v1.4.1 covers the tested production core for retailer operations and core accounts. It does not claim statutory invoice formats or filing, advanced retail/manufacturing/payroll modules, managed hosting, or certified operator recovery and availability.</div>
+  <div class="notice reveal" style="border-color:#275045;color:#a9bdb4"><b style="color:#fff">Release boundary:</b> v2.0.0 covers the tested production core for retailer operations and core accounts. It does not claim statutory invoice formats or filing, advanced retail/manufacturing/payroll modules, managed hosting, or certified operator recovery and availability.</div>
 </div></section>
 
 <section id="benefits"><div class="wrap">
@@ -334,7 +334,7 @@ footer a:hover{color:var(--ink)}
     <details><summary>Should a professional be involved?</summary><p>Professional review is recommended for tax and accounting. Kubernetes production deployment needs professional platform help; owners can run the Docker Desktop trial themselves.</p></details>
     <details><summary>How much migration work is required?</summary><p>It depends on current systems and data quality. Mosaic stages and validates supported core records, but mapping, reconciliation and reviewed opening balances still need implementation work before a switch.</p></details>
     <details><summary>What does it cost?</summary><p>The source is MIT licensed with no software licence fee. Hosting, implementation, migration, operations, and professional advice can still cost money.</p></details>
-    <details><summary>What is complete today?</summary><p>The source-tested v1.4.1 candidate covers guided setup, built-in deterministic chat, optional bring-your-own AI-provider setup, core purchases, receiving, sales, exact payments, returns, stock, cash, supplier bills/payments, bank matching, period close and core accounting reports. New in Preview: the fine-tuned local assistant can understand, draft and explain ERP actions, and every action stays behind the owner's explicit confirmation of the exact rendered payload. The answer-shaping chooser (Standard built in by default; Jev by TypeSafe in Preview with the owner's own key; OpenAI, Claude and DeepSeek available with the owner's own key from each provider) comes with side-by-side interview review and plain-language reconfiguration, all behind owner confirmation. Preview quality is bounded and measured on the frozen development contract: all constrained outputs were schema-valid and every tested unsafe request failed closed, while label accuracy was 84 to 86 percent, so drafts must be read before approval. Its other explicit exclusions still apply.</p></details>
+    <details><summary>What is complete today?</summary><p>The source-tested v2.0.0 candidate covers guided setup, built-in deterministic chat, optional bring-your-own AI-provider setup, core purchases, receiving, sales, exact payments, returns, stock, cash, supplier bills/payments, bank matching, period close and core accounting reports. New in Preview: the fine-tuned local assistant can understand, draft and explain ERP actions, and every action stays behind the owner's explicit confirmation of the exact rendered payload. The answer-shaping chooser (Standard built in by default; Jev by TypeSafe in Preview with the owner's own key; OpenAI, Claude and DeepSeek available with the owner's own key from each provider) comes with side-by-side interview review and plain-language reconfiguration, all behind owner confirmation. Preview quality is bounded and measured on the frozen development contract: all constrained outputs were schema-valid and every tested unsafe request failed closed, while label accuracy was 84 to 86 percent, so drafts must be read before approval. Its other explicit exclusions still apply.</p></details>
   </div>
 </div></section>
 
@@ -345,8 +345,8 @@ footer a:hover{color:var(--ink)}
     <p>Business owners can stop above. These links and checks help a technical evaluator plan a production environment.</p>
   </div>
   <details class="reveal"><summary>Deployment choices and verified checks</summary>
-    <p>The local trial uses SQLite. Production packages use an external PostgreSQL service through Docker Compose or Kubernetes/Helm. The v1.4.1 source passed fresh application/security, PostgreSQL 17 tenant-isolation, strict Helm, deployment-validation and live container-readiness checks, plus native amd64/arm64 availability benchmarks for the local assistant Preview (two-stage constrained decoding against the frozen intent contract). Fresh tagged images, signatures, software inventory/provenance and vulnerability results remain required before publication.</p>
-    <p><a href="https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DEPLOYMENT.md">Deployment guide</a> · <a href="https://github.com/Hearthplug/mosaic-erp/blob/main/ARCHITECTURE.md">Architecture and limits</a> · <a href="https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.4.1">Product and publication-parent checks</a> · <a href="https://github.com/Hearthplug/mosaic-erp/settings/pages">Pages deployment</a></p>
+    <p>The local trial uses SQLite. Production packages use an external PostgreSQL service through Docker Compose or Kubernetes/Helm. The v2.0.0 source passed fresh application/security, PostgreSQL 17 tenant-isolation, strict Helm, deployment-validation and live container-readiness checks, plus native amd64/arm64 availability benchmarks for the local assistant Preview (two-stage constrained decoding against the frozen intent contract). Fresh tagged images, signatures, software inventory/provenance and vulnerability results remain required before publication.</p>
+    <p><a href="https://github.com/Hearthplug/mosaic-erp/blob/main/docs/DEPLOYMENT.md">Deployment guide</a> · <a href="https://github.com/Hearthplug/mosaic-erp/blob/main/ARCHITECTURE.md">Architecture and limits</a> · <a href="https://github.com/Hearthplug/mosaic-erp/releases/latest">Product and publication-parent checks</a> · <a href="https://github.com/Hearthplug/mosaic-erp/settings/pages">Pages deployment</a></p>
   </details>
   <details class="reveal"><summary>What remains the operator's responsibility</summary>
     <p>Real DNS and encrypted connections, managed PostgreSQL availability and recovery, offsite backups and restore drills, load and failover testing, identity-provider setup, monitoring, incident response, and an independent security assessment before real financial-data use.</p>
@@ -363,7 +363,7 @@ footer a:hover{color:var(--ink)}
     <div class="frame" style="max-width:300px"><img src="assets/ml-mobile-chooser.png" width="780" height="2158" loading="lazy" decoding="async" alt="The Mosaic interview answer-shaping chooser in a phone browser, with Standard built in selected" style="width:100%;height:auto"></div>
     <div class="frame" style="max-width:300px"><img src="assets/ml-mobile-today.png" width="780" height="1688" loading="lazy" decoding="async" alt="The Mosaic Today screen in a phone browser, showing stock on hand, today's sales, open tills and next steps for Northstar General Store" style="width:100%;height:auto"></div>
   </div>
-  <div class="figure-note" style="text-align:center">The real interview and Today screens in a phone browser - the same v1.4.1 product, no separate app</div>
+  <div class="figure-note" style="text-align:center">The real interview and Today screens in a phone browser - the same v2.0.0 product, no separate app</div>
 </div></section>
 
 <section id="download" style="background:var(--white)"><div class="wrap reveal">
@@ -371,9 +371,9 @@ footer a:hover{color:var(--ink)}
   <h2>Get Mosaic ERP free.</h2>
   <p class="lede">Open source under the MIT license. Mosaic runs on your own computer and your data stays with you.</p>
   <div class="actions" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
-    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/releases/download/v1.4.1/MosaicERP-windows-x64-setup.exe">Download for Windows (installer)</a>
-    <a class="btn alt" href="https://github.com/Hearthplug/mosaic-erp/releases/download/v1.4.1/MosaicERP-windows-x64.exe">Windows portable exe</a>
-    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/releases/download/v1.4.1/MosaicERP-macos-arm64.dmg">Download for Mac (Apple Silicon)</a>
+    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-windows-x64-setup.exe">Download for Windows (installer)</a>
+    <a class="btn alt" href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-windows-x64.exe">Windows portable exe</a>
+    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-macos-arm64.dmg">Download for Mac (Apple Silicon)</a>
   </div>
   <p style="margin:14px 0 0">Not sure it fits? <a href="/fit-check">Take the 1-minute fit check</a>.</p>
   <div style="max-width:640px;margin-top:22px">
@@ -386,10 +386,10 @@ footer a:hover{color:var(--ink)}
 </div></section>
 
 <section class="cta"><div class="wrap reveal">
-  <h2>Review the v1.4.1 release.</h2>
+  <h2>Review the latest release.</h2>
   <p class="lede">Start with the two-command local evaluation. Use the source and evidence to plan a properly operated PostgreSQL production rollout.</p>
   <div class="actions" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
-    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.4.1">Review the v1.4.1 product tree</a>
+    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/releases/latest">Review the latest product tree</a>
     <a class="btn alt" href="https://github.com/Hearthplug/mosaic-erp">Read the source and guides</a>
   </div>
 </div></section>
@@ -407,7 +407,7 @@ footer a:hover{color:var(--ink)}
 
 <footer><div class="wrap">
   <div>Mosaic ERP by Hearthplug · © 2026 Hearthplug · Free and MIT licensed</div>
-  <div><a href="https://github.com/Hearthplug/mosaic-erp">GitHub</a> · <a href="https://www.youtube.com/@hearthplug">YouTube</a> · <a href="https://www.tiktok.com/@hearthplug">TikTok</a> · <a href="https://www.instagram.com/mosaicbyhearthplug/">Instagram</a> · <a href="https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.4.1">v1.4.1</a></div>
+  <div><a href="https://github.com/Hearthplug/mosaic-erp">GitHub</a> · <a href="https://www.youtube.com/@hearthplug">YouTube</a> · <a href="https://www.tiktok.com/@hearthplug">TikTok</a> · <a href="https://www.instagram.com/mosaicbyhearthplug/">Instagram</a> · <a href="https://github.com/Hearthplug/mosaic-erp/releases/tag/v2.0.0">v2.0.0</a></div>
 </div></footer>
 
 <script>
