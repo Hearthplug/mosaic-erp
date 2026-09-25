@@ -1,0 +1,26 @@
+.set-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:1060px}
+.set-card{overflow:hidden}
+.set-wide{grid-column:1/-1}
+.set-body{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.set-body p{margin:0;font-size:13px;line-height:1.55;color:var(--ink)}
+.set-label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:var(--secondary)}
+.set-label input,.fieldrow input{border:1px solid var(--hairline);border-radius:8px;padding:9px 11px;font-size:14px;background:#fff;color:var(--ink);min-height:40px}
+.set-label input:focus,.fieldrow input:focus{outline:2px solid rgba(240,100,55,.35);border-color:var(--accent)}
+.set-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:13px}
+.set-row span{color:var(--secondary)}
+.set-row b{font-size:15px;font-weight:650}
+.set-sub{margin:4px 0 0;font-size:12px;font-weight:600;color:var(--secondary)}
+.tax-list{margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--ink)}
+.store-list{display:flex;flex-direction:column;gap:6px}
+.store-row{display:flex;align-items:baseline;gap:10px;border:1px solid var(--hairline);border-radius:8px;padding:8px 11px;background:#fff}
+.store-row b{font:700 12px ui-monospace,"SF Mono",monospace;letter-spacing:.04em}
+.store-row span{font-size:13px}
+.hint{margin:0;font-size:12px;line-height:1.5;color:var(--secondary)}
+.actionrow{display:flex;gap:8px;margin-top:2px}
+.fieldrow{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.fieldrow label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;color:var(--secondary)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);opacity:0;pointer-events:none;background:#202522;color:#fff;font-size:13px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 28px rgba(32,37,34,.28);transition:opacity .18s,transform .18s;z-index:50;max-width:min(480px,86vw);text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.err{background:#8f2d1d}
+@media(max-width:1000px){.set-grid{grid-template-columns:1fr}}
+@media(max-width:720px){.set-body{padding:13px 13px}.fieldrow{grid-template-columns:1fr}}

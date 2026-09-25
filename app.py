@@ -179,6 +179,21 @@ def eu(a):
  return {'jurisdiction':'European Union','subdivision':ms,'tax_name':'VAT','authority':('National tax authority of '+ms if ms else 'National tax authorities')+' under the EU VAT Directive','currency':{'code':'EUR','symbol':'€'},'registration':{'type':reg or 'Undecided','registered':registered,'label':('VAT identification number' + (' + OSS scheme' if reg=='OSS registered' else '')) if registered else 'Register in your member state','threshold':'National thresholds; €10,000 EU-wide for cross-border B2C distance sales'},'rates':{'structure':'VAT Directive: standard rate at least 15%; member states set their own','slabs':([{'band':ms+' standard','rate':rate}] if rate is not None else []),'note':'Confirm member-state rates and reduced-rate categories'},'rules':rules,'invoice':['VAT invoice with VAT ID, rate, and reverse-charge note where applicable' if registered else 'Commercial invoice until registered'],'credits':'Input VAT deductible with valid invoices' if registered else 'No deductions until registered','returns':['National VAT returns per member state']+(['Quarterly OSS return for EU B2C distance sales'] if reg=='OSS registered' else []),'validations':[{'check':'VIES','status':'Validate customer VAT numbers for intra-EU B2B zero-rating'},{'check':'OSS threshold','status':'Above €10,000 cross-border B2C - charge destination VAT' if a.get('turnover')=='Above €10,000 cross-border sales' else 'Below €10,000 cross-border threshold'}],'warnings':warns,'reverse_charge':'B2B intra-EU acquisitions are reverse-charged to the customer','workflows':([f'Sale → charge {ms} VAT at {rate}%'] if ms and registered and rate is not None else [])+(['EU B2B sale → validate VAT number in VIES → zero-rate'] if a.get('supply')=='Across the EU' and registered else [])+(['B2C EU sale above threshold → destination VAT via OSS'] if a.get('supply')=='Across the EU' and reg=='OSS registered' else []),'kpi':'VAT payable' if registered else 'Threshold watch','sources':[{'title':'European Commission: VAT rates under the VAT Directive','url':'https://taxation-customs.ec.europa.eu/taxation/vat/vat-directive/vat-rates_en'},{'title':'European Commission: VAT One Stop Shop','url':'https://vat-one-stop-shop.ec.europa.eu/one-stop-shop_en'}],'effective':TODAY}
 PACKS={'India':india,'UAE':uae,'Singapore':singapore,'China':china,'Vietnam':vietnam,'Malaysia':malaysia,'United Kingdom':uk,'United States':usa,'Canada':canada,'European Union':eu,**{c:(lambda a,_c=c:make_pack(a,TODAY)) for c in EXTRA_DATA}}
 
+def pack_key_for_answer(country):
+    """Resolve the free-text interview country answer to a tax pack key, or None.
+    Same resolution order as pack_currency_for_answer: plain key, word scan, mapper."""
+    country=(country or '').strip()
+    if not country:return None
+    if country in PACKS:return country
+    import re as _re
+    low=country.lower()
+    for name in sorted(PACKS,key=len,reverse=True):
+        if _re.search(r'\b'+_re.escape(name.lower())+r'\b',low):return name
+    try:mapped=map_text_field('country',country,None)
+    except Exception:return None
+    name=(mapped.get('proposed') or '').strip()
+    return name if name in PACKS else None
+
 def pack_currency_for_answer(country):
     """Resolve the accounting base currency for the interview's free-text country answer.
     Owners type sentences ("Registered in India, sell locally"), never bare pack keys, so a plain
@@ -510,7 +525,7 @@ class H(BaseHTTPRequestHandler):
         if p in ('/auth.js','/signin.js','/signin.css','/invite.js','/update.css','/google-signin.png','/microsoft-signin.svg','/mosaic-logo.svg'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'image/png' if p.endswith('.png') else 'image/svg+xml' if p.endswith('.svg') else 'application/javascript; charset=utf-8'; raw=GOOGLE_SIGNIN if p.endswith('google-signin.png') else MICROSOFT_SIGNIN if p.endswith('microsoft-signin.svg') else (ROOT/p[1:]).read_text(encoding='utf-8'); return self.out(200,raw,kind,rid=rid) or 200
         if p == '/':
-            return self.out(200, (ROOT / 'static.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
+            return self.out(200, (ROOT / 'settings.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/migration':
             return self.out(200,(ROOT/'migration.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p == '/migration.css':
@@ -531,6 +546,8 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,(ROOT/'operations.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p == '/operations.css':
             return self.out(200,(ROOT/'operations.css').read_text(encoding='utf-8'),'text/css; charset=utf-8',rid=rid) or 200
+        if p in ('/settings.js','/settings.css'):
+            kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p == '/operations.js':
             return self.out(200,(ROOT/'operations.js').read_text(encoding='utf-8'),'application/javascript; charset=utf-8',rid=rid) or 200
         if p == '/build':
@@ -581,6 +598,27 @@ class H(BaseHTTPRequestHandler):
             ws = STORE.get_workspace(wid)
             ws['versions'] = STORE.list_versions(wid)
             return self.out(200, ws, rid=rid) or 200
+        if p == '/api/settings/summary':
+            wid, _, _ = self._auth('viewer')
+            ws = STORE.get_workspace(wid)
+            try: books = BOOKS.status(wid)
+            except NotFound: books = {}
+            locations = [dict(r) for r in STORE._db.execute('SELECT id,code,name,kind FROM locations WHERE workspace_id=? AND active=1 ORDER BY code',(wid,)).fetchall()]
+            country = ''
+            row = STORE._db.execute("SELECT answers_json FROM onboarding_sessions WHERE workspace_id=? ORDER BY updated_at DESC LIMIT 1",(wid,)).fetchone()
+            if row:
+                try: country = (json.loads(row['answers_json']).get('country') or '').strip()
+                except Exception: country = ''
+            tax = {}
+            pack_key = pack_key_for_answer(country)
+            if pack_key:
+                try:
+                    from tax_pack_operational import candidate
+                    tax = TAX.verification_checklist(candidate(pack_key))
+                except Exception: tax = {}
+            return self.out(200, {'workspace': {'id': ws['id'], 'name': ws['name'], 'created_at': ws['created_at']},
+                'books': {'base_currency': books.get('base_currency'), 'fiscal_year_start': books.get('fiscal_year_start'), 'verification_state': books.get('verification_state')},
+                'locations': locations, 'country_answer': country, 'tax': tax}, rid=rid) or 200
         if p == '/api/workspace/config':
             wid, _, _ = self._auth('viewer')
             v = qs.get('version', [None])[0]
@@ -820,6 +858,15 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,{'profile':profile,'answers':answers},rid=rid) or 200
         if p == '/api/retail/profile':
             wid, actor, _ = self._auth('owner'); return self.out(200,PROFILES.apply(wid,actor,self._body()),rid=rid) or 200
+        if p == '/api/workspace/rename':
+            wid, actor, _ = self._auth('owner'); d = self._body()
+            name = (d.get('name') or '').strip()
+            if not name: raise ValueError('name is required')
+            if len(name) > 120: raise ValueError('name must be 120 characters or fewer')
+            with STORE.tx():
+                STORE._db.execute('UPDATE workspaces SET name=? WHERE id=?',(name,wid))
+                STORE._audit(wid,actor,'workspace.rename',{'name':name,'source':'settings'})
+            return self.out(200, {'id': wid, 'name': name}, rid=rid) or 200
         if p == '/api/retail/locations':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,RETAIL.setup_location(wid,actor,d['code'],d['name'],d.get('kind','store')),rid=rid) or 201
         if p == '/api/retail/products':

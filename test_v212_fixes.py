@@ -130,3 +130,42 @@ class V212StaticGuards(unittest.TestCase):
         section = html.split('id="view-%s"' % view, 1)[1]
         self.assertIn('id="add-item"', section.split('<section', 1)[0])
         self.assertIn('on the Buying page', js)
+
+class SettingsScreen(unittest.TestCase):
+  @classmethod
+  def setUpClass(c):
+    from http.server import ThreadingHTTPServer
+    c.s=ThreadingHTTPServer(('127.0.0.1',0),app.H);c.p=c.s.server_address[1];threading.Thread(target=c.s.serve_forever,daemon=True).start()
+    def call(method,path,body=None,key=None):
+      h={'Content-Type':'application/json'}
+      if key:h['Authorization']='Bearer '+key
+      try:
+        r=urllib.request.urlopen(urllib.request.Request(f'http://127.0.0.1:{c.p}{path}',data=json.dumps(body).encode() if body is not None else None,headers=h,method=method))
+        return r.status,json.loads(r.read() or b'{}')
+      except urllib.error.HTTPError as e:return e.code,json.loads(e.read() or b'{}')
+    c.call=staticmethod(call)
+    st,w=c.call('POST','/api/workspaces',{'name':'Settings Co'});c.key=w['api_key']
+  @classmethod
+  def tearDownClass(c):c.s.shutdown()
+
+  def test_summary_shape(self):
+    st,s=self.call('GET','/api/settings/summary',None,self.key)
+    self.assertEqual(st,200)
+    _,w=self.call('GET','/api/workspace',None,self.key)
+    self.assertEqual(s['workspace']['name'],w['name'])
+    self.assertIn('base_currency',s['books']);self.assertIn('locations',s);self.assertIn('tax',s)
+
+  def test_rename_owner_only_and_validated(self):
+    st,r=self.call('POST','/api/workspace/rename',{'name':'New Name'},self.key)
+    self.assertEqual(st,200);self.assertEqual(r['name'],'New Name')
+    st,w=self.call('GET','/api/workspace',None,self.key);self.assertEqual(w['name'],'New Name')
+    st,_=self.call('POST','/api/workspace/rename',{'name':'  '},self.key);self.assertEqual(st,400)
+    st,_=self.call('POST','/api/workspace/rename',{'name':'x'*121},self.key);self.assertEqual(st,400)
+    st,_=self.call('POST','/api/workspace/rename',{'name':'NoAuth'});self.assertIn(st,(401,403))
+
+  def test_root_serves_settings_not_prototype(self):
+    st,h=self.call('GET','/',None,self.key) if False else (None,None)
+    r=urllib.request.urlopen(f'http://127.0.0.1:{self.p}/')
+    html=r.read().decode()
+    self.assertIn('Settings',html)
+    self.assertNotIn('Early technical prototype',html)
