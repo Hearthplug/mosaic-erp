@@ -1,7 +1,7 @@
 """Layperson business interview. Owners describe their day; Mosaic infers the ERP."""
 import json,secrets
 from store import canon,utcnow,Conflict,NotFound
-from operational_profile import compile_profile
+from operational_profile import compile_profile,module_review
 SCHEMA_VERSION=1
 QUESTIONS=[
  {'key':'business_name','text':'What do people call your business?','why':'Uses your real name throughout the system.','type':'text'},
@@ -52,7 +52,7 @@ def infer(a):
   if m in reasons:explanations.append({'enabled':m,'because':reasons[m]})
  accountant=[{'decision':'Opening balances and chart mapping','reason':'These must match your existing books.'},{'decision':'Tax registration, invoice rules and filing adapters','reason':'Local legal rules require qualified verification.'},{'decision':'When income is recognized','reason':'A professional must confirm whether your business records income at sale, delivery or another event.'}]
  goal=(a.get('goal') or '').strip()
- return p|{'explanations':explanations,'professional_verification':accountant,'owner_summary':{'business':a.get('business_name'),'first_goal':None if goal.lower().rstrip('.!?') in STUB_GOALS else goal,'daily_numbers':a.get('money_view',[])}}
+ return p|{'explanations':explanations,'module_review':module_review(p['enabled_modules']),'professional_verification':accountant,'owner_summary':{'business':a.get('business_name'),'first_goal':None if goal.lower().rstrip('.!?') in STUB_GOALS else goal,'daily_numbers':a.get('money_view',[])}}
 
 class Onboarding:
  def __init__(self,s,profiles,provisioner=None):self.s,self.profiles,self.provisioner=s,profiles,provisioner
