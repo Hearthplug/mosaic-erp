@@ -794,6 +794,8 @@ class H(BaseHTTPRequestHandler):
             d=self._body();return self.out(200,STORE.oauth_complete(d.get('code','')),hdrs={'Cache-Control':'no-store'},rid=rid) or 200
         if p == '/api/oauth/enter':
             d=self._body();result=STORE.oauth_enter(d.get('code',''),d.get('workspace_id',''));result['workspace_name']=STORE.get_workspace(result['workspace_id'])['name'];result['landing']=self._landing(result);return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
+        if p == '/api/oauth/link-instead':
+            wid,actor,_=self._auth('owner');d=self._body();code=STORE.oauth_link_instead(wid,actor,d.get('email',''),d.get('password',''));return self.out(201,{'code':code},hdrs={'Cache-Control':'no-store'},rid=rid) or 201
         if p == '/api/oauth/link':
             d=self._body();code=STORE.oauth_link(d.get('code',''),d.get('email',''),d.get('password',''));return self.out(201,{'code':code},hdrs={'Cache-Control':'no-store'},rid=rid) or 201
         if p == '/api/session/options':

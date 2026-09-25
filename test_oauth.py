@@ -38,6 +38,40 @@ class OAuthTests(unittest.TestCase):
   owner,_=self.user('owner@example.test');inv=self.s.create_invitation(owner,'invite@example.test','editor',None,'owner')['invite_token']
   self.s.accept_invitation_federated(inv,'google','https://accounts.google.com','invited-sub')
   self.assertEqual(len(self.s.oauth_identity_users('google','https://accounts.google.com','invited-sub')),1)
+ def test_unknown_identity_auto_provisions_fresh_company_and_lands_in_signin(self):
+  w,u=self.user();before=self.s._db.execute('SELECT count(*) n FROM users').fetchone()['n']
+  url=self.o.start('google');state=parse_qs(urlparse(url).query)['state'][0]
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'brand-new-sub','iss':'https://accounts.google.com','nonce':parse_qs(urlparse(url).query)['nonce'][0],'email':'person@example.test','email_verified':True}):
+   code,mode=self.o.callback('google','code',state)
+  self.assertEqual(mode,'signin')
+  ids=self.s.oauth_identity_users('google','https://accounts.google.com','brand-new-sub')
+  self.assertEqual(len(ids),1);self.assertEqual(ids[0]['role'],'owner');self.assertEqual(ids[0]['name'],'My company')
+  self.assertNotEqual(ids[0]['workspace_id'],w)
+  # no merge: existing account with the same email is untouched
+  self.assertEqual(self.s._db.execute('SELECT count(*) n FROM users').fetchone()['n'],before+1)
+  self.assertEqual(self.s._db.execute('SELECT count(*) n FROM oauth_identities WHERE user_id=?',(u['user_id'],)).fetchone()['n'],0)
+  x=self.s.oauth_complete(code);self.assertEqual(len(x['workspaces']),1)
+  session=self.s.oauth_enter(x['enter_code'],x['workspaces'][0]['workspace_id']);self.assertEqual(session['role'],'owner')
+  # second sign-in for the same identity goes straight in, no duplicate tenant
+  before_ws=self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n']
+  url=self.o.start('google');state=parse_qs(urlparse(url).query)['state'][0]
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'brand-new-sub','iss':'https://accounts.google.com','nonce':parse_qs(urlparse(url).query)['nonce'][0],'email':'person@example.test','email_verified':True}):
+   code2,mode2=self.o.callback('google','code',state)
+  self.assertEqual(mode2,'signin');self.assertEqual(self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n'],before_ws)
+ def test_link_instead_binds_identity_to_password_account_and_closes_fresh_company(self):
+  w,u=self.user()
+  created=self.s.oauth_auto_provision('google','https://accounts.google.com','link-sub','fresh@example.test')
+  code=self.s.oauth_link_instead(created['workspace_id'],created['user_id'],'person@example.test','a-secure-password')
+  ids=self.s.oauth_identity_users('google','https://accounts.google.com','link-sub')
+  names=sorted(x['name'] for x in ids);self.assertEqual(names,['North'])
+  self.assertEqual(self.s.get_workspace(created['workspace_id'])['status'],'closed')
+  x=self.s.oauth_complete(code);self.assertEqual(x['workspaces'][0]['workspace_id'],w)
+  # wrong password: nothing linked, fresh company stays active
+  created2=self.s.oauth_auto_provision('google','https://accounts.google.com','link-sub-2','fresh2@example.test')
+  self.assertRaises(Conflict,self.s.oauth_link_instead,created2['workspace_id'],created2['user_id'],'person@example.test','wrong-password-value')
+  self.assertEqual(self.s.get_workspace(created2['workspace_id'])['status'],'active')
+  # an account not created by SSO cannot use link-instead
+  self.assertRaises(Conflict,self.s.oauth_link_instead,w,u['user_id'],'person@example.test','a-secure-password')
 class OAuthBrowserContract(unittest.TestCase):
  def setUp(self):
   import app,tempfile

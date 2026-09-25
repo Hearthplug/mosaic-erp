@@ -45,3 +45,5 @@
 .template-chip{border:1px solid rgba(16,26,21,.16);background:#fff;border-radius:999px;padding:4px 11px;font:600 11.5px var(--font);color:#3c4a42;cursor:pointer}
 .template-chip.on{background:#0c5c43;border-color:#0c5c43;color:#fff}
 @media(max-width:600px){.template-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.template-chip{white-space:nowrap}}
+
+.link-existing{margin:.7rem 0 0;font-size:.85rem}.link-existing a{color:#64706b}
