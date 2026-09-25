@@ -49,6 +49,12 @@ class NonRetailInferenceHonestyTest(unittest.TestCase):
   self.assertIn('receivables',mods);self.assertNotIn('payables',mods)
   self.assertNotIn('inventory',mods);self.assertIn('service',mods);self.assertNotIn('transfers',mods)
   self.assertFalse(any('supplier' in e['because'].lower() for e in inf['explanations']))
+  mr=inf['module_review']
+  self.assertEqual(len(mr),16)
+  self.assertEqual({m['key'] for m in mr if m['enabled']},mods)
+  off={m['key'] for m in mr if not m['enabled']}
+  self.assertIn('inventory',off);self.assertIn('payables',off);self.assertNotIn('receivables',off);self.assertNotIn('service',off)
+  for m in mr:self.assertTrue(m['label']);self.assertTrue(m['plain'])
   self.assertIsNone(inf['owner_summary']['first_goal'])
   ap=call(self.p,'POST','/api/onboarding/apply',{'id':x['id']},k)
   self.assertEqual(set(ap['profile']['enabled_modules']),mods)
