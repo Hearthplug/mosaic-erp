@@ -73,6 +73,9 @@ class Onboarding:
   d=self.get(wid,x)
   if d['status']!='ready':raise Conflict('finish and review the interview before applying it')
   profile=self.profiles.apply(wid,actor,map_answers(d['answers']))
-  with self.s.tx():self.s._db.execute("UPDATE onboarding_sessions SET status='applied',updated_at=? WHERE id=?",(utcnow(),x));self.s._audit(wid,actor,'onboarding.apply',{'id':x})
+  name=(d['answers'].get('business_name') or '').strip()
+  with self.s.tx():
+   self.s._db.execute("UPDATE onboarding_sessions SET status='applied',updated_at=? WHERE id=?",(utcnow(),x));self.s._audit(wid,actor,'onboarding.apply',{'id':x})
+   if name and name!=self.s.get_workspace(wid)['name']:self.s._db.execute('UPDATE workspaces SET name=? WHERE id=?',(name,wid));self.s._audit(wid,actor,'workspace.rename',{'name':name,'source':'onboarding.apply'})
   provisioned=self.provisioner.apply(wid,actor,x,d['answers']) if self.provisioner else None
   return {'profile':profile,'review':d['inference'],'provisioned':provisioned}

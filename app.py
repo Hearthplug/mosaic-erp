@@ -349,6 +349,9 @@ class H(BaseHTTPRequestHandler):
         if k == 'application/json':
             self.send_header('Cache-Control', 'no-store')
         else:
+            # Pages and assets ship unversioned URLs; without this a browser can
+            # pair a stale page with fresh scripts after an upgrade and break.
+            self.send_header('Cache-Control', 'no-cache')
             self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'")
         if rid:
             self.send_header('X-Request-ID', rid)

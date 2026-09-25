@@ -39,6 +39,12 @@ class AuthExperience(unittest.TestCase):
   ident=app.STORE.authenticate_session(user['session_token']);app.STORE.revoke_session(ident[3],ident[1]);self.assertEqual(self.call('/api/workspace',token=user['session_token'])[0],401)
  def test_expired_session_is_rejected(self):
   x=self.signup('Expiry Shop','expire@example.test');h=app.sha256(x['session_token']);app.STORE._db.execute("UPDATE sessions SET expires_at='2000-01-01T00:00:00+00:00' WHERE token_hash=?",(h,));self.assertEqual(self.call('/api/workspace',token=x['session_token'])[0],401)
+ def test_pages_and_assets_revalidate_and_api_stays_uncached(self):
+  import urllib.request
+  for p in ('/operations','/interview','/operations.js','/interview.js','/auth.js','/operations.css'):
+   r=urllib.request.urlopen(f'http://127.0.0.1:{self.p}{p}');self.assertEqual(r.headers.get('Cache-Control'),'no-cache',p)
+  q=urllib.request.Request(f'http://127.0.0.1:{self.p}/api/workspaces',data=json.dumps({'name':'CacheCheck'}).encode(),headers={'Content-Type':'application/json'},method='POST')
+  r=urllib.request.urlopen(q);self.assertEqual(r.headers.get('Cache-Control'),'no-store')
  def test_everyday_pages_have_no_keys_or_internal_credential_copy(self):
   for p in ('/interview','/operations','/retail','/accounting','/migration','/signin'):
    raw=urllib.request.urlopen(f'http://127.0.0.1:{self.p}{p}').read().decode().lower();self.assertNotIn('workspace key',raw);self.assertNotIn('access key',raw);self.assertNotIn('api key',raw)
