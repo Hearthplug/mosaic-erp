@@ -1,0 +1,19 @@
+/* Update-available card injected by auth.js when /api/update-check finds a newer release. */
+.mosupd{position:fixed;right:16px;bottom:16px;z-index:9999;max-width:400px;box-sizing:border-box;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.14);padding:16px;color:#1d1d1f;font:13px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif}
+.mosupd h2{margin:0 0 6px;font-size:14px;font-weight:700;letter-spacing:-.01em}
+.mosupd p{margin:0 0 12px;color:#6e6e73}
+.mosupd .usub{margin:-6px 0 12px;font-size:12px;color:#8e8e93}
+.mosupd .usub code{display:inline;background:transparent;padding:0;margin:0;font-size:11px;white-space:nowrap;overflow:visible}
+.mosupd code{display:block;background:#f5f5f7;border-radius:8px;padding:8px 10px;margin:0 0 12px;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:#1d1d1f;white-space:nowrap;overflow-x:auto;scrollbar-width:thin}
+.mosupd .urow{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.mosupd .ubtn{appearance:none;border:1px solid transparent;border-radius:999px;background:#f26a3d;border-color:#f26a3d;color:#fff;font:600 13px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;padding:9px 10px;text-decoration:none;cursor:pointer;display:inline-block;white-space:nowrap}
+.mosupd .ubtn:hover{background:#d14e22;border-color:#d14e22}
+.mosupd .ughost{background:transparent;border-color:rgba(0,0,0,.16);color:#1d1d1f}
+.mosupd .ughost:hover{background:#f5f5f7;border-color:rgba(0,0,0,.16)}
+.mosupd .udismiss{background:transparent;border-color:transparent;color:#6e6e73;margin-left:auto;padding-left:3px;padding-right:3px}
+.mosupd .udismiss:hover{background:transparent;border-color:transparent;color:#1d1d1f}
+@media(max-width:640px){
+.mosupd{left:0;right:0;bottom:0;max-width:none;border-left:0;border-right:0;border-bottom:0;border-radius:14px 14px 0 0;padding:14px 16px calc(12px + env(safe-area-inset-bottom,0px))}
+.mosupd .urow{flex-wrap:wrap}
+.mosupd .udismiss{margin-left:0}
+}
