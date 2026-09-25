@@ -155,6 +155,16 @@ MIGRATIONS = [
     DROP TABLE ai_answer_prefs;
     ALTER TABLE ai_answer_prefs_v18 RENAME TO ai_answer_prefs;
     """,
+    """
+    CREATE TABLE IF NOT EXISTS saved_reports(
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        query TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS saved_reports_ws ON saved_reports(workspace_id);
+    """
 ]
 
 def utcnow() -> str:

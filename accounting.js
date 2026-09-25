@@ -24,3 +24,38 @@ document.querySelectorAll('.dlcell').forEach(cell=>{const rep=cell.dataset.repor
     const b=document.createElement('button');b.type='button';b.className='dl-btn';b.textContent=label;
     b.title=fmt==='pdf'?'A clean printable copy':fmt==='xlsx'?'Opens in Excel':'Plain spreadsheet text';
     b.onclick=()=>dlReport(rep,fmt,b);cell.appendChild(b)})});
+
+let CUSTOMQ='';
+async function customBuild(q){const err=$('#customerr'),out=$('#customout');err.hidden=true;out.hidden=true;
+  if(!q.trim()){err.textContent='Describe the report you want, like "sales by item last month".';err.hidden=false;return}
+  const r=await fetch('/api/reports/custom?q='+encodeURIComponent(q),{headers:{...MosaicAuth.headers}});
+  if(r.status===401){MosaicAuth.expired();return}
+  const d=await r.json();
+  if(d.clarify){err.textContent=d.clarify+' Try: '+(d.examples||[]).join(' · ');err.hidden=false;return}
+  CUSTOMQ=q;
+  $('#customline').textContent=d.understood+' - check this is what you meant.';
+  $('#customhead').innerHTML='<tr>'+d.columns.map(c=>'<th>'+c+'</th>').join('')+'</tr>';
+  const all=d.totals?[...d.rows,d.totals]:d.rows;
+  $('#custombody').innerHTML=all.length?all.map(row=>'<tr>'+row.map(c=>'<td>'+String(c)+'</td>').join('')+'</tr>').join(''):'<tr><td>Nothing matched.</td></tr>';
+  out.hidden=false}
+async function customExport(fmt,btn){btn.disabled=true;try{
+  const r=await fetch('/api/reports/custom-export?q='+encodeURIComponent(CUSTOMQ)+'&fmt='+fmt,{headers:{...MosaicAuth.headers}});
+  if(r.status===401){MosaicAuth.expired();return}
+  if(!r.ok)throw Error((await r.json()).error||'Could not download');
+  const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='mosaic-custom-report.'+fmt;a.click();URL.revokeObjectURL(url)}
+  catch(e){alert(e.message)}finally{btn.disabled=false}}
+async function customSavedLoad(){const box=$('#customsaved');if(!box)return;
+  try{const r=await fetch('/api/reports/saved',{headers:{...MosaicAuth.headers}});if(!r.ok)return;const d=await r.json();
+  box.innerHTML='';
+  (d.reports||[]).forEach(rep=>{const b=document.createElement('button');b.type='button';b.className='dl-btn';b.style.marginBottom='4px';b.textContent=rep.name;b.title=rep.query;
+    b.onclick=()=>{$('#customq').value=rep.query;customBuild(rep.query)};box.appendChild(b)})}catch(e){}}
+$('#customgo').onclick=()=>customBuild($('#customq').value);
+$('#customq').addEventListener('keydown',e=>{if(e.key==='Enter')customBuild($('#customq').value)});
+$('#custompdf').onclick=e=>customExport('pdf',e.target);
+$('#customxlsx').onclick=e=>customExport('xlsx',e.target);
+$('#customcsv').onclick=e=>customExport('csv',e.target);
+$('#customsave').onclick=async e=>{const name=prompt('Name this report',CUSTOMQ);if(!name)return;
+  try{const r=await fetch('/api/reports/saved',{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify({name,query:CUSTOMQ})});
+  if(r.status===401){MosaicAuth.expired();return}
+  if(!r.ok)throw Error((await r.json()).error||'Could not save');customSavedLoad()}catch(err){alert(err.message)}};
+customSavedLoad();
