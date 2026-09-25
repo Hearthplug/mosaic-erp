@@ -84,3 +84,5 @@
 .voicechip.on{border-color:var(--ink);background:var(--ink);color:#fff}
 
 @media(max-width:760px){.voicechips{flex-direction:column;align-items:stretch}.voicechip{width:100%}}
+#file-result{margin-top:12px}
+#file-result-actions{margin-top:10px}
