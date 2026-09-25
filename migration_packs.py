@@ -1,5 +1,5 @@
 """Validation-first, transactional source migration packs with reconciliation and rollback."""
-import csv,io,json,secrets
+import csv,io,json,secrets,sqlite3
 from decimal import Decimal
 from store import canon,sha256,utcnow,Conflict
 PACK_VERSION=2
@@ -32,9 +32,14 @@ class Migrations:
  def __init__(self,s,books,retail):self.s,self.books,self.retail=s,books,retail
  def stage(self,wid,actor,kind,text,source_system):
   p=parse(kind,text);x='mbt_'+secrets.token_hex(8);status='validated' if p['valid'] else 'rejected'
-  with self.s.tx():
-   self.s._db.execute('INSERT INTO import_batches(id,workspace_id,kind,pack_version,source_system,source_hash,row_count,control_total_minor,status,errors_json,rows_json,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(x,wid,kind,PACK_VERSION,source_system,p['source_hash'],p['row_count'],p['control_total_minor'],status,canon(p['errors']),canon(p['rows']),actor,utcnow()));self.s._audit(wid,actor,'migration.stage',{'id':x,'kind':kind,'valid':p['valid'],'rows':p['row_count']})
-  return {'id':x,'status':status,**{k:v for k,v in p.items() if k!='rows'}}
+  try:
+   with self.s.tx():
+    self.s._db.execute('INSERT INTO import_batches(id,workspace_id,kind,pack_version,source_system,source_hash,row_count,control_total_minor,status,errors_json,rows_json,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(x,wid,kind,PACK_VERSION,source_system,p['source_hash'],p['row_count'],p['control_total_minor'],status,canon(p['errors']),canon(p['rows']),actor,utcnow()));self.s._audit(wid,actor,'migration.stage',{'id':x,'kind':kind,'valid':p['valid'],'rows':p['row_count']})
+  except sqlite3.IntegrityError:
+   raise Conflict('This exact file was already checked before - nothing was duplicated. If the earlier import was not applied, apply that one; otherwise change the file and try again.')
+  try:cur=self.books.status(wid).get('base_currency','USD')
+  except Exception:cur='USD'
+  return {'id':x,'status':status,'base_currency':cur,**{k:v for k,v in p.items() if k!='rows'}}
  def _mapped(self,wid,kind,external):
   r=self.s._db.execute('SELECT entity_id FROM import_entity_map WHERE workspace_id=? AND kind=? AND external_id=?',(wid,kind,external)).fetchone();return r['entity_id'] if r else None
  def _map(self,wid,kind,external,entity,batch):self.s._db.execute('INSERT INTO import_entity_map VALUES(?,?,?,?,?)',(wid,kind,external,entity,batch))

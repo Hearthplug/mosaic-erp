@@ -11,9 +11,11 @@ function render(){
  $('#s-payments').textContent=money(tot);
  $('#s-payments-sub').textContent='cash '+money(summary.payments_cash_minor)+' · bank '+money(summary.payments_bank_minor);
  $('#s-credit').textContent=money(summary.credit_minor);
- $('#s-items').textContent=summary.items_sold;
+ const itemsN=Number(summary.items_sold)||0;
+ $('#s-items').textContent=itemsN;
+ $('#s-items-sub').textContent=itemsN===0&&Number(summary.sales_count)>0?"today's sales were quick amounts, not item lines":'stock that left the shelves';
  $('#expected').textContent=money(summary.expected_cash_minor);
- $('#expected-sub').textContent=summary.expected_cash_minor>0?'All cash recorded in the books up to this day.':'No cash recorded in the books up to this day.';
+ $('#expected-sub').textContent=summary.expected_cash_minor>0?'All cash in the books up to this day, including earlier days.':'No cash recorded in the books up to this day.';
  $('#tzname').textContent=summary.timezone||'UTC';
  $('#save').textContent=summary.date===today?"Save today's close":'Save close for '+summary.date;
  updateDiff();
