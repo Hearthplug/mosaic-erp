@@ -172,7 +172,9 @@ $$('.toolbar').forEach(bar=>{
   const apply=()=>{const term=input.value.trim().toLowerCase(),filter=bar.querySelector('.filter-chip.on')?.dataset.filter||'all';tableRows(table).forEach(row=>{const text=row.textContent.toLowerCase();row.hidden=!(text.includes(term)&&(filter==='all'||(filter==='low'?row.dataset.low==='1':text.includes(filter))))})};
   input.addEventListener('input',apply);
   bar.querySelectorAll('.filter-chip:not(:disabled)').forEach(btn=>btn.onclick=()=>{bar.querySelectorAll('.filter-chip').forEach(x=>x.classList.remove('on'));btn.classList.add('on');apply()});
-  const menu=document.createElement('div');menu.className='export-menu';menu.hidden=true;menu.innerHTML='<button type="button" data-kind="csv">CSV file</button><button type="button" data-kind="xlsx">XLSX file (Excel)</button>';bar.appendChild(menu);
+  const PDF_REPORTS={'stock-table':'stock-register','sales-table':'sales','money-table':'tills'};
+  const pdfReport=PDF_REPORTS[bar.dataset.table];
+  const menu=document.createElement('div');menu.className='export-menu';menu.hidden=true;menu.innerHTML='<button type="button" data-kind="csv">CSV file</button><button type="button" data-kind="xlsx">XLSX file (Excel)</button>'+(pdfReport?'<button type="button" data-kind="pdf">PDF file (printable)</button>':'');bar.appendChild(menu);
   const btn=bar.querySelector('.export-btn');btn.textContent='Export ▾';btn.title='Download this table as a CSV or XLSX file';
   const visibleRows=()=>[...table.rows].filter(r=>!r.hidden&&!r.classList.contains('empty-row'));
   const grid=()=>visibleRows().map(row=>[...row.cells].map(c=>c.innerText.trim()));
@@ -181,7 +183,12 @@ $$('.toolbar').forEach(bar=>{
   document.addEventListener('click',()=>{menu.hidden=true});
   menu.onclick=e=>{const kind=e.target.dataset.kind;if(!kind)return;menu.hidden=true;const rows=grid();const stem=table.id.replace('-table','')+'-'+new Date().toISOString().slice(0,10);
     if(kind==='csv'){const csv=rows.map(r=>r.map(c=>'"'+c.replaceAll('"','""')+'"').join(',')).join('\n');save(new Blob([csv],{type:'text/csv'}),stem+'.csv')}
-    else{save(XLSX.blob(rows),stem+'.xlsx')}};
+    else if(kind==='xlsx'){save(XLSX.blob(rows),stem+'.xlsx')}
+    else if(kind==='pdf'){(async()=>{try{let url='/api/reports/export?report='+pdfReport+'&fmt=pdf';
+      if(pdfReport==='sales'){const f=$('#sales-from').value,t=$('#sales-to').value;if(f)url+='&from='+f;if(t)url+='&to='+t}
+      const r=await fetch(url,{headers:{...MosaicAuth.headers}});if(r.status===401){MosaicAuth.expired();return}
+      if(!r.ok)throw Error((await r.json()).error||'Could not download');
+      save(await r.blob(),stem+'.pdf')}catch(e){alert(e.message)}})()}};
 });
 
 /* ===== Till ===== */

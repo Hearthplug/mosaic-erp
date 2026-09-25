@@ -13,6 +13,7 @@ from retail import Retail
 from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
+import report_export
 from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
 import build_bills, build_registers
 import dayclose, dayclose_share, voice_intake
@@ -602,6 +603,17 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.get_document(wid, qs.get('id',[''])[0]), rid=rid) or 200
         if p == '/api/dayclose/summary':
             wid, _, _ = self._auth('viewer'); return self.out(200, dayclose.day_summary(STORE, wid, qs.get('date',[dayclose.local_today(STORE, wid)])[0]), rid=rid) or 200
+        if p == '/api/reports/export':
+            wid, _, _ = self._auth('viewer')
+            rep=qs.get('report',[''])[0]; fmt=qs.get('fmt',['pdf'])[0]
+            if rep not in report_export.REPORTS: raise ValueError('Unknown report. Pick one of: '+', '.join(report_export.REPORTS))
+            if fmt not in ('pdf','xlsx','csv'): raise ValueError('Unknown format. Use pdf, xlsx or csv.')
+            title,sub,cols,rows,totals=report_export.build_report(rep,wid,qs,STORE,BOOKS,lambda w,d: dayclose.day_summary(STORE,w,d or dayclose.local_today(STORE,w)))
+            if fmt=='pdf': body,k=report_export.render_pdf(title,sub,cols,rows,totals),'application/pdf'
+            elif fmt=='xlsx': body,k=report_export.render_xlsx(title,cols,rows,totals),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            else: body,k=report_export.render_csv(cols,rows,totals),'text/csv'
+            fname='mosaic-%s-%s.%s'%(rep,dayclose.local_today(STORE,wid),fmt)
+            return self.out(200,body,k,hdrs={'Content-Disposition':'attachment; filename="%s"'%fname},rid=rid) or 200
         if p == '/api/dayclose/closes':
             wid, _, _ = self._auth('viewer'); return self.out(200, {'closes': dayclose.list_closes(STORE, wid)}, rid=rid) or 200
         if p == '/api/dayclose/share':

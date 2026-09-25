@@ -10,3 +10,16 @@ async function openBill(id){$('#dashboard').hidden=true;$('#bill-detail').hidden
 function routeBill(){const m=(location.hash||'').match(/^#bill\/(.+)$/);if(m){openBill(m[1])}else{$('#bill-detail').hidden=true;$('#dashboard').hidden=false}}
 addEventListener('hashchange',routeBill);routeBill();
 const onNav=document.querySelector('.rail nav a.on');if(onNav)onNav.scrollIntoView({inline:'center',block:'nearest'});
+
+async function dlReport(report,fmt,btn){try{btn.disabled=true;
+  const r=await fetch('/api/reports/export?report='+report+'&fmt='+fmt,{headers:{...MosaicAuth.headers}});
+  if(r.status===401){MosaicAuth.expired();return}
+  if(!r.ok)throw Error((await r.json()).error||'Could not download');
+  const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download='mosaic-'+report+'.'+fmt;a.click();URL.revokeObjectURL(url)}
+  catch(e){alert(e.message)}finally{btn.disabled=false}}
+document.querySelectorAll('.dlcell').forEach(cell=>{const rep=cell.dataset.report;
+  [['PDF','pdf'],['XLSX','xlsx'],['CSV','csv']].forEach(([label,fmt])=>{
+    const b=document.createElement('button');b.type='button';b.className='dl-btn';b.textContent=label;
+    b.title=fmt==='pdf'?'A clean printable copy':fmt==='xlsx'?'Opens in Excel':'Plain spreadsheet text';
+    b.onclick=()=>dlReport(rep,fmt,b);cell.appendChild(b)})});
