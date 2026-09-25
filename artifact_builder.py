@@ -6,13 +6,23 @@ from store import canon,utcnow,Conflict,NotFound
 ALLOWED_METRICS={'sales_total','sales_count','stock_value','receivables','payables','cash_variance','gross_profit'}
 ALLOWED_GROUPS={'day','week','month','product','location','customer','vendor','status'}
 ALLOWED_REPORTS={'sales_summary','stock_position','receivables_aging','payables_aging','trial_balance','profit_and_loss','balance_sheet','cash_close'}
+# Everyday words visitors actually type, mapped onto the same allow-list.
+# First match wins; nothing outside ALLOWED_REPORTS can ever be produced.
+REPORT_HINTS=[
+ ('profit_and_loss',('profit','p&l','income statement','earnings','margin')),
+ ('receivables_aging',('receivable','owes me','owed to me','customer credit','credit book')),
+ ('payables_aging',('payable','supplier','we owe','i owe')),
+ ('stock_position',('stock','inventory','on hand','items left')),
+ ('cash_close',('cash','till','drawer')),
+ ('sales_summary',('sales','sold','selling','revenue','seller','best seller')),
+]
 class ArtifactBuilder:
  def __init__(self,s,books,retail):self.s,self.books,self.retail=s,books,retail
  def interpret(self,message):
   m=' '.join((message or '').strip().split());low=m.lower()
   if not m:raise ValueError('Describe the dashboard, report, or invoice you want')
   kind='statutory_invoice' if 'invoice' in low and any(x in low for x in ('statutory','tax','legal')) else 'dashboard' if 'dashboard' in low else 'report' if 'report' in low else None
-  if not kind:raise ValueError('Say whether to build a dashboard, report, or statutory invoice')
+  if not kind:raise ValueError('I can draft a report, a dashboard, or a statutory tax invoice layout - say which one you want. For example: "weekly sales report" or "sales dashboard".')
   name=(re.sub(r'(?i)^(build|create|make|draft)\s+(a|an|the)?\s*','',m)[:100] or kind.replace('_',' ').title())
   if kind=='dashboard':
    metrics=[x for x in ALLOWED_METRICS if x.replace('_',' ') in low] or ['sales_total','stock_value']
@@ -20,7 +30,8 @@ class ArtifactBuilder:
    spec={'widgets':[{'metric':x,'visual':'line' if groups[0] in ('day','week','month') else 'bar','group_by':groups[0]} for x in metrics],'filters':['date_range','location_id'],'currency':'workspace'};sources=['sales','sale_lines','stock_ledger']
   elif kind=='report':
    r=next((x for x in ALLOWED_REPORTS if x.replace('_',' ') in low),None)
-   if not r:raise ValueError('Choose a supported report: '+', '.join(sorted(ALLOWED_REPORTS)))
+   if not r:r=next((x for x,hints in REPORT_HINTS if any(re.search(r'\b'+re.escape(h),low) for h in hints)),None)
+   if not r:raise ValueError('I cannot draft that report yet. The reports I can draft: sales summary, stock position, receivables aging, payables aging, trial balance, profit and loss, balance sheet, cash close.')
    spec={'report_type':r,'columns':'standard','filters':['date_range','location_id'],'format':['screen','csv']};sources={'sales_summary':['sales','sale_lines'],'stock_position':['stock_ledger'],'receivables_aging':['documents','settlements'],'payables_aging':['documents','settlements'],'trial_balance':['journals','journal_lines'],'profit_and_loss':['journals','journal_lines','accounts'],'balance_sheet':['journals','journal_lines','accounts'],'cash_close':['cash_sessions','tender_entries']}[r]
   else:
    spec={'template':'jurisdiction_scoped_invoice','fields':['seller','buyer','invoice_number','issue_date','currency','lines','net','tax','gross','tax_registration','rules_version'],'output_state':'DRAFT - REVIEW REQUIRED'};sources=['documents','document_lines','tax_transaction_facts','tax_verifications','statutory_adapters']
