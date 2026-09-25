@@ -72,7 +72,13 @@ if(MosaicAuth.require()){
  $('#show-day').onclick=()=>{if($('#day').value){loadSummary($('#day').value).catch(e=>{$('#diff').textContent=e.message})}};
  $('#day').addEventListener('change',()=>{if($('#day').value){loadSummary($('#day').value).catch(e=>{$('#diff').textContent=e.message})}});
  $('#save').onclick=save;
- $('#share').onclick=async()=>{
+ MosaicVoice.attach($('#mic'),$('#voicestatus'),'/api/dayclose/read-voice',r=>{
+ if(r.counted_cash_minor!=null){$('#counted').value=(r.counted_cash_minor/100).toFixed(2);updateDiff()}
+ if(r.note)$('#note').value=r.note;
+ const vl=$('#voiceline');vl.hidden=false;
+ vl.innerHTML='<b>Heard:</b> '+esc(r.transcript||'')+(r.missing&&r.missing.length?' <b>Type the counted cash above - I could not make out the amount.</b>':'');
+});
+$('#share').onclick=async()=>{
   if(!summary)return;
   try{
    const d=await api('/api/dayclose/share?date='+encodeURIComponent(summary.date));

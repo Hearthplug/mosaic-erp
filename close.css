@@ -16,6 +16,14 @@
 .expected small{display:block;font-size:11px;color:var(--subtle)}
 .counted input{width:100%;height:44px;margin-top:4px;padding:0 11px;border:1px solid var(--line);border-radius:8px;font:600 17px var(--font);font-variant-numeric:tabular-nums;color:var(--ink);background:#fff}
 .counted input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.countedcol{display:flex;flex-direction:column;gap:8px}
+.voicerow{display:flex;align-items:center;gap:10px}
+#mic{white-space:nowrap;height:34px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:600 12.5px var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+#mic svg{width:13px;height:13px;flex:none}
+#mic:disabled{opacity:.5;cursor:default}
+.voicestatus{font-size:11.5px;color:var(--muted)}
+.voiceline{margin:0;font-size:11.5px;color:var(--muted)}
+.voiceline b{color:var(--ink);font-weight:600}
 .diff{margin:0;padding:12px 15px 0;font-size:12.5px;color:var(--muted)}
 .diff.ok{color:#1e7d34;font-weight:600}
 .diff.off{color:#8a5800;font-weight:600}

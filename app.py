@@ -15,7 +15,7 @@ from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
 from migration_packs import Migrations
 from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
 import build_bills, build_registers
-import dayclose, dayclose_share
+import dayclose, dayclose_share, voice_intake
 from tax_engine import TaxEngine
 from artifact_builder import ArtifactBuilder
 from assistant_setup import AssistantSetup
@@ -482,7 +482,7 @@ class H(BaseHTTPRequestHandler):
             return self.out(200, (ROOT / 'close.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/retail.js':
             return self.out(200,(ROOT / 'retail.js').read_text(encoding='utf-8'),'application/javascript; charset=utf-8',rid=rid) or 200
-        if p in ('/close.css','/close.js'):
+        if p in ('/close.css','/close.js','/voice.js'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p == '/accounting.js':
             return self.out(200, (ROOT / 'accounting.js').read_text(encoding='utf-8'), 'application/javascript; charset=utf-8', rid=rid) or 200
@@ -605,6 +605,8 @@ class H(BaseHTTPRequestHandler):
             summary = dayclose.day_summary(STORE, wid, day)
             currency = BOOKS.status(wid).get('base_currency','USD')
             return self.out(200, {'text': dayclose_share.close_share_text(summary, dayclose.get_close(STORE, wid, day), currency)}, rid=rid) or 200
+        if p == '/api/build/voice-status':
+            wid, _, _ = self._auth('viewer'); return self.out(200, voice_intake.voice_status(AIPREFS, wid), rid=rid) or 200
         if p == '/api/workspace/export':
             wid, key_id, _ = self._auth('editor')
             data = STORE.export_workspace(wid, key_id)
@@ -769,6 +771,24 @@ class H(BaseHTTPRequestHandler):
             client=AIPREFS.client_for(wid)
             if not hasattr(client,'extract_image'):raise ValueError('Photo reading needs your own OpenAI or Claude key - add it in Assistant settings, or type what the document shows.')
             return self.out(200,client.extract_image(d['data_b64'],mime),rid=rid) or 200
+        if p == '/api/build/read-voice':
+            wid, _, _ = self._auth('editor'); d=self._body()
+            client=AIPREFS.client_for(wid)
+            if not hasattr(client,'extract_transcript'):raise ValueError('Voice entry needs your own OpenAI key - add it in Assistant settings, or type instead.')
+            spoken=voice_intake.transcribe_audio(client,d.get('data_b64',''),d.get('name',''),d.get('mime',''),hint=d.get('hint',''))
+            extraction=client.extract_transcript(spoken['transcript'])
+            return self.out(200,{'transcript':spoken['transcript'],'extraction':extraction},rid=rid) or 200
+        if p == '/api/dayclose/read-voice':
+            wid, _, _ = self._auth('editor'); d=self._body()
+            client=AIPREFS.client_for(wid)
+            if not hasattr(client,'extract_transcript'):raise ValueError('Voice entry needs your own OpenAI key - add it in Assistant settings, or type instead.')
+            spoken=voice_intake.transcribe_audio(client,d.get('data_b64',''),d.get('name',''),d.get('mime',''),hint='A shop owner speaking their evening cash count and an optional note.')
+            extraction=client.extract_transcript(spoken['transcript'])
+            out=voice_intake.close_fields(extraction); out['transcript']=spoken['transcript']
+            return self.out(200,out,rid=rid) or 200
+        if p == '/api/build/record-voice-entry':
+            wid, actor, _ = self._auth('editor'); d=self._body()
+            return self.out(201,voice_intake.record_entry(STORE,BOOKS,wid,actor,d),rid=rid) or 201
         if p == '/api/build/draft-from-extraction':
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(201,ARTIFACTS.draft_from_extraction(wid,actor,d.get('target',''),d.get('extraction') or {},d.get('hint','')),rid=rid) or 201
         if p == '/api/build/bill-draft':

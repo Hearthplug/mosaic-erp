@@ -182,27 +182,47 @@ def _extract_chat_body(client, image_b64, media_type):
                 {'type': 'text', 'text': 'Read this document.'}]}]}, 'anthropic'
 
 
-def _extract_image(self, image_b64, media_type):
-    """Read a document photo with the owner's own vision-capable key.
-    Fail-closed: non-vision providers and unreadable answers raise ProviderError."""
-    if self.provider not in VISION_PROVIDERS:
-        raise ProviderError(f"{self.spec['brand']} cannot read photos. Switch the key in Assistant settings to OpenAI or Claude, or type what the document shows.")
-    body, style = _extract_chat_body(self, image_b64, media_type)
-    payload = self._request(body)
-    if style == 'openai':
+_TRANSCRIPT_SYSTEM = ("You turn a shop owner's spoken note into a structured business entry. "
+    "The owner may speak any language; keep names and item words as said. "
+    "Reply with ONLY a JSON object: "
+    '{"document_type": "<one of: customer credit book, supplier ledger, stock register, sale, note>", '
+    '"fields": [{"name": "<field>", "value": "<what was said>", "confidence": <0..1>}], '
+    '"summary": "<one plain sentence>", '
+    '"lines": [{"description": "<item or what happened>", "quantity": "<number>", "unit_price": "<as said>", "amount": "<line total as said>"}]}. '
+    "For a credit book entry, the customer name is a field named 'name' and each thing they took is a line. "
+    "Money a customer paid is a line whose description mentions 'paid'. "
+    "For a quick sale, each item sold is a line. "
+    "For a cash count, the counted amount is a field named 'counted cash' and anything else goes in a field named 'note'. "
+    "Copy amounts exactly as said, including currency words. "
+    "Use a confidence below 0.6 for anything you are unsure about. No prose, no markdown fences.")
+
+
+def _chat_once(client, system, user_text):
+    """One JSON-mode chat call on the owner's key, normalized across providers."""
+    if client.spec['style'] == 'openai':
+        body = {'model': client.spec['model'], 'temperature': 0,
+                'response_format': {'type': 'json_object'},
+                'messages': [{'role': 'system', 'content': system},
+                             {'role': 'user', 'content': user_text}]}
+        payload = client._request(body)
         try:
-            raw = payload['choices'][0]['message']['content']
+            return payload['choices'][0]['message']['content']
         except (KeyError, IndexError, TypeError):
-            raise ProviderError(f"{self.spec['brand']} returned an unexpected response. Try again, or switch to Standard.")
-    else:
-        try:
-            raw = next(b['text'] for b in payload['content'] if b.get('type') == 'text')
-        except (KeyError, IndexError, TypeError, StopIteration):
-            raise ProviderError(f"{self.spec['brand']} returned an unexpected response. Try again, or switch to Standard.")
-    data = _strict_json(raw)
+            raise ProviderError(f"{client.spec['brand']} returned an unexpected response. Try again, or switch to Standard.")
+    body = {'model': client.spec['model'], 'max_tokens': 2048, 'temperature': 0,
+            'system': system,
+            'messages': [{'role': 'user', 'content': user_text}]}
+    payload = client._request(body)
+    try:
+        return next(b['text'] for b in payload['content'] if b.get('type') == 'text')
+    except (KeyError, IndexError, TypeError, StopIteration):
+        raise ProviderError(f"{client.spec['brand']} returned an unexpected response. Try again, or switch to Standard.")
+
+
+def _clean_extraction(data):
     fields = data.get('fields')
     if not isinstance(fields, list) or not all(isinstance(f, dict) and isinstance(f.get('name'), str) for f in fields):
-        raise ProviderError(f"{self.spec['brand']} returned an unreadable extraction. Try again, or type the fields.")
+        raise ProviderError("The key returned an unreadable entry. Try again, or type the fields.")
     cleaned = []
     for f in fields[:40]:
         try:
@@ -224,4 +244,31 @@ def _extract_image(self, image_b64, media_type):
             'summary': str(data.get('summary', ''))[:300], 'fields': cleaned, 'lines': lines}
 
 
+def _extract_transcript(self, transcript):
+    """Structure a spoken note with the owner's own chat key. Any chat provider works."""
+    raw = _chat_once(self, _TRANSCRIPT_SYSTEM, 'The owner said: ' + (transcript or '')[:2000])
+    return _clean_extraction(_strict_json(raw))
+
+
+def _extract_image(self, image_b64, media_type):
+    """Read a document photo with the owner's own vision-capable key.
+    Fail-closed: non-vision providers and unreadable answers raise ProviderError."""
+    if self.provider not in VISION_PROVIDERS:
+        raise ProviderError(f"{self.spec['brand']} cannot read photos. Switch the key in Assistant settings to OpenAI or Claude, or type what the document shows.")
+    body, style = _extract_chat_body(self, image_b64, media_type)
+    payload = self._request(body)
+    if style == 'openai':
+        try:
+            raw = payload['choices'][0]['message']['content']
+        except (KeyError, IndexError, TypeError):
+            raise ProviderError(f"{self.spec['brand']} returned an unexpected response. Try again, or switch to Standard.")
+    else:
+        try:
+            raw = next(b['text'] for b in payload['content'] if b.get('type') == 'text')
+        except (KeyError, IndexError, TypeError, StopIteration):
+            raise ProviderError(f"{self.spec['brand']} returned an unexpected response. Try again, or switch to Standard.")
+    return _clean_extraction(_strict_json(raw))
+
+
 ChatProviderClient.extract_image = _extract_image
+ChatProviderClient.extract_transcript = _extract_transcript
