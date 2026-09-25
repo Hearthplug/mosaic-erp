@@ -1,6 +1,8 @@
 name: build-windows-installer
 on:
   workflow_dispatch:
+  release:
+    types: [published]
   push:
     branches: [main]
     tags: ['v*']

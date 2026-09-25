@@ -33,7 +33,7 @@ permissions:
   contents: write
   packages: write
   id-token: write
-  actions: read
+  actions: write
 
 concurrency:
   group: publish-release-${{ inputs.version }}
@@ -303,3 +303,12 @@ jobs:
           [[ "$release_id" =~ ^[0-9]+$ ]]
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" -F draft=false >/dev/null
           gh release view "$VERSION" --json isDraft,tagName,targetCommitish --jq 'select(.isDraft == false)' >/dev/null
+
+      - name: Dispatch installer builds for the published tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run build-windows-installer.yml --ref "$VERSION"
+          gh workflow run build-mac-installer.yml --ref "$VERSION"
