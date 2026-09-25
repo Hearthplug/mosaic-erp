@@ -39,6 +39,9 @@ class ArtifactBuilder:
  def draft(self,wid,actor,message,name=None):
   x=self.interpret(message)
   if name:x['name']=name
+  base=x['name'];existing={r['name'] for r in self.s._db.execute('SELECT name FROM generated_artifacts WHERE workspace_id=? AND kind=?',(wid,x['kind'])).fetchall()}
+  n=2
+  while x['name'] in existing:x['name']=base+' ('+str(n)+')';n+=1
   aid='gar_'+secrets.token_hex(8)
   with self.s.tx():
    self.s._db.execute("INSERT INTO generated_artifacts(id,workspace_id,kind,name,specification_json,specification_hash,source_tables_json,config_version,status,legal_status,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,'draft',?,?,?)",(aid,wid,x['kind'],x['name'],canon(x['specification']),__import__('hashlib').sha256(canon(x['specification']).encode()).hexdigest(),canon(x['source_tables']),self._config_version(wid),x['legal_status'],actor,utcnow()))
