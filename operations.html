@@ -58,7 +58,7 @@
 
     <section id="view-stock" class="view" hidden>
       <div class="card tablecard">
-        <div class="cardhead"><h2>Stock register</h2><span class="cardmeta" id="stock-count"></span></div><div class="toolbar" data-table="stock-table"><label class="search"><span>⌕</span><input type="search" placeholder="Search items or stores" aria-label="Search stock"></label><button class="filter-chip on" type="button" data-filter="all">All stock</button><button class="filter-chip" type="button" data-filter="low" title="Items under their reorder level in a store">Low stock</button><button class="export-btn" type="button">Export CSV</button></div>
+        <div class="cardhead"><h2>Stock register</h2><span class="cardmeta" id="stock-count"></span></div><div class="toolbar" data-table="stock-table"><label class="search"><span>⌕</span><input type="search" placeholder="Search items or stores" aria-label="Search stock"></label><button class="filter-chip on" type="button" data-filter="all">All stock</button><button class="filter-chip" type="button" data-filter="low" title="Items under their reorder level in a store">Low stock</button><button class="export-btn" type="button">Export ▾</button></div>
         <div class="tablewrap">
           <table class="dt" id="stock-table">
             <thead><tr><th>Item</th><th>Store</th><th class="num">On hand</th></tr></thead>
@@ -96,7 +96,7 @@
 
     <section id="view-sales" class="view" hidden>
       <div class="card tablecard">
-        <div class="cardhead"><h2>Recent sales</h2><span class="cardmeta" id="sales-count"></span></div><div class="toolbar" data-table="sales-table"><label class="search"><span>⌕</span><input type="search" placeholder="Search bills, stores or status" aria-label="Search sales"></label><button class="filter-chip on" type="button" data-filter="all">All</button><button class="filter-chip" type="button" data-filter="completed">Completed</button><button class="filter-chip" type="button" data-filter="returned">Returned</button><label class="date-range" title="Show bills between two dates"><input type="date" id="sales-from" aria-label="From date"><span>to</span><input type="date" id="sales-to" aria-label="To date"></label><button class="export-btn" type="button">Export CSV</button></div>
+        <div class="cardhead"><h2>Recent sales</h2><span class="cardmeta" id="sales-count"></span></div><div class="toolbar" data-table="sales-table"><label class="search"><span>⌕</span><input type="search" placeholder="Search bills, stores or status" aria-label="Search sales"></label><button class="filter-chip on" type="button" data-filter="all">All</button><button class="filter-chip" type="button" data-filter="completed">Completed</button><button class="filter-chip" type="button" data-filter="returned">Returned</button><label class="date-range" title="Show bills between two dates"><input type="date" id="sales-from" aria-label="From date"><span>to</span><input type="date" id="sales-to" aria-label="To date"></label><button class="export-btn" type="button">Export ▾</button></div>
         <div class="tablewrap">
           <table class="dt" id="sales-table">
             <thead><tr><th>Bill</th><th>When</th><th>Store</th><th class="num">Items</th><th class="num">Total</th><th class="num">Paid</th><th>Status</th></tr></thead>
@@ -147,7 +147,7 @@
 
     <section id="view-buying" class="view" hidden>
       <div class="card tablecard">
-        <div class="cardhead"><h2>Purchase orders</h2><span class="cardmeta" id="buying-count"></span></div><div class="toolbar" data-table="buying-table"><label class="search"><span>⌕</span><input type="search" placeholder="Search orders or suppliers" aria-label="Search purchases"></label><button class="filter-chip on" type="button" data-filter="all">All</button><button class="filter-chip" type="button" data-filter="approved">Approved</button><button class="filter-chip" type="button" data-filter="received">Received</button><button class="export-btn" type="button">Export CSV</button></div>
+        <div class="cardhead"><h2>Purchase orders</h2><span class="cardmeta" id="buying-count"></span></div><div class="toolbar" data-table="buying-table"><label class="search"><span>⌕</span><input type="search" placeholder="Search orders or suppliers" aria-label="Search purchases"></label><button class="filter-chip on" type="button" data-filter="all">All</button><button class="filter-chip" type="button" data-filter="approved">Approved</button><button class="filter-chip" type="button" data-filter="received">Received</button><button class="export-btn" type="button">Export ▾</button></div>
         <div class="tablewrap">
           <table class="dt" id="buying-table">
             <thead><tr><th>Order</th><th>Supplier</th><th>Store</th><th>Ordered</th><th class="num">Lines</th><th class="num">Total</th><th>Status</th></tr></thead>
@@ -212,7 +212,7 @@
 
     <section id="view-money" class="view" hidden>
       <div class="card tablecard">
-        <div class="cardhead"><h2>Till sessions</h2><span class="cardmeta" id="money-count"></span></div><div class="toolbar" data-table="money-table"><label class="search"><span>⌕</span><input type="search" placeholder="Search stores or status" aria-label="Search till sessions"></label><button class="filter-chip on" type="button" data-filter="all">All</button><button class="filter-chip" type="button" data-filter="open">Open</button><button class="filter-chip" type="button" data-filter="closed">Closed</button><button class="export-btn" type="button">Export CSV</button></div>
+        <div class="cardhead"><h2>Till sessions</h2><span class="cardmeta" id="money-count"></span></div><div class="toolbar" data-table="money-table"><label class="search"><span>⌕</span><input type="search" placeholder="Search stores or status" aria-label="Search till sessions"></label><button class="filter-chip on" type="button" data-filter="all">All</button><button class="filter-chip" type="button" data-filter="open">Open</button><button class="filter-chip" type="button" data-filter="closed">Closed</button><button class="export-btn" type="button">Export ▾</button></div>
         <div class="tablewrap">
           <table class="dt" id="money-table">
             <thead><tr><th>Store</th><th>Opened</th><th class="num" title="Cash in the drawer at the start of the day">Opening float</th><th class="num">Expected</th><th class="num">Counted</th><th class="num">Difference</th><th>Status</th></tr></thead>

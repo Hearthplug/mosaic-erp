@@ -19,3 +19,13 @@ async function connect(){if(!MosaicAuth.require())return;try{await api('/api/mig
 $('#stage').onclick=async()=>{try{batch=await api('/api/migrations/stage',{kind:$('#kind').value,source_system:$('#source').value,csv:$('#csv').value});showStage(batch,$('#kind').value);$('#apply').disabled=batch.status!=='validated';$('#rollback').disabled=true;$('#reviewfields').hidden=$('#kind').value!=='opening_balances'}catch(e){$('#result').textContent=e.message}}
 $('#apply').onclick=async()=>{try{let out=$('#kind').value==='opening_balances'?await api('/api/migrations/opening-balances/apply',{batch_id:batch.id,professional:$('#professional').value,approved_on:$('#approved').value}):await api('/api/migrations/apply',{batch_id:batch.id});showApplied(out);$('#apply').disabled=true;$('#rollback').disabled=$('#kind').value==='opening_balances'}catch(e){$('#result').textContent=e.message}}
 $('#rollback').onclick=()=>{$('#confirmrollback').hidden=false};$('#cancelrollback').onclick=()=>{$('#confirmrollback').hidden=true};$('#doremove').onclick=async()=>{try{let out=await api('/api/migrations/rollback',{batch_id:batch.id});$('#result').textContent='Batch rolled back - '+out.objects+' records undone. Ledger history stays visible.';$('#rollback').disabled=true;$('#confirmrollback').hidden=true}catch(e){$('#result').textContent=e.message}}
+
+$('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{
+  const buf=await f.arrayBuffer();let bin='';const b=new Uint8Array(buf);for(let i=0;i<b.length;i++)bin+=String.fromCharCode(b[i]);
+  const out=await api('/api/build/read-file',{name:f.name,mime:f.type,data_b64:btoa(bin)});
+  if(!out.detected||!out.detected.csv)throw Error('That file is not a spreadsheet or CSV.');
+  $('#csv').value=out.detected.csv;
+  if(out.detected.pack){$('#kind').value=out.detected.pack}
+  const rows=out.detected.csv.split('\n').filter(l=>l.trim()).length-1;
+  $('#result').textContent='Loaded '+f.name+' ('+rows+' rows). Check the data below, then validate.';}
+  catch(err){$('#result').textContent=err.message}}
