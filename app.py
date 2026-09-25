@@ -3,7 +3,8 @@ import base64, hashlib, json, os
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+import sqlite3
 from urllib.parse import urlparse
 import secrets, sys, threading, time
 from urllib.parse import parse_qs
@@ -23,7 +24,7 @@ from assistant_setup import AssistantSetup
 from assistant_preview import AssistantPreview
 from provisioning import Provisioner
 from jev_client import default_client  # deployment default for self-hosted owners
-from jev_mapper import map_interview
+from jev_mapper import map_interview, map_text_field
 from jev_reconfigure import propose_change, TARGETS as JEV_TARGETS
 from ai_prefs import AiPrefs
 from rbac import Denied
@@ -177,6 +178,33 @@ def eu(a):
  if a.get('supply')=='EU + exports outside the EU':rules.append('Exports outside the EU → zero-rated with customs evidence')
  return {'jurisdiction':'European Union','subdivision':ms,'tax_name':'VAT','authority':('National tax authority of '+ms if ms else 'National tax authorities')+' under the EU VAT Directive','currency':{'code':'EUR','symbol':'€'},'registration':{'type':reg or 'Undecided','registered':registered,'label':('VAT identification number' + (' + OSS scheme' if reg=='OSS registered' else '')) if registered else 'Register in your member state','threshold':'National thresholds; €10,000 EU-wide for cross-border B2C distance sales'},'rates':{'structure':'VAT Directive: standard rate at least 15%; member states set their own','slabs':([{'band':ms+' standard','rate':rate}] if rate is not None else []),'note':'Confirm member-state rates and reduced-rate categories'},'rules':rules,'invoice':['VAT invoice with VAT ID, rate, and reverse-charge note where applicable' if registered else 'Commercial invoice until registered'],'credits':'Input VAT deductible with valid invoices' if registered else 'No deductions until registered','returns':['National VAT returns per member state']+(['Quarterly OSS return for EU B2C distance sales'] if reg=='OSS registered' else []),'validations':[{'check':'VIES','status':'Validate customer VAT numbers for intra-EU B2B zero-rating'},{'check':'OSS threshold','status':'Above €10,000 cross-border B2C - charge destination VAT' if a.get('turnover')=='Above €10,000 cross-border sales' else 'Below €10,000 cross-border threshold'}],'warnings':warns,'reverse_charge':'B2B intra-EU acquisitions are reverse-charged to the customer','workflows':([f'Sale → charge {ms} VAT at {rate}%'] if ms and registered and rate is not None else [])+(['EU B2B sale → validate VAT number in VIES → zero-rate'] if a.get('supply')=='Across the EU' and registered else [])+(['B2C EU sale above threshold → destination VAT via OSS'] if a.get('supply')=='Across the EU' and reg=='OSS registered' else []),'kpi':'VAT payable' if registered else 'Threshold watch','sources':[{'title':'European Commission: VAT rates under the VAT Directive','url':'https://taxation-customs.ec.europa.eu/taxation/vat/vat-directive/vat-rates_en'},{'title':'European Commission: VAT One Stop Shop','url':'https://vat-one-stop-shop.ec.europa.eu/one-stop-shop_en'}],'effective':TODAY}
 PACKS={'India':india,'UAE':uae,'Singapore':singapore,'China':china,'Vietnam':vietnam,'Malaysia':malaysia,'United Kingdom':uk,'United States':usa,'Canada':canada,'European Union':eu,**{c:(lambda a,_c=c:make_pack(a,TODAY)) for c in EXTRA_DATA}}
+
+def pack_currency_for_answer(country):
+    """Resolve the accounting base currency for the interview's free-text country answer.
+    Owners type sentences ("Registered in India, sell locally"), never bare pack keys, so a plain
+    `country in PACKS` check always missed and every non-US shop silently got USD books.
+    Map free text through the Jev country extractor (aliases -> pack name + currency)."""
+    country=(country or '').strip()
+    if not country:return 'USD'
+    def _code(name):
+        try:return PACKS[name]({'country':name}).get('currency',{}).get('code','USD')
+        except Exception:return None
+    if country in PACKS:
+        return _code(country) or 'USD'
+    import re as _re
+    low=country.lower()
+    for name in sorted(PACKS,key=len,reverse=True):
+        if _re.search(r'\b'+_re.escape(name.lower())+r'\b',low):
+            code=_code(name)
+            if code:return code
+    try:mapped=map_text_field('country',country,None)
+    except Exception:return 'USD'
+    name=(mapped.get('proposed') or '').strip()
+    if name in PACKS:
+        code=_code(name)
+        if code:return code
+    ccy=(mapped.get('currency') or '').strip().upper()
+    return ccy if len(ccy)==3 else 'USD'
 def tax_profile(a):
  c=a.get('country')
  if not c or c not in PACKS:return None
@@ -387,6 +415,36 @@ class H(BaseHTTPRequestHandler):
             status = 409 if isinstance(e, Conflict) else 404 if isinstance(e, NotFound) else 400
             try:
                 self.out(status, {'error': str(e), 'request_id': rid}, rid=rid)
+            except Exception:
+                pass
+        except KeyError as e:
+            status = 400
+            log_event(request_id=rid, route=route, error=repr(e))
+            field = str(e.args[0]) if e.args and str(e.args[0]) else 'a required value'
+            try:
+                self.out(400, {'error': 'Missing or invalid field: ' + field, 'request_id': rid}, rid=rid)
+            except Exception:
+                pass
+        except InvalidOperation:
+            status = 400
+            log_event(request_id=rid, route=route, error='InvalidOperation(bad number)')
+            try:
+                self.out(400, {'error': 'A number in the request is not valid', 'request_id': rid}, rid=rid)
+            except Exception:
+                pass
+        except sqlite3.IntegrityError as e:
+            status = 409
+            log_event(request_id=rid, route=route, error=repr(e))
+            msg = 'That code or name already exists - pick a different one' if 'UNIQUE' in str(e) else 'That change conflicts with existing records'
+            try:
+                self.out(409, {'error': msg, 'request_id': rid}, rid=rid)
+            except Exception:
+                pass
+        except (TypeError, AttributeError) as e:
+            status = 400
+            log_event(request_id=rid, route=route, error=repr(e))
+            try:
+                self.out(400, {'error': 'The request body is not valid for this action', 'request_id': rid}, rid=rid)
             except Exception:
                 pass
         except Exception as e:
@@ -668,7 +726,7 @@ class H(BaseHTTPRequestHandler):
             else:
                 row=STORE._db.execute("SELECT answers_json FROM onboarding_sessions WHERE workspace_id=? ORDER BY updated_at DESC LIMIT 1",(wid,)).fetchone()
                 country=(json.loads(row['answers_json']).get('country') or '').strip() if row else ''
-            if country in PACKS:currency=PACKS[country]({'country':country}).get('currency',{}).get('code','USD')
+            currency=pack_currency_for_answer(country)
         except Exception:pass
         BOOKS.setup(wid,actor,base_currency=currency)
     def _post(self, rid):
