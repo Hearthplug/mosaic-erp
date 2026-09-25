@@ -24,3 +24,4 @@
 .toast.err{background:#8f2d1d}
 @media(max-width:1000px){.set-grid{grid-template-columns:1fr}}
 @media(max-width:720px){.set-body{padding:13px 13px}.fieldrow{grid-template-columns:1fr}}
+#name-save:disabled{opacity:.45;box-shadow:none}

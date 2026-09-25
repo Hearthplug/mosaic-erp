@@ -2,6 +2,18 @@ const $=s=>document.querySelector(s);
 function api(path,body){const opt=body===undefined?{headers:MosaicAuth.headers}:{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)};return fetch(path,opt).then(r=>r.json().then(j=>{if(r.status===401){MosaicAuth.expired();throw Error('Signed out')}if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
 let toastTimer=null;
 function toast(ok,text){const t=$('#toast');t.textContent=text;t.className='toast show '+(ok?'ok':'err');clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.className='toast'},4200)}
+const TAX_PLAIN={
+ 'registration and taxpayer status':'Registration and taxpayer status - whether you are registered for tax, and under which status',
+ 'effective dates for each rate':'Effective dates - which rates apply, and from when',
+ 'item or service classification basis':'Item classification - which rate each item or service falls under',
+ 'place-of-supply and customer-type scope':'Place of supply - how selling to another state or country changes the tax',
+ 'tax-inclusive or tax-exclusive price basis':'Price basis - whether your prices include tax or add it at checkout',
+ 'rounding at line or document level':'Rounding - how tax is rounded on each bill',
+ 'zero-rated/exempt evidence rules':'Zero-rated and exempt sales - which sales are tax-free, and what proof to keep',
+ 'reverse-charge conditions':'Reverse charge - when you pay tax on a supplier\u2019s behalf',
+ 'credit/recovery restrictions':'Credit and recovery - which purchase tax you can claim back',
+ 'invoice fields, filing and e-invoicing adapter separately':'Invoices and filing - what must appear on an invoice, how to file, and electronic filing (e-invoicing)'};
+function plainTax(x){return TAX_PLAIN[x]||x}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 function renderStores(locs){
@@ -14,7 +26,6 @@ function connect(){if(!MosaicAuth.require())return;
   api('/api/settings/summary').then(s=>{
     const name=s.workspace.name||'Your company';
     $('#company').textContent=name;$('#state').textContent='Ready · '+(identity.role||'your role');
-    $('#ws-meta').textContent=(identity.role||'owner')+' · '+s.workspace.id;
     $('#shop-name').value=s.workspace.name||'';
     const nameSave=$('#name-save');
     $('#shop-name').oninput=()=>{nameSave.disabled=!($('#shop-name').value.trim()&&$('#shop-name').value.trim()!==s.workspace.name)};
@@ -29,7 +40,7 @@ function connect(){if(!MosaicAuth.require())return;
     $('#tax-tag').textContent=tax.jurisdiction?'':'from your interview';
     const mv=tax.must_verify||[];
     $('#tax-verify-wrap').hidden=!mv.length;
-    $('#tax-list').innerHTML=mv.map(x=>'<li>'+esc(x)+'</li>').join('');
+    $('#tax-list').innerHTML=mv.map(x=>'<li>'+esc(plainTax(x))+'</li>').join('');
   }).catch(e=>{$('#state').textContent='Could not open settings';toast(false,e.message)});
 }
 connect();
