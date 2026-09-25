@@ -72,6 +72,14 @@ if(MosaicAuth.require()){
  $('#show-day').onclick=()=>{if($('#day').value){loadSummary($('#day').value).catch(e=>{$('#diff').textContent=e.message})}};
  $('#day').addEventListener('change',()=>{if($('#day').value){loadSummary($('#day').value).catch(e=>{$('#diff').textContent=e.message})}});
  $('#save').onclick=save;
+ $('#share').onclick=async()=>{
+  if(!summary)return;
+  try{
+   const d=await api('/api/dayclose/share?date='+encodeURIComponent(summary.date));
+   const st=$('#sharetext');st.textContent=d.text;st.hidden=false;
+   window.open('https://wa.me/?text='+encodeURIComponent(d.text),'_blank','noopener');
+  }catch(e){$('#savehint').textContent=e.message}
+ };
 }
 $('#tz-change').onclick=()=>{
  const ed=$('#tz-editor');ed.hidden=!ed.hidden;
