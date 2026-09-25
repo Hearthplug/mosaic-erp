@@ -216,6 +216,13 @@ jobs:
           promote "$GHCR_IMAGE" "$GHCR_DIGEST" "$minor"
           promote "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$plain"
           promote "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$minor"
+          promote_latest() {
+            local image="$1" digest="$2"
+            docker buildx imagetools create --tag "$image:latest" "$image@$digest"
+            test "$(docker buildx imagetools inspect "$image:latest" | awk '$1=="Digest:"{print $2;exit}')" = "$digest"
+          }
+          promote_latest "$GHCR_IMAGE" "$GHCR_DIGEST"
+          promote_latest "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST"
 
       - name: Create or verify exact annotated tag
         env:
@@ -298,6 +305,8 @@ jobs:
           test "$(docker buildx imagetools inspect "$GHCR_IMAGE:$minor" | awk '$1=="Digest:"{print $2;exit}')" = "$GHCR_DIGEST"
           test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$plain" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
           test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$minor" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
+          test "$(docker buildx imagetools inspect "$GHCR_IMAGE:latest" | awk '$1=="Digest:"{print $2;exit}')" = "$GHCR_DIGEST"
+          test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:latest" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
           gh release view "$VERSION" --json isDraft,tagName,targetCommitish --jq 'select(.isDraft == true)' >/dev/null
           release_id="$(gh release view "$VERSION" --json databaseId --jq .databaseId)"
           [[ "$release_id" =~ ^[0-9]+$ ]]
