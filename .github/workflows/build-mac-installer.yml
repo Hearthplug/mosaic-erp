@@ -164,17 +164,21 @@ jobs:
         run: |
           set -euo pipefail
           tag="${{ github.ref_name }}"
-          for attempt in $(seq 1 12); do
-            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}"               --jq '.assets[] | select(.name != "SHA256SUMS") | select(.digest != null) | [.digest, .name] | @tsv'               | sed 's/^sha256://' | awk '{print $1 "  " $2}' | sort -k2 > SHA256SUMS
-            test -s SHA256SUMS
-            gh release upload "$tag" SHA256SUMS --clobber
-            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq '.assets[] | select(.name != "SHA256SUMS") | .name' | sort > live-assets.txt
-            awk '{print $2}' SHA256SUMS | sort > summed-assets.txt
-            if cmp -s live-assets.txt summed-assets.txt; then
-              echo "SHA256SUMS covers every release asset"
-              exit 0
+          for attempt in $(seq 1 20); do
+            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq '.assets[] | select(.name != "SHA256SUMS") | [.digest, .name] | @tsv' > assets.tsv
+            total=$(wc -l < assets.tsv)
+            digested=$(grep -c '^sha256:' assets.tsv || true)
+            if [ "$total" -gt 0 ] && [ "$digested" -eq "$total" ]; then
+              sed 's/^sha256://' assets.tsv | awk '{print $1 "  " $2}' | sort -k2 > SHA256SUMS
+              gh release upload "$tag" SHA256SUMS --clobber
+              awk '{print $2}' assets.tsv | sort > live-assets.txt
+              awk '{print $2}' SHA256SUMS | sort > summed-assets.txt
+              if cmp -s live-assets.txt summed-assets.txt; then
+                echo "SHA256SUMS covers every release asset"
+                exit 0
+              fi
             fi
-            echo "attempt $attempt: release asset set still changing, retrying in 45s"
+            echo "attempt $attempt: $digested/$total asset digests ready, retrying in 45s"
             sleep 45
           done
           echo "SHA256SUMS did not converge on the live asset set" >&2
