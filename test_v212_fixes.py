@@ -1,4 +1,4 @@
-import json,os,tempfile,threading,unittest,urllib.request,urllib.error
+import json,os,re,tempfile,threading,unittest,urllib.request,urllib.error
 os.environ['MOSAIC_DB_PATH']=tempfile.mktemp();os.environ['MOSAIC_RATE_LIMIT_RPM']='1000'
 import app
 
@@ -99,3 +99,34 @@ class CleanClientErrors(unittest.TestCase):
    self.assertEqual(res.get('base_currency'),ccy,(country,res))
 
 if __name__=='__main__': unittest.main()
+
+class V212StaticGuards(unittest.TestCase):
+    """Regression guards for UI fixes verified live in the browser (see PR evidence)."""
+
+    def test_notice_icons_use_hidden_attribute(self):
+        js = open('operations.js').read()
+        self.assertIn("$('#notice-icon-ok').toggleAttribute('hidden'", js)
+        self.assertNotIn("$('#notice-icon-ok').hidden=", js)
+
+    def test_setup_chain_is_fault_tolerant(self):
+        js = open('operations.js').read()
+        self.assertIn("const safe=(label,fn)=>{try{fn()}catch(e){console.error('setup '+label+' failed',e)}};", js)
+        self.assertIn("safe('till',()=>tillSetup(c.locations||[]))", js)
+        self.assertIn("if(wrap)wrap.hidden=true", js)
+
+    def test_no_inline_style_attributes_in_pages(self):
+        import re
+        for page in ('static.html', 'migration.html', 'operations.html'):
+            html = open(page).read()
+            bad = re.findall(r'style="[^"]*"', html)
+            self.assertEqual(bad, [], f'{page} still has inline styles: {bad}')
+
+    def test_checklist_links_to_view_with_add_item_form(self):
+        js = open('operations.js').read()
+        html = open('operations.html').read()
+        m = re.search(r"label:'Add your first item',view:'(\w+)'", js)
+        self.assertIsNotNone(m)
+        view = m.group(1)
+        section = html.split('id="view-%s"' % view, 1)[1]
+        self.assertIn('id="add-item"', section.split('<section', 1)[0])
+        self.assertIn('on the Buying page', js)
