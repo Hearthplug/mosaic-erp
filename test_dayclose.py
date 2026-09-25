@@ -139,5 +139,51 @@ class SaveAndList(unittest.TestCase):
             dayclose.day_summary(s, wid, '25/09/2026')
 
 
+
+class PosSalesInSummaryTest(unittest.TestCase):
+    """Counter sales through the till create no documents; the close summary must still count them."""
+
+    def _pos(self):
+        from retail import Retail
+        s, wid, books = _store()
+        r = Retail(s, books)
+        loc = r.setup_location(wid, 'owner', 'MAIN', 'Main')['id']
+        prod = r.product(wid, 'owner', 'SKU1', 'Rice', 500, 300)['id']
+        vendor = books.create_party(wid, 'owner', 'vendor', 'Supplier')['id']
+        po = r.purchase_order(wid, 'buyer', vendor, loc, TODAY, [{'product_id': prod, 'quantity': '10', 'unit_cost_minor': 300}])
+        r.approve_purchase(wid, 'owner', po['id'])
+        line = s._db.execute('SELECT id FROM purchase_order_lines WHERE purchase_order_id=?', (po['id'],)).fetchone()['id']
+        r.receive_purchase(wid, 'receiver', po['id'], {line: '10'})
+        return s, wid, books, r, loc, prod
+
+    def test_pos_only_day_counts_sales_tenders_and_items(self):
+        s, wid, books, r, loc, prod = self._pos()
+        r.open_cash(wid, 'cashier', loc, 10000)
+        r.complete_sale(wid, 'cashier', loc, [{'product_id': prod, 'quantity': '2'}], [{'kind': 'cash', 'amount_minor': 1000}])
+        r.complete_sale(wid, 'cashier', loc, [{'product_id': prod, 'quantity': '1'}], [{'kind': 'card', 'amount_minor': 500}])
+        summary = dayclose.day_summary(s, wid, TODAY)
+        self.assertEqual(summary['sales_count'], 2)
+        self.assertEqual(summary['sales_total_minor'], 1500)
+        self.assertEqual(summary['payments_cash_minor'], 1000)
+        self.assertEqual(summary['payments_bank_minor'], 500)
+        self.assertEqual(summary['items_sold'], 3)
+        self.assertEqual(summary['expected_cash_minor'], 1000)
+
+    def test_invoice_and_pos_same_day_add_without_double_counting(self):
+        s, wid, books, r, loc, prod = self._pos()
+        cash_id = s._db.execute("SELECT id FROM accounts WHERE workspace_id=? AND system_key='cash'", (wid,)).fetchone()['id']
+        doc = books.create_document(wid, 'o@t.co', 'sales_invoice', TODAY,
+            [{'description': 'Invoice sale', 'quantity': '1', 'unit_price_minor': 2000}], memo='Invoice sale')
+        books.approve_document(wid, 'o@t.co', doc['id'])
+        books.post_document(wid, 'o@t.co', doc['id'])
+        books.record_payment(wid, 'o@t.co', doc['id'], 2000, TODAY, bank_account_id=cash_id)
+        r.complete_sale(wid, 'cashier', loc, [{'product_id': prod, 'quantity': '1'}], [{'kind': 'cash', 'amount_minor': 500}])
+        summary = dayclose.day_summary(s, wid, TODAY)
+        self.assertEqual(summary['sales_count'], 2)
+        self.assertEqual(summary['sales_total_minor'], 2500)
+        self.assertEqual(summary['payments_cash_minor'], 2500)
+        self.assertEqual(summary['expected_cash_minor'], 2500)
+
+
 if __name__ == '__main__':
     unittest.main()
