@@ -74,6 +74,31 @@ class PostgreSQLIntegration(unittest.TestCase):
    self.assertEqual(self.s.authenticate_session(session['session_token'])[0],w)
    interview=Onboarding(self.s,Profiles(self.s),Provisioner(self.s)).start(w,u['user_id'])
    self.assertEqual(interview['workspace_id'],w)
+ def test_runtime_role_new_owner_google_callback_to_interview(self):
+  from oauth import OAuth
+  from urllib.parse import urlparse,parse_qs
+  from unittest.mock import patch
+  from onboarding import Onboarding
+  from provisioning import Provisioner
+  from operational_profile import Profiles
+  with self.owner._pool.connection() as q:count=q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n']
+  with patch.dict(os.environ,{'MOSAIC_PUBLIC_ORIGIN':'https://erp.example','MOSAIC_GOOGLE_CLIENT_ID':'id','MOSAIC_GOOGLE_CLIENT_SECRET':'secret'}):
+   oauth=OAuth(self.s)
+   link=oauth.start('google');params=parse_qs(urlparse(link).query)
+   claims={'sub':'fresh-runtime-owner','iss':'https://accounts.google.com','nonce':params['nonce'][0],'email':'fresh@example.test','email_verified':True}
+   with patch.object(oauth,'_token_and_claims',return_value=claims):code,mode=oauth.callback('google','dummy',params['state'][0])
+   self.assertEqual(mode,'signin')
+   selection=self.s.oauth_complete(code);self.assertEqual(len(selection['workspaces']),1)
+   wid=selection['workspaces'][0]['workspace_id']
+   self.assertEqual(selection['workspaces'][0]['role'],'owner')
+   session=self.s.oauth_enter(selection['enter_code'],wid)
+   self.assertEqual(self.s.authenticate_session(session['session_token'])[0],wid)
+   interview=Onboarding(self.s,Profiles(self.s),Provisioner(self.s)).start(wid,session['user_id'])
+   self.assertEqual(interview['workspace_id'],wid)
+   with patch.object(oauth,'_token_and_claims',return_value=claims):
+    link2=oauth.start('google');p2=parse_qs(urlparse(link2).query);claims['nonce']=p2['nonce'][0]
+    oauth.callback('google','dummy',p2['state'][0])
+   with self.owner._pool.connection() as q:self.assertEqual(q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n'],count+1)
  def test_concurrent_writers_only_one_wins(self):
   w,k=self.s.create_workspace('C');actor=self.s.authenticate(k)[1];out=[]
   def f(v):

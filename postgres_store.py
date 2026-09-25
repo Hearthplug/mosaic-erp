@@ -190,6 +190,21 @@ class PostgresStore(Store):
             self._current().execute("SELECT set_config('mosaic.oauth_grant_hash',%s,true)",(__import__('store').sha256(code or ''),))
             return super().oauth_grant_consume(code,*args,**kwargs)
 
+    def oauth_auto_provision(self, provider, issuer, subject, email):
+        # New-owner SSO from PR #90 inserts an identity without a workspace
+        # parameter. Keep the freshly generated tenant context explicit for
+        # its identity insert and audit event under forced RLS.
+        import secrets
+        from store import sha256, utcnow
+        email=(email or '').strip().lower() or f"user-{sha256(issuer+'|'+subject)[:16]}@sso.local"
+        with self.tx():
+            wid,_=self.create_workspace('My company')
+            self._current().execute("SELECT set_config('mosaic.workspace_id',%s,true)",(wid,))
+            user=self.create_user(wid,email,secrets.token_urlsafe(48),'owner','signup')
+            self._db.execute('INSERT INTO oauth_identities(provider,issuer,subject,user_id,workspace_id,created_at) VALUES(?,?,?,?,?,?)',(provider,issuer,subject,user['user_id'],wid,utcnow()))
+            self._audit(wid,user['user_id'],'identity.sso_signup',{'provider':provider,'email':email})
+        return {'user_id':user['user_id'],'workspace_id':wid,'email':email}
+
     def authenticate_session(self, token):
         from datetime import datetime, timezone
         from store import sha256

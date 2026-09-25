@@ -38,6 +38,14 @@ class OAuthTests(unittest.TestCase):
   owner,_=self.user('owner@example.test');inv=self.s.create_invitation(owner,'invite@example.test','editor',None,'owner')['invite_token']
   self.s.accept_invitation_federated(inv,'google','https://accounts.google.com','invited-sub')
   self.assertEqual(len(self.s.oauth_identity_users('google','https://accounts.google.com','invited-sub')),1)
+ def test_saas_unknown_identity_requires_verified_email_before_company_creation(self):
+  before=self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n']
+  with patch.dict(os.environ,{'MOSAIC_SAAS_MODE':'true'}):
+   for claims in ({'email':'unverified@example.test','email_verified':False}, {'email':'','email_verified':False}):
+    url=self.o.start('google');q=parse_qs(urlparse(url).query);identity={'sub':'unverified-'+str(before),'iss':'https://accounts.google.com','nonce':q['nonce'][0],**claims}
+    with patch.object(self.o,'_token_and_claims',return_value=identity):
+     with self.assertRaises(OAuthError):self.o.callback('google','dummy',q['state'][0])
+    self.assertEqual(self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n'],before)
  def test_unknown_identity_auto_provisions_fresh_company_and_lands_in_signin(self):
   w,u=self.user();before=self.s._db.execute('SELECT count(*) n FROM users').fetchone()['n']
   url=self.o.start('google');state=parse_qs(urlparse(url).query)['state'][0]
