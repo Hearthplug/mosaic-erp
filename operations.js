@@ -96,7 +96,7 @@ function connect(){if(!MosaicAuth.require())return;
   let identity=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');
   $('#company').textContent=identity.workspace_name||'Your company';
   $('#signout').onclick=()=>MosaicAuth.clear();
-  Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
+  Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(async([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
     refreshLists(c);tillSetup(c.locations||[]);moveSetup();buySetup(c.vendors||[]);cashSetup();
     const ol=$('#next');ol.innerHTML='';ol.classList.remove('checklist');
@@ -110,7 +110,18 @@ function connect(){if(!MosaicAuth.require())return;
       ];
       steps.forEach(s=>{const li=document.createElement('li');li.className='todo-step'+(s.done?' done':'');li.textContent=s.label;li.onclick=()=>select(s.view);ol.appendChild(li)});
     }else{
-      c.next_steps.forEach(s=>{const li=document.createElement('li');li.textContent=s;ol.appendChild(li)});
+      ol.classList.add('checklist');
+      const tasks=[];
+      const lowSet=new Set();
+      await Promise.all((c.locations||[]).map(l=>get('/api/retail/reorder?location_id='+encodeURIComponent(l.id)).then(r=>(r.items||[]).forEach(i=>{if(Number(i.suggested)>0)lowSet.add(i.product_id)})).catch(()=>{})));
+      if(lowSet.size)tasks.push({label:lowSet.size+(lowSet.size===1?' item':' items')+' running low - reorder soon',view:'stock'});
+      (c.cash_sessions||[]).forEach(s=>{const t=new Date(s.opened_at);const clock=t.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});tasks.push({label:'1 till still open at '+s.location_name+' since '+clock,view:'money'})});
+      const drafts=(c.purchase_orders||[]).filter(o=>o.status==='draft').length;
+      if(drafts)tasks.push({label:drafts+(drafts===1?' draft order':' draft orders')+' to approve',view:'buying'});
+      const unpaid=(c.open_bills||[]).filter(b=>Number(b.balance_minor)>0).length;
+      if(unpaid)tasks.push({label:unpaid+(unpaid===1?' supplier bill':' supplier bills')+' unpaid',view:'buying'});
+      if(!tasks.length){const li=document.createElement('li');li.className='todo-step done';li.textContent='All caught up';ol.appendChild(li)}
+      tasks.forEach(t=>{const li=document.createElement('li');li.className='todo-step';li.textContent=t.label;li.onclick=()=>select(t.view);ol.appendChild(li)});
     }
     reload();refreshExport()
   }).catch(e=>{$('#state').textContent='Could not open workspace';notice(false,e.message)})}
