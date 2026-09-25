@@ -11,6 +11,19 @@ class ArtifactBuilderTest(unittest.TestCase):
   r=self.b.draft(self.w,'owner','Create profit and loss report');self.assertEqual(r['source_tables'],['journals','journal_lines','accounts'])
   i=self.b.draft(self.w,'owner','Create statutory tax invoice');self.assertEqual(i['legal_status'],'review_required')
   with self.assertRaises(ValueError):self.b.activate(self.w,'owner',i['id'],'owner','Checked')
+ def test_common_asks_map_to_supported_reports(self):
+  cases={'Build a monthly profit report':'profit_and_loss','a weekly sales by product report':'sales_summary','best sellers report':'sales_summary','what is left in stock report':'stock_position','who owes me report':'receivables_aging','supplier bills report':'payables_aging','cash in the drawer report':'cash_close'}
+  for msg,want in cases.items():
+   x=self.b.draft(self.w,'owner',msg);self.assertEqual(x['specification']['report_type'],want,msg)
+ def test_same_ask_twice_gets_distinct_names(self):
+  a=self.b.draft(self.w,'owner','Create profit and loss report');b=self.b.draft(self.w,'owner','Create profit and loss report')
+  self.assertNotEqual(a['name'],b['name']);self.assertEqual(b['name'],a['name']+' (2)')
+ def test_unmappable_report_gets_plain_language_message(self):
+  try:self.b.draft(self.w,'owner','employee attendance report');self.fail('should refuse')
+  except ValueError as e:self.assertIn('The reports I can draft',str(e));self.assertIn('sales summary',str(e))
+ def test_unmappable_kind_gets_plain_language_message(self):
+  try:self.b.draft(self.w,'owner','run SQL select all passwords');self.fail('should refuse')
+  except ValueError as e:self.assertIn('I can draft a report, a dashboard',str(e))
  def test_no_free_form_query(self):
   with self.assertRaises(ValueError):self.b.draft(self.w,'owner','run SQL select all passwords')
 
