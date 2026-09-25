@@ -2,9 +2,9 @@
 
 Mosaic is an interview-native operational ERP for core retailer work. An owner describes the business in plain language; Mosaic provisions the relevant workflows, reports, branding, verification tasks and fine-grained staff roles. The same system then runs persistent buying, receiving, selling, returns/refunds, stock, cash, supplier bills/payments, reconciliation, period close and core accounting reports.
 
-## Scope of v1.4.1
+## Scope of v2.1
 
-v1.4.1 is an evidence-backed **production-core retailer ERP release**. It is not a claim of complete advanced-retail or enterprise-suite breadth. Since v1.2.0: the Modern Ledger app UI, the fine-tuned local assistant in Preview, one-download Windows and Mac desktop apps, a hardened hosted HTTPS path, and the answer-shaping chooser with optional Jev AI assist in Preview. v1.4.1 wires OpenAI, Claude and DeepSeek into answer shaping and reconfiguration, each with the owner's own key from that provider.
+v2.1 is an evidence-backed **production-core retailer ERP release**. It is not a claim of complete advanced-retail or enterprise-suite breadth. Since v1.4.1: photo intake that turns paper bills, credit-book pages and stock registers into reviewed books (v2.0.0), the day close with a shareable summary, voice entry, your choice of AI provider per capability with masked key entry, in-app update notices (v2.0.0), natural-language report drafting on the Build screen and the Intel Mac installer (v2.0.1), and in v2.1 the per-page pick-first UX across Till, Stock, Buying, Money and Books with plain explanations beside terms, every report as PDF, XLSX or CSV, and plain-language custom reports on the Books page. The fine-tuned local assistant stays in Preview with owner confirmation on every action; Jev by TypeSafe stays available in Preview with the owner's own key.
 
 Implemented and source-tested:
 
@@ -26,8 +26,9 @@ Explicitly excluded:
 
 ## Download the desktop app
 
-- **Windows:** [MosaicERP-windows-x64-setup.exe](https://github.com/Hearthplug/mosaic-erp/releases/download/v1.4.1/MosaicERP-windows-x64-setup.exe) - run it and Mosaic opens in your browser at a private localhost address, with a proper uninstaller. A portable build ([MosaicERP-windows-x64.exe](https://github.com/Hearthplug/mosaic-erp/releases/download/v1.4.1/MosaicERP-windows-x64.exe)) is also available. The app is not code-signed yet; if SmartScreen shows "Windows protected your PC", choose **More info**, then **Run anyway**.
-- **Mac (Apple Silicon):** [MosaicERP-macos-arm64.dmg](https://github.com/Hearthplug/mosaic-erp/releases/download/v1.4.1/MosaicERP-macos-arm64.dmg) - open the dmg, drag Mosaic ERP to Applications, then right-click the app and choose **Open** on first run (the app is not signed with an Apple Developer ID yet). On an Intel Mac, use the guided install below.
+- **Windows:** [MosaicERP-windows-x64-setup.exe](https://github.com/Hearthplug/mosaic-erp/releases/download/v2.1/MosaicERP-windows-x64-setup.exe) - run it and Mosaic opens in your browser at a private localhost address, with a proper uninstaller. A portable build ([MosaicERP-windows-x64.exe](https://github.com/Hearthplug/mosaic-erp/releases/download/v2.1/MosaicERP-windows-x64.exe)) is also available. The app is not code-signed yet; if SmartScreen shows "Windows protected your PC", choose **More info**, then **Run anyway**.
+- **Mac (Apple Silicon):** [MosaicERP-macos-arm64.dmg](https://github.com/Hearthplug/mosaic-erp/releases/download/v2.1/MosaicERP-macos-arm64.dmg) - open the dmg, drag Mosaic ERP to Applications, then right-click the app and choose **Open** on first run (the app is not signed with an Apple Developer ID yet).
+- **Mac (Intel):** [MosaicERP-macos-x64.dmg](https://github.com/Hearthplug/mosaic-erp/releases/download/v2.1/MosaicERP-macos-x64.dmg) - same steps as Apple Silicon.
 
 Both desktop apps include the optional local assistant Preview: on first run the app downloads the assistant model (about 1.2 GB, sha256-verified) in the background, and everything else works while it downloads.
 
@@ -48,7 +49,7 @@ SQLite is for evaluation and simple single-process use. It includes an integrity
 
 Use an external PostgreSQL 16+ service and the supplied Compose or Helm path. Runtime and schema-migration credentials are separate. Operators must provide TLS/DNS, secret management, managed database HA/PITR, monitoring, capacity testing and an isolated restore drill against the exact target environment. See [hosted access](docs/HOSTED_ACCESS.md), [deployment](docs/DEPLOYMENT.md), [PostgreSQL operations](docs/POSTGRESQL.md), and [identity-provider deployment](docs/DEPLOYMENT.md#google-and-microsoft-sign-in).
 
-Current release: [v1.4.1](https://github.com/Hearthplug/mosaic-erp/releases/tag/v1.4.1), with honest per-release notes and the evidence each gate produced. Earlier releases keep their own artifacts and evidence; no earlier release's evidence is reused for a later one.
+Current release: [v2.1](https://github.com/Hearthplug/mosaic-erp/releases/tag/v2.1), with honest per-release notes and the evidence each gate produced. Earlier releases keep their own artifacts and evidence; no earlier release's evidence is reused for a later one.
 
 Google and Microsoft controls use provider-published sign-in assets and real configuration-aware OIDC routes. Live activation remains deployment-owned: the operator must provide a canonical HTTPS domain, register exact callbacks with each provider, select the Microsoft account type, complete required consent/domain review and provision rotated secrets. Unconfigured controls remain disabled.
 
@@ -58,6 +59,9 @@ Candidate jurisdiction packs are sourced and versioned inputs. Calculations stay
 
 ## History
 
+- v2.1: per-page pick-first UX across Till, Stock, Buying, Money and Books with plain explanations beside terms, live Today to-dos, low-stock filter, sales date range, note-and-coin till counter, every report downloadable as PDF, XLSX or CSV, plain-language custom reports on the Books page (offline parser, always shows what it understood), and XLSX import on Move in.
+- v2.0.1: natural-language report drafting on Build from a checked allow-list, clean recovery from expired sign-ins, and the Intel Mac installer (MosaicERP-macos-x64.dmg) alongside Apple Silicon.
+- v2.0.0: photo intake for paper bills, credit-book pages and stock registers with review before posting, day close with shareable summary, voice entry (OpenAI key or compatible transcription server), per-capability AI provider choice with masked key entry, in-app update notices with pre-upgrade backup, more chart-of-account and tax templates.
 - v1.4.1: OpenAI, Claude and DeepSeek wired into answer shaping and reconfiguration with the owner's own key (masked key field, per-workspace secret storage, audit event, owner-only), Standard still the default.
 - v1.4.0: answer-shaping chooser (Standard built in by default, Jev by TypeSafe in Preview with the owner's own key) and Jev-assisted interview review and plain-language reconfiguration, with owner confirmation on everything.
 - v1.3.4: Windows NSIS setup installer with proper uninstall alongside the portable build.
