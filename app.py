@@ -28,6 +28,7 @@ from ai_prefs import AiPrefs
 from rbac import Denied
 from oauth import OAuth, OAuthError
 from provider_assets import GOOGLE_SIGNIN, MICROSOFT_SIGNIN
+from update_check import backup_before_upgrade_from_env, update_status
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -444,7 +445,7 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,(ROOT/'invite.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p == '/signin':
             return self.out(200,(ROOT/'signin.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
-        if p in ('/auth.js','/signin.js','/signin.css','/invite.js','/google-signin.png','/microsoft-signin.svg','/mosaic-logo.svg'):
+        if p in ('/auth.js','/signin.js','/signin.css','/invite.js','/update.css','/google-signin.png','/microsoft-signin.svg','/mosaic-logo.svg'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'image/png' if p.endswith('.png') else 'image/svg+xml' if p.endswith('.svg') else 'application/javascript; charset=utf-8'; raw=GOOGLE_SIGNIN if p.endswith('google-signin.png') else MICROSOFT_SIGNIN if p.endswith('microsoft-signin.svg') else (ROOT/p[1:]).read_text(encoding='utf-8'); return self.out(200,raw,kind,rid=rid) or 200
         if p == '/':
             return self.out(200, (ROOT / 'static.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
@@ -531,6 +532,8 @@ class H(BaseHTTPRequestHandler):
             return self.out(200, {'events': STORE.audit_trail(wid)}, rid=rid) or 200
         if p == '/api/provisioning':
             wid, _, _ = self._auth('viewer'); return self.out(200,PROVISIONER.status(wid),rid=rid) or 200
+        if p == '/api/update-check':
+            wid, _, _ = self._auth('viewer'); return self.out(200,update_status(),rid=rid) or 200
         if p == '/api/ai/preference':
             wid, actor, _ = self._auth('viewer')
             return self.out(200,AIPREFS.get(wid),rid=rid) or 200
@@ -909,6 +912,8 @@ class AuthError(Exception):
 def create_store():
     return open_store()
 
+try: backup_before_upgrade_from_env()
+except Exception: pass  # a backup hiccup must never stop the app from starting
 STORE = create_store()
 BOOKS = Accounting(STORE)
 RETAIL = Retail(STORE,BOOKS)

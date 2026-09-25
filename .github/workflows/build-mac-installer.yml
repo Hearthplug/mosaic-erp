@@ -48,10 +48,17 @@ jobs:
           python -c 'import json; d=json.load(open("local-assistant-availability.json")); assert d["schema"]=="mosaic-local-availability-v1" and d["available"] is True, d'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stamp build version
+        shell: bash
+        run: |
+          v=dev
+          case "$GITHUB_REF" in refs/tags/v*) v="$GITHUB_REF_NAME";; esac
+          printf '%s' "$v" > version.txt
       - name: Build the app bundle
         shell: bash
         run: |
           pyArgs=(--noconfirm --windowed --name MosaicERP --osx-bundle-identifier com.hearthplug.mosaicerp)
+          pyArgs+=(--add-data=version.txt:.)
           for f in *.html *.css *.js mosaic-logo.svg; do pyArgs+=("--add-data=$f:."); done
           pyArgs+=(--add-data=local-assistant-availability.json:.)
           # Frozen assistant contract: assistant_preview.py loads these by file
