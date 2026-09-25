@@ -9,7 +9,7 @@ const VIEWS={
 let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='USD';
 let IDBY_LABEL={},PO_LINES={};
 
-function api(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}).then(r=>r.json().then(j=>{if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
+function api(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}).then(r=>r.json().then(j=>{if(r.status===401){MosaicAuth.expired();throw Error('Signed out')};if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
 function get(path){return fetch(path,{headers:MosaicAuth.headers}).then(r=>{if(r.status===401){MosaicAuth.clear();throw Error('Signed out')}if(!r.ok)throw Error('Could not load');return r.json()})}
 function data(f){return Object.fromEntries(new FormData(f))}
 function esc(x){return String(x==null?'':x)}

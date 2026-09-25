@@ -5,7 +5,7 @@
 (async()=>{
 const root=document.querySelector('.assist-chooser');if(!root)return;
 const $=s=>root.querySelector(s);
-const api=async(path,body)=>{const opt=body?{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}:{headers:{...MosaicAuth.headers}};const r=await fetch(path,opt);const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d};
+const api=async(path,body)=>{const opt=body?{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}:{headers:{...MosaicAuth.headers}};const r=await fetch(path,opt);const d=await r.json();if(r.status===401){MosaicAuth.expired();throw Error('Signed out')};if(!r.ok)throw Error(d.error||'Request failed');return d};
 let prefs=null,pending=null; // pending = provider id waiting for a pasted key
 function brandOf(id){const o=prefs.options.find(x=>x.id===id);return (o&&o.key_brand)||'provider'}
 function nameOf(id){const o=prefs.options.find(x=>x.id===id);return o?o.name.replace(' (your key)',''):id}
