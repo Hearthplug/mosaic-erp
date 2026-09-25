@@ -4,9 +4,9 @@ const VIEWS={
   stock:{title:'Stock',sub:'What you have, and where it is.'},
   sales:{title:'Sales',sub:'Every bill, payment and refund.'},
   buying:{title:'Buying',sub:'Orders, deliveries and supplier bills.'},
-  money:{title:'Money',sub:'Till sessions and period locks.'}
+  money:{title:'Money',sub:'Tills (cash drawers) and period locks (stopping changes to a finished month).'}
 };
-let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='USD';
+let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='USD',LOW_SET=new Set();
 let IDBY_LABEL={},PO_LINES={};
 
 function api(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}).then(r=>r.json().then(j=>{if(r.status===401){MosaicAuth.expired();throw Error('Signed out')};if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
@@ -34,17 +34,19 @@ function select(name){if(!VIEWS[name])name='today';
   $('#page-title').textContent=VIEWS[name].title;$('#page-crumb').textContent=VIEWS[name].title;$('#page-sub').textContent=VIEWS[name].sub;
   if(('#'+name)!==location.hash)history.replaceState(null,'','#'+name)}
 $$('.rail-item[data-view]').forEach(b=>b.onclick=()=>select(b.dataset.view));
+const sf=$('#sales-from'),sto=$('#sales-to');if(sf){sf.onchange=()=>{SALES_FROM=sf.value;renderSales()};sto.onchange=()=>{SALES_TO=sto.value;renderSales()}}
 addEventListener('hashchange',()=>select(location.hash.slice(1)));
 
-function renderStock(){const rows=LISTS.stock.map(r=>{const tr=document.createElement('tr');
+function renderStock(){const rows=LISTS.stock.map(r=>{const tr=document.createElement('tr');if(LOW_SET.has(r.location_id+':'+r.product_id))tr.dataset.low='1';
   tr.appendChild(cell(r.name,'',r.sku));tr.appendChild(cell(r.location_name,'',r.location_code));tr.appendChild(cell(fmtQty(r.on_hand)+(r.unit&&r.unit!=='each'?' '+r.unit:''),'num'));return tr});
   fill('stock-table',rows,'No items yet. Your first delivery appears here.');
   $('#stock-count').textContent=LISTS.stock.length?LISTS.stock.length+' rows':'';
   $('#kpi-stock').textContent=LISTS.stock.length?fmtQty(LISTS.stock.reduce((a,r)=>a+Number(r.on_hand||0),0)):'0';if($('#move-tiles'))moveRender()}
-function renderSales(){const rows=LISTS.sales.map(r=>{const tr=document.createElement('tr');tr.className='sale-openable';tr.title='Tap to see the bill or refund items';tr.onclick=()=>openSaleDetail(r.id);
+let SALES_FROM='',SALES_TO='';
+function renderSales(){const vis=LISTS.sales.filter(r=>{const d=(r.sold_at||'').slice(0,10);return (!SALES_FROM||d>=SALES_FROM)&&(!SALES_TO||d<=SALES_TO)});const rows=vis.map(r=>{const tr=document.createElement('tr');tr.className='sale-openable';tr.title='Tap to see the bill or refund items';tr.onclick=()=>openSaleDetail(r.id);
   tr.appendChild(cell(r.number,'cell-main'));tr.appendChild(cell(fmtWhen(r.sold_at)));tr.appendChild(cell(r.location_code));tr.appendChild(cell(String(r.line_count),'num'));tr.appendChild(cell(fmtMoney(r.total_minor,r.currency),'num'));tr.appendChild(cell(fmtMoney(r.paid_minor,r.currency),'num'));tr.appendChild(pillCell(r.status));return tr});
   fill('sales-table',rows,'No sales yet. Make your first sale on the till below.');
-  $('#sales-count').textContent=LISTS.sales.length?'last '+LISTS.sales.length:'';
+  $('#sales-count').textContent=vis.length?((SALES_FROM||SALES_TO)?vis.length+' in range':'last '+vis.length):'';
   const today=new Date().toDateString(),todays=LISTS.sales.filter(r=>new Date(r.sold_at).toDateString()===today);
   $('#kpi-sales').textContent=todays.length?fmtMoney(todays.reduce((a,r)=>a+r.total_minor,0),todays[0].currency):'—';
   $('#kpi-sales-sub').textContent=todays.length?todays.length+(todays.length===1?' bill':' bills')+' today':'no bills yet'}
@@ -99,6 +101,7 @@ function connect(){if(!MosaicAuth.require())return;
   Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(async([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
     refreshLists(c);tillSetup(c.locations||[]);moveSetup();buySetup(c.vendors||[]);cashSetup();
+    Promise.all((c.locations||[]).map(l=>get('/api/retail/reorder?location_id='+encodeURIComponent(l.id)).then(r=>(r.items||[]).forEach(i=>{if(Number(i.suggested)>0)LOW_SET.add(l.id+':'+i.product_id)})).catch(()=>{}))).then(()=>renderStock());
     const ol=$('#next');ol.innerHTML='';ol.classList.remove('checklist');
     if(!c.products.length){
       ol.classList.add('checklist');
@@ -143,7 +146,7 @@ connect();
 function tableRows(table){return [...table.tBodies[0].rows].filter(r=>!r.classList.contains('empty-row'))}
 $$('.toolbar').forEach(bar=>{
   const table=$('#'+bar.dataset.table),input=bar.querySelector('input[type=search]');
-  const apply=()=>{const term=input.value.trim().toLowerCase(),filter=bar.querySelector('.filter-chip.on')?.dataset.filter||'all';tableRows(table).forEach(row=>{const text=row.textContent.toLowerCase();row.hidden=!(text.includes(term)&&(filter==='all'||text.includes(filter)))})};
+  const apply=()=>{const term=input.value.trim().toLowerCase(),filter=bar.querySelector('.filter-chip.on')?.dataset.filter||'all';tableRows(table).forEach(row=>{const text=row.textContent.toLowerCase();row.hidden=!(text.includes(term)&&(filter==='all'||(filter==='low'?row.dataset.low==='1':text.includes(filter))))})};
   input.addEventListener('input',apply);
   bar.querySelectorAll('.filter-chip:not(:disabled)').forEach(btn=>btn.onclick=()=>{bar.querySelectorAll('.filter-chip').forEach(x=>x.classList.remove('on'));btn.classList.add('on');apply()});
   bar.querySelector('.export-btn').onclick=()=>{const rows=[...table.rows].filter(r=>!r.hidden&&!r.classList.contains('empty-row'));const csv=rows.map(row=>[...row.cells].map(c=>'"'+c.innerText.trim().replaceAll('"','""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=table.id.replace('-table','')+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)};

@@ -264,3 +264,5 @@ tr.po-picked td{background:var(--accent-soft)}
 .steps.checklist li.todo-step::before{content:'';background:transparent;border:1.5px solid var(--accent-ink)}
 .steps.checklist li.todo-step.done{color:var(--secondary)}
 .steps.checklist li.todo-step.done::before{content:'✓';background:var(--accent-soft);border-color:transparent}
+.date-range{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary)}
+.date-range input{font:inherit;padding:6px 8px;border:1px solid var(--hairline);border-radius:8px;background:var(--surface,#fff)}
