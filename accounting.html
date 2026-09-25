@@ -27,17 +27,17 @@
 <section id="dashboard" hidden>
 <div class="stats"><article><span>Money owed to you</span><strong class="money" id="ar">—</strong><small>Open customer invoices</small></article><article><span>Money you owe</span><strong class="money" id="ap">—</strong><small>Open supplier bills</small></article><article><span>Setup check</span><strong class="status-value" id="status">—</strong><small>Changes that need attention</small></article></div>
 <section class="card"><div class="cardhead"><div><h2>Reports</h2><p>Current balances from posted entries.</p></div></div><div class="tablewrap"><table><thead><tr><th>Report</th><th>What it tells you</th><th>Latest result</th><th>Status</th></tr></thead><tbody><tr><td><b>Trial balance</b></td><td data-label="Tells you">Checks the books are balanced - for every entry, money in equals money out</td><td data-label="Result" class="num" id="tb">—</td><td data-label="Status"><span class="chip green">Ready</span></td></tr><tr><td><b>Profit and loss</b></td><td data-label="Tells you">Income, costs and current profit</td><td data-label="Result" class="num" id="pnl">—</td><td data-label="Status"><span class="chip green">Ready</span></td></tr><tr><td><b>Balance sheet</b></td><td data-label="Tells you">What the business owns and owes</td><td data-label="Result" class="num" id="bs">—</td><td data-label="Status"><span class="chip green">Ready</span></td></tr></tbody></table></div></section>
-<section class="card"><div class="cardhead"><div><h2>Ask for a report</h2><p>Describe what you want in plain words, like "sales by item last month" or "what I owe each supplier". Works offline; the page always shows what it understood before you download anything.</p></div></div><div class="cardbody" style="padding:13px 15px">
-<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="customq" type="text" placeholder="sales by item last month" aria-label="Describe your report" style="flex:1;min-width:220px;height:36px;border:1px solid var(--line);border-radius:8px;padding:0 12px;font:inherit"><button id="customgo" class="primary" style="height:36px">Build report</button></div>
-<div id="customsaved" style="margin-top:9px"></div>
-<div id="customout" hidden style="margin-top:12px">
-<p class="note" id="customline" style="margin:0 0 8px"></p>
+<section class="card"><div class="cardhead"><div><h2>Ask for a report</h2><p>Describe what you want in plain words, like "sales by item last month" or "what I owe each supplier". Works offline; the page always shows what it understood before you download anything.</p></div></div><div class="askbody">
+<div class="askrow"><input id="customq" type="text" placeholder="sales by item last month" aria-label="Describe your report"><button id="customgo">Build report</button></div>
+<div id="customsaved" class="asksaved"></div>
+<div id="customout" hidden>
+<p class="note" id="customline"></p>
 <div class="tablewrap"><table><thead id="customhead"></thead><tbody id="custombody"></tbody></table></div>
-<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+<div class="askactions">
 <button class="dl-btn" id="custompdf">PDF</button><button class="dl-btn" id="customxlsx">XLSX</button><button class="dl-btn" id="customcsv">CSV</button>
 <button class="dl-btn" id="customsave">Save this report</button>
 </div></div>
-<p class="note" id="customerr" hidden style="margin-top:10px"></p>
+<p class="note" id="customerr" hidden></p>
 </div></section>
 <section class="card"><div class="cardhead"><div><h2>Download reports</h2><p>Every report as a PDF file (a clean printable copy), an XLSX file (opens in Excel) or a CSV file (plain spreadsheet text).</p></div></div><div class="tablewrap"><table><thead><tr><th>Report</th><th>What it tells you</th><th>Download</th></tr></thead><tbody id="dl-body">
 <tr><td><b>Trial balance</b></td><td data-label="Tells you">Checks the books are balanced - money in equals money out</td><td data-label="Download" class="dlcell" data-report="trial-balance"></td></tr>

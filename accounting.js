@@ -36,7 +36,7 @@ async function customBuild(q){const err=$('#customerr'),out=$('#customout');err.
   $('#customline').textContent=d.understood+' - check this is what you meant.';
   $('#customhead').innerHTML='<tr>'+d.columns.map(c=>'<th>'+c+'</th>').join('')+'</tr>';
   const all=d.totals?[...d.rows,d.totals]:d.rows;
-  $('#custombody').innerHTML=all.length?all.map(row=>'<tr>'+row.map(c=>'<td>'+String(c)+'</td>').join('')+'</tr>').join(''):'<tr><td>Nothing matched.</td></tr>';
+  $('#custombody').innerHTML=all.length?all.map(row=>'<tr>'+row.map((c,i)=>'<td data-label="'+d.columns[i]+'">'+String(c)+'</td>').join('')+'</tr>').join(''):'<tr><td>Nothing matched.</td></tr>';
   out.hidden=false}
 async function customExport(fmt,btn){btn.disabled=true;try{
   const r=await fetch('/api/reports/custom-export?q='+encodeURIComponent(CUSTOMQ)+'&fmt='+fmt,{headers:{...MosaicAuth.headers}});

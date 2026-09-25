@@ -48,3 +48,16 @@
 .dl-btn{height:28px;border:1px solid var(--hairline-strong,#d0ccc2);border-radius:7px;background:#fff;color:var(--ink,#1c211f);padding:0 10px;font-size:11.5px;cursor:pointer;margin-right:4px}
 .dl-btn:hover{background:#f2f0eb}
 .dl-btn:disabled{opacity:.45;cursor:not-allowed}
+
+.askbody{padding:0 15px 14px}
+.askrow{display:flex;gap:8px}
+.askrow input{flex:1;min-width:0;height:34px;border:1px solid var(--hairline-strong,#d0ccc2);border-radius:7px;background:#fff;padding:0 10px;font:13px var(--font);color:var(--ink,#1c211f)}
+.askrow input:focus{outline:2px solid rgba(240,100,55,.35);outline-offset:1px}
+.askrow button{flex:none;height:34px;border:0;border-radius:7px;background:var(--accent,#f06437);color:#fff;font-weight:600;padding:0 14px;font:13px var(--font);cursor:pointer}
+.askrow button:hover{background:var(--accent-ink,#c94b25)}
+.askrow button:disabled{opacity:.5;cursor:not-allowed}
+.asksaved{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.asksaved:empty{margin-top:0}
+.askactions{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+#customline{margin:10px 0 6px}
+@media(max-width:760px){.askrow{flex-direction:column}.askrow input{width:100%;height:40px}.askrow button{width:100%;height:40px}}
