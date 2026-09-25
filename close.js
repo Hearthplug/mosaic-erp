@@ -2,7 +2,7 @@ const $=s=>document.querySelector(s);let currency='USD';let today='';let summary
 const ZONES=['UTC','Asia/Kolkata','Asia/Dubai','Asia/Singapore','Asia/Shanghai','Asia/Ho_Chi_Minh','Asia/Kuala_Lumpur','Asia/Jakarta','Asia/Manila','Asia/Bangkok','Asia/Tokyo','Asia/Seoul','Asia/Riyadh','Europe/London','Europe/Brussels','Europe/Zurich','Africa/Johannesburg','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Toronto','America/Mexico_City','America/Sao_Paulo','Australia/Sydney','Pacific/Auckland'];
 const money=(n,c)=>new Intl.NumberFormat(undefined,{style:'currency',currency:c||currency}).format((n||0)/100);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-async function api(path,opt){const r=await fetch(path,{...(opt||{}),headers:{'Content-Type':'application/json',...MosaicAuth.headers}});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||'Something went wrong');return j}
+async function api(path,opt){const r=await fetch(path,{...(opt||{}),headers:{'Content-Type':'application/json',...MosaicAuth.headers}});const j=await r.json().catch(()=>({}));if(r.status===401){MosaicAuth.expired();throw Error('Signed out')};if(!r.ok)throw Error(j.error||'Something went wrong');return j}
 function render(){
  if(!summary)return;
  $('#s-sales').textContent=money(summary.sales_total_minor);

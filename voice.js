@@ -9,7 +9,7 @@ async function attach(btn,statusEl,endpoint,onResult){
  const lab=btn.querySelector('.miclabel');const setLabel=t=>{if(lab)lab.textContent=t;else btn.textContent=t};
  const say=t=>{if(statusEl)statusEl.textContent=t};
  let st={available:false,reason:'Checking voice entry…'};
- try{st=await (await fetch('/api/build/voice-status',{headers:{...MosaicAuth.headers}})).json()}catch(e){st={available:false,reason:'Could not check voice entry.'}}
+ try{st=await fetch('/api/build/voice-status',{headers:{...MosaicAuth.headers}}).then(r=>{if(r.status===401){MosaicAuth.expired();throw Error('Signed out')}return r.json()})}catch(e){st={available:false,reason:'Could not check voice entry.'}}
  if(!navigator.mediaDevices||!window.MediaRecorder){st={available:false,reason:'This browser cannot record audio. Type instead.'}}
  if(!st.available){btn.disabled=true;say(st.reason);return}
  btn.disabled=false;setLabel('Speak');say(st.reason||'');
@@ -27,7 +27,7 @@ async function attach(btn,statusEl,endpoint,onResult){
    try{
     const blob=new Blob(chunks,{type:'audio/webm'});
     const data_b64=await b64(blob);
-    const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify({data_b64:data_b64,name:'voice.webm',mime:'audio/webm'})});
+    const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify({data_b64:data_b64,name:'voice.webm',mime:'audio/webm'})});if(r.status===401){MosaicAuth.expired();throw Error('Signed out')};
     const j=await r.json().catch(()=>({}));
     if(!r.ok){say(j.error||'Could not transcribe. Type instead.');busy=false;return}
     say('');
