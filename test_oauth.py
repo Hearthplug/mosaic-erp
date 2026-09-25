@@ -106,7 +106,11 @@ class OAuthBrowserContract(unittest.TestCase):
  def test_unconfigured_is_disabled_and_route_fails_closed(self):
   import os,json
   with patch.dict(os.environ,{'MOSAIC_PUBLIC_ORIGIN':'','MOSAIC_GOOGLE_CLIENT_ID':'','MOSAIC_GOOGLE_CLIENT_SECRET':''}):
-   self.assertEqual(json.loads(self.get('/api/oauth/providers')[2]),{'providers':[]});self.assertEqual(self.get('/oauth/google/start')[0],400)
+   self.assertEqual(json.loads(self.get('/api/oauth/providers')[2]),{'providers':[],'saas_mode':False});self.assertEqual(self.get('/oauth/google/start')[0],400)
+ def test_saas_providers_advertise_signup_mode(self):
+  import os,json
+  with patch.dict(os.environ,{'MOSAIC_SAAS_MODE':'true'}):
+   self.assertTrue(json.loads(self.get('/api/oauth/providers')[2])['saas_mode'])
  def test_configured_button_route_is_real_google_authorization(self):
   import os
   with patch.dict(os.environ,{'MOSAIC_PUBLIC_ORIGIN':f'http://127.0.0.1:{self.p}','MOSAIC_GOOGLE_CLIENT_ID':'test-id','MOSAIC_GOOGLE_CLIENT_SECRET':'test-secret','MOSAIC_MICROSOFT_CLIENT_ID':'test-ms-id','MOSAIC_MICROSOFT_CLIENT_SECRET':'test-ms-secret'}):

@@ -582,7 +582,7 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/invitations/inspect':
             x=STORE.invitation(qs.get('token',[''])[0]); return self.out(200 if x else 404,({'invitation':x} if x else {'error':'Invitation is invalid or expired'}),rid=rid) or (200 if x else 404)
         if p == '/api/oauth/providers':
-            return self.out(200,{'providers':OAUTH.public()},rid=rid) or 200
+            return self.out(200,{'providers':OAUTH.public(),'saas_mode':os.getenv('MOSAIC_SAAS_MODE','').lower() in ('1','true','yes')},rid=rid) or 200
         if p.startswith('/oauth/') and p.endswith('/start'):
             provider=p.split('/')[2];location=OAUTH.start(provider,qs.get('next',['/'])[0],qs.get('invite',[''])[0])
             return self.out(302,'','text/plain; charset=utf-8',hdrs={'Location':location,'Cache-Control':'no-store'},rid=rid) or 302
