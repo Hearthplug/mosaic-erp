@@ -51,6 +51,33 @@ class AuthExperience(unittest.TestCase):
    r=urllib.request.urlopen(f'http://127.0.0.1:{self.p}{p}');self.assertEqual(r.headers.get('Cache-Control'),'no-cache',p)
   q=urllib.request.Request(f'http://127.0.0.1:{self.p}/api/workspaces',data=json.dumps({'name':'CacheCheck'}).encode(),headers={'Content-Type':'application/json'},method='POST')
   r=urllib.request.urlopen(q);self.assertEqual(r.headers.get('Cache-Control'),'no-store')
+ def test_per_identity_password_attempts_are_shared_across_ips_and_paths(self):
+  from store import Store
+  store=Store(tempfile.mktemp());old=app.STORE;app.STORE=store
+  try:
+   h=app.H.__new__(app.H)
+   for _ in range(10):h._password_attempt('  THROTTLED@Example.test  ')
+   with self.assertRaises(app.AuthError) as blocked:
+    h._password_attempt('throttled@example.test')
+   self.assertEqual(blocked.exception.status,429)
+   # The state lives in the database, not the request handler or source IP.
+   same_db=Store(store.path)
+   try:
+    app.STORE=same_db
+    with self.assertRaises(app.AuthError):app.H.__new__(app.H)._password_attempt('throttled@example.test')
+    app.H.__new__(app.H)._password_attempt('different@example.test')
+   finally:same_db.close()
+  finally:app.STORE=old;store.close()
+ def test_all_responses_have_no_sniff_referrer_and_strict_csp(self):
+  for path in ('/signin','/auth.js','/api/workspace'):
+   q=urllib.request.Request(f'http://127.0.0.1:{self.p}{path}')
+   try:r=urllib.request.urlopen(q)
+   except urllib.error.HTTPError as e:r=e
+   self.assertEqual(r.headers.get('X-Content-Type-Options'),'nosniff',path)
+   self.assertEqual(r.headers.get('Referrer-Policy'),'no-referrer',path)
+   self.assertEqual(r.headers.get('Cross-Origin-Opener-Policy'),'same-origin',path)
+   if not path.startswith('/api/'):
+    self.assertIn("frame-ancestors 'none'",r.headers.get('Content-Security-Policy',''),path)
  def test_everyday_pages_have_no_keys_or_internal_credential_copy(self):
   for p in ('/interview','/operations','/retail','/accounting','/migration','/signin'):
    raw=urllib.request.urlopen(f'http://127.0.0.1:{self.p}{p}').read().decode().lower();self.assertNotIn('workspace key',raw);self.assertNotIn('access key',raw);self.assertNotIn('api key',raw)

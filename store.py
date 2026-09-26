@@ -434,18 +434,19 @@ class Store:
             if self._db.execute('UPDATE workspace_invitations SET accepted_at=? WHERE id=? AND workspace_id=? AND accepted_at IS NULL',(utcnow(),invite['id'],invite['workspace_id'])).rowcount!=1:raise Conflict('invitation was already used')
         return user|{'workspace_id':invite['workspace_id'],'operational_role':invite['operational_role']}
 
-    def rate_allow(self, identity: str, rpm: int):
+    def rate_allow(self, identity: str, rpm: int, period_seconds: int = 60):
         import time
         now = time.time(); rpm = max(int(rpm), 1)
+        period_seconds = max(int(period_seconds), 1)
         with self.tx():
-            identity = f'{rpm}:{identity}'
+            identity = f'{rpm}:{period_seconds}:{identity}'
             row = self._db.execute('SELECT tokens,updated_at FROM rate_buckets WHERE identity=?', (identity,)).fetchone()
             tokens, ts = (row['tokens'], row['updated_at']) if row else (float(rpm), now)
-            tokens = min(float(rpm), tokens + max(0.0, now-ts) * rpm / 60.0)
+            tokens = min(float(rpm), tokens + max(0.0, now-ts) * rpm / period_seconds)
             allowed = tokens >= 1.0
             tokens = tokens - 1.0 if allowed else tokens
             self._db.execute('INSERT INTO rate_buckets(identity,tokens,updated_at) VALUES(?,?,?) ON CONFLICT(identity) DO UPDATE SET tokens=excluded.tokens,updated_at=excluded.updated_at', (identity,tokens,now))
-        return 0.0 if allowed else 60.0 / rpm
+        return 0.0 if allowed else period_seconds / rpm
 
     def create_invitation(self,wid,email,role,operational_role,actor,ttl_hours=72):
         if role not in ROLES:raise ValueError('invalid role')

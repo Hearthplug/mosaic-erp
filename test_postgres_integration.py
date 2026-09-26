@@ -99,6 +99,30 @@ class PostgreSQLIntegration(unittest.TestCase):
     link2=oauth.start('google');p2=parse_qs(urlparse(link2).query);claims['nonce']=p2['nonce'][0]
     oauth.callback('google','dummy',p2['state'][0])
    with self.owner._pool.connection() as q:self.assertEqual(q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n'],count+1)
+ def test_shared_rate_bucket_serializes_concurrent_attempts(self):
+  import threading
+  identity='security-test-'+secrets.token_hex(8);barrier=threading.Barrier(12);results=[]
+  def attempt():
+   barrier.wait();results.append(self.s.rate_allow(identity,3,3600))
+  threads=[threading.Thread(target=attempt) for _ in range(12)]
+  for thread in threads:thread.start()
+  for thread in threads:thread.join(20);self.assertFalse(thread.is_alive())
+  self.assertEqual(sum(not retry for retry in results),3)
+ def test_tenant_rls_blocks_direct_reads_and_cross_tenant_writes(self):
+  a,_=self.s.create_workspace('boundary A');b,_=self.s.create_workspace('boundary B')
+  self.s.create_user(a,'a@example.test','a very secure password','owner','test')
+  self.s.create_user(b,'b@example.test','a very secure password','owner','test')
+  with self.s.tx():
+   self.s._db.execute("SELECT set_config('mosaic.workspace_id',%s,true)",(a,))
+   self.assertIsNone(self.s._current().execute('SELECT id FROM workspaces WHERE id=%s',(b,)).fetchone())
+   self.assertEqual(self.s._current().execute('SELECT COUNT(*) n FROM users').fetchone()['n'],1)
+   self.assertEqual(self.s._current().execute('SELECT COUNT(*) n FROM audit_events').fetchone()['n'],2)
+   with self.assertRaises(Exception):
+    with self.s.tx():
+     self.s._current().execute('INSERT INTO users(id,workspace_id,email,password_hash,role,created_at) VALUES(%s,%s,%s,%s,%s,%s)',('forbidden',b,'x@example.test','hash','owner','2026-09-26'))
+  with self.s.tx():
+   self.s._db.execute("SELECT set_config('mosaic.workspace_id',%s,true)",(b,))
+   self.assertIsNone(self.s._current().execute('SELECT id FROM users WHERE email=%s',('a@example.test',)).fetchone())
  def test_concurrent_writers_only_one_wins(self):
   w,k=self.s.create_workspace('C');actor=self.s.authenticate(k)[1];out=[]
   def f(v):
