@@ -8,7 +8,8 @@ import json,re,statistics,sys,time,urllib.request
 out_json,raw_jsonl,samples,startup_s=sys.argv[1:5]
 disk_bytes=None
 try: disk_bytes=int(open('disk-bytes.txt').read().strip())
-except Exception: pass;startup_s=float(startup_s)
+except Exception: pass
+startup_s=float(startup_s)
 suite=json.load(open('local_assistant_suite_v2.json'))
 labels=sorted({c['label'] for c in suite['cases']})
 LABEL_LIST=', '.join(labels)
