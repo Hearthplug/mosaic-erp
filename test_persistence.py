@@ -172,7 +172,7 @@ class RateLimitTests(unittest.TestCase):
             srv = ThreadingHTTPServer(('127.0.0.1', 0), app.H)
             threading.Thread(target=srv.serve_forever, daemon=True).start()
             port = srv.server_address[1]
-            codes = [http(port, 'GET', '/health')[0] for _ in range(6)]
+            codes = [http(port, 'GET', '/api/questions')[0] for _ in range(6)]
             self.assertIn(429, codes)
             srv.shutdown(); srv.server_close()
         finally:

@@ -360,6 +360,25 @@ class RateLimiter:
     def allow(self, identity):
         return (self.store or STORE).rate_allow(identity, self.rpm)
 
+class MemoryRateLimiter:
+    """Process-local token bucket for probe routes.
+
+    /health and /metrics must never touch the database: on scale-to-zero
+    database tiers a DB-backed limiter turns every probe into a wake-up call,
+    and a stale pooled connection turns the probe itself into a 500."""
+    def __init__(self, rpm, period_seconds=60):
+        self.rpm = max(int(rpm), 1); self.period = max(int(period_seconds), 1)
+        self._buckets = {}; self._lock = threading.Lock()
+    def allow(self, identity):
+        now = time.monotonic()
+        with self._lock:
+            tokens, ts = self._buckets.get(identity, (float(self.rpm), now))
+            tokens = min(float(self.rpm), tokens + max(0.0, now - ts) * self.rpm / self.period)
+            allowed = tokens >= 1.0
+            tokens = tokens - 1.0 if allowed else tokens
+            self._buckets[identity] = (tokens, now)
+        return 0.0 if allowed else self.period / self.rpm
+
 class Metrics:
     def __init__(self):
         self._lock = threading.Lock(); self.requests = {}; self.latency = {}
@@ -408,7 +427,8 @@ class H(BaseHTTPRequestHandler):
         rid = self.headers.get('X-Request-ID') or 'req_' + secrets.token_hex(8)
         start = time.monotonic(); status = 500; route = self.command + ' ' + urlparse(self.path).path
         try:
-            retry = LIMITER.allow(self._identity())
+            path = urlparse(self.path).path
+            retry = (PROBE_LIMITER if path in PROBE_PATHS else LIMITER).allow(self._identity())
             if retry:
                 status = 429
                 return self.out(429, {'error': 'Rate limit exceeded; slow down and retry', 'request_id': rid},
@@ -1127,6 +1147,8 @@ ASSISTANT = AssistantSetup(STORE, everyday=_assistant_everyday)
 PREVIEW = AssistantPreview(STORE, RETAIL, ASSISTANT)
 OAUTH = OAuth(STORE,PROVISIONER)
 LIMITER = RateLimiter(os.getenv('MOSAIC_RATE_LIMIT_RPM', '120'), STORE)
+PROBE_PATHS = frozenset(('/health', '/metrics'))
+PROBE_LIMITER = MemoryRateLimiter(os.getenv('MOSAIC_PROBE_RATE_LIMIT_RPM', '600'))
 
 def main():
     import argparse
