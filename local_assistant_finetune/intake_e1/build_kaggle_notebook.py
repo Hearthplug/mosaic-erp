@@ -4,7 +4,7 @@ Regenerate instead of hand-editing: sources of truth are the files themselves.""
 import json,pathlib
 R=pathlib.Path(__file__).parent
 REPO=R.parent.parent
-MODEL='Qwen/Qwen2.5-1.5B-Instruct';REV='91cad51170dc346986eccefdc2dd33a9da36ead9'
+MODEL='Qwen/Qwen2.5-1.5B-Instruct';REV='989aa7980e4cf806f80c7fef2b1adb7bc71aa306'
 def cell(src):return {'cell_type':'code','execution_count':None,'metadata':{},'outputs':[],'source':src if isinstance(src,list) else [src]}
 def wf(path,text):return [f'%%writefile {path}\n']+[line+'\n' for line in text.splitlines()]
 cells=[]
