@@ -7,6 +7,7 @@ tenant tables. Migrations are serialized with an advisory lock.
 from __future__ import annotations
 import contextlib, json, os, re, threading
 from pathlib import Path
+import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
@@ -129,13 +130,33 @@ class _Proxy:
 class PostgresStore(Store):
     def __init__(self, dsn: str, min_size=1, max_size=10, auto_migrate=True):
         self.path=dsn;self._local=threading.local();self._lock=contextlib.nullcontext()
-        self._pool=ConnectionPool(dsn, min_size=int(min_size), max_size=int(max_size), kwargs={'row_factory':dict_row}, open=True)
+        self._pool=ConnectionPool(dsn, min_size=int(min_size), max_size=int(max_size), kwargs={'row_factory':dict_row}, open=True, check=ConnectionPool.check_connection)
         self._db=_Proxy(self)
         if auto_migrate:
             self.migrate()
         else:
             self._check_schema()
     def _current(self): return getattr(self._local,'conn',None)
+    @contextlib.contextmanager
+    def _fresh(self):
+        """Pool connection with one acquisition retry for scale-to-zero wake-ups.
+
+        The pool pre-pings connections (check= at construction), which recycles
+        stale SSL connections before they are used. A resume can still drop or
+        refuse the first fresh connection, so acquisition retries once; a body
+        error propagates untouched and is never retried."""
+        import sys
+        for attempt in (0, 1):
+            try:
+                cm=self._pool.connection(); conn=cm.__enter__(); break
+            except psycopg.OperationalError:
+                if attempt: raise
+        try:
+            yield conn
+        except BaseException:
+            cm.__exit__(*sys.exc_info()); raise
+        else:
+            cm.__exit__(None,None,None)
     def close(self): self._pool.close()
     @contextlib.contextmanager
     def tx(self, immediate=True):
@@ -143,20 +164,20 @@ class PostgresStore(Store):
         if existing:
             with existing.transaction(): yield self._db
             return
-        with self._pool.connection() as conn:
+        with self._fresh() as conn:
             self._local.conn=conn
             try:
                 with conn.transaction(): yield self._db
             finally:self._local.conn=None
     def _check_schema(self):
-        with self._pool.connection() as conn:
+        with self._fresh() as conn:
             row=conn.execute("SELECT to_regclass('public.mosaic_schema_migrations')").fetchone()
             if not row or not next(iter(row.values())): raise RuntimeError('PostgreSQL schema is not initialized; run the migration job')
             version=next(iter(conn.execute('SELECT COALESCE(MAX(version),0) FROM mosaic_schema_migrations').fetchone().values()))
             if version != len(PG_MIGRATIONS): raise RuntimeError(f'PostgreSQL schema v{version} does not match required v{len(PG_MIGRATIONS)}')
 
     def migrate(self):
-        with self._pool.connection() as conn, conn.transaction():
+        with self._fresh() as conn, conn.transaction():
             conn.execute("SELECT pg_advisory_xact_lock(hashtext('mosaic-erp-schema'))")
             conn.execute('CREATE TABLE IF NOT EXISTS mosaic_schema_migrations(version integer PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())')
             rows=conn.execute('SELECT version FROM mosaic_schema_migrations ORDER BY version').fetchall();current=len(rows)
@@ -209,7 +230,7 @@ class PostgresStore(Store):
         from datetime import datetime, timezone
         from store import sha256
         if not token.startswith('mss_'):return None
-        with self._pool.connection() as conn:
+        with self._fresh() as conn:
             row=conn.execute('SELECT * FROM mosaic_auth_session(%s)',(sha256(token),)).fetchone()
         if not row or datetime.fromisoformat(row['expires_at'])<=datetime.now(timezone.utc):return None
         return row['workspace_id'],row['user_id'],row['role'],row['id']
@@ -229,7 +250,7 @@ class PostgresStore(Store):
     def invitation(self, token):
         from datetime import datetime, timezone
         from store import sha256
-        with self._pool.connection() as conn:
+        with self._fresh() as conn:
             row=conn.execute('SELECT * FROM mosaic_invitation(%s)',(sha256(token or ''),)).fetchone()
         if not row or row['accepted_at'] or row['revoked_at'] or datetime.fromisoformat(row['expires_at'])<=datetime.now(timezone.utc):return None
         return dict(row)
@@ -243,7 +264,7 @@ class PostgresStore(Store):
                              ('mosaic-rate:'+str(rpm)+':'+str(period_seconds)+':'+identity,))
             return super().rate_allow(identity, rpm, period_seconds)
     def login_options(self,email,password):
-        with self._pool.connection() as conn:rows=conn.execute('SELECT * FROM mosaic_login_options(%s)',((email or '').strip().lower(),)).fetchall()
+        with self._fresh() as conn:rows=conn.execute('SELECT * FROM mosaic_login_options(%s)',((email or '').strip().lower(),)).fetchall()
         valid=[{'workspace_id':r['workspace_id'],'name':r['name'],'role':r['role']} for r in rows if self._password_ok(password or '',r['password_hash'])]
         if not valid:self._password_ok(password or '',self._password_hash('dummy-password-value'))
         return valid
@@ -254,7 +275,7 @@ class PostgresStore(Store):
             return super()._session_for_user(row,ttl_hours)
 
     def oauth_identity_users(self,provider,issuer,subject):
-        with self._pool.connection() as conn:rows=conn.execute('SELECT * FROM mosaic_oauth_users(%s,%s,%s)',(provider,issuer,subject)).fetchall()
+        with self._fresh() as conn:rows=conn.execute('SELECT * FROM mosaic_oauth_users(%s,%s,%s)',(provider,issuer,subject)).fetchall()
         return [dict(x) for x in rows]
 
     def create_workspace(self,name,label='Owner key'):
@@ -268,7 +289,7 @@ class PostgresStore(Store):
         return wid,plaintext
     def integrity_check(self):
         try:
-            with self._pool.connection() as conn: return conn.execute('SELECT 1').fetchone() is not None
+            with self._fresh() as conn: return conn.execute('SELECT 1').fetchone() is not None
         except Exception:return False
     def save_config(self,*args,**kwargs):
         # A per-workspace advisory lock makes MAX(version)+1 atomic across replicas.

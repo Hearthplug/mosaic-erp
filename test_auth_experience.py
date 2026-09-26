@@ -81,4 +81,18 @@ class AuthExperience(unittest.TestCase):
  def test_everyday_pages_have_no_keys_or_internal_credential_copy(self):
   for p in ('/interview','/operations','/retail','/accounting','/migration','/signin'):
    raw=urllib.request.urlopen(f'http://127.0.0.1:{self.p}{p}').read().decode().lower();self.assertNotIn('workspace key',raw);self.assertNotIn('access key',raw);self.assertNotIn('api key',raw)
+ def test_probe_routes_use_memory_limiter_never_db(self):
+  from unittest.mock import patch
+  with patch.object(app.LIMITER,'allow',side_effect=RuntimeError('db limiter must not run')):
+   self.assertEqual(self.call('/health')[0],200);self.assertEqual(self.call('/metrics')[0],200)
+ def test_probe_routes_are_still_rate_limited_in_memory(self):
+  from unittest.mock import patch
+  with patch.object(app,'PROBE_LIMITER',app.MemoryRateLimiter(1)):
+   self.assertEqual(self.call('/health')[0],200)
+   status,body=self.call('/health');self.assertEqual(status,429);self.assertIn('Rate limit exceeded',body['error'])
+ def test_memory_rate_limiter_refills(self):
+  import time
+  l=app.MemoryRateLimiter(1,period_seconds=1)
+  self.assertEqual(l.allow('x'),0.0);self.assertGreater(l.allow('x'),0.0)
+  time.sleep(1.1);self.assertEqual(l.allow('x'),0.0)
 if __name__=='__main__':unittest.main()
