@@ -13,7 +13,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from store import Store, MIGRATIONS, Conflict, NotFound
 from postgres_erp_schema import POSTGRES_ERP_MIGRATION, ALL_ERP_TABLES, ASSISTANT_PREVIEW_PG
-from billing_schema import POSTGRES_BILLING_SCHEMA
+from billing_schema import POSTGRES_BILLING_SCHEMA, DODO_INTENTS_POSTGRES
 
 SCHEMA_VERSION = 1
 PG_MIGRATIONS = [r'''
@@ -49,6 +49,7 @@ CREATE OR REPLACE FUNCTION mosaic_session_workspace(p_id text,p_user text) RETUR
 REVOKE ALL ON FUNCTION mosaic_session_workspace(text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_session_workspace(text,text) TO CURRENT_USER;
 ''')
 PG_MIGRATIONS.append(POSTGRES_BILLING_SCHEMA)
+PG_MIGRATIONS.append(DODO_INTENTS_POSTGRES)
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
 RLS_SQL=r'''
