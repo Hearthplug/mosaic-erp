@@ -18,6 +18,11 @@ class Provider:
 
 class OAuthError(Exception): pass
 
+# Personal Microsoft accounts (MSA) live in the well-known consumers tenant. Their
+# v2 tokens carry no verified-email claim, so the sign-in address is confirmed
+# against Microsoft Graph before it may create a company (see _confirm_consumers_email).
+MSA_CONSUMERS_TENANT='9188040d-6c67-4c5b-b112-36a304b66dad'
+
 class OAuth:
     def __init__(self, store, provisioner=None): self.store,self.provisioner=store,provisioner
     def providers(self):
@@ -35,7 +40,8 @@ class OAuth:
         if not next_path.startswith('/') or next_path.startswith('//'):next_path='/'
         state,se_nonce,verifier=secrets.token_urlsafe(32),secrets.token_urlsafe(32),secrets.token_urlsafe(48)
         self.store.oauth_challenge_create(state,provider,se_nonce,verifier,next_path,invite_token)
-        q={'client_id':p.client_id,'redirect_uri':f'{origin}/oauth/{provider}/callback','response_type':'code','scope':'openid email profile','state':state,'nonce':se_nonce,'code_challenge':B64(hashlib.sha256(verifier.encode()).digest()),'code_challenge_method':'S256','prompt':'select_account'}
+        scope='openid email profile'+(' User.Read' if provider=='microsoft' else '')
+        q={'client_id':p.client_id,'redirect_uri':f'{origin}/oauth/{provider}/callback','response_type':'code','scope':scope,'state':state,'nonce':se_nonce,'code_challenge':B64(hashlib.sha256(verifier.encode()).digest()),'code_challenge_method':'S256','prompt':'select_account'}
         return p.authorize_url+'?'+urlencode(q)
     def callback(self,provider,code,state):
         challenge=self.store.oauth_challenge_consume(state,provider)
@@ -70,4 +76,25 @@ class OAuth:
         iss=str(claims.get('iss',''))
         if p.name=='google' and iss not in ('https://accounts.google.com','accounts.google.com'):raise OAuthError('Unexpected Google token issuer')
         if p.name=='microsoft' and not re.fullmatch(r'https://login\.microsoftonline\.com/[0-9a-fA-F-]{36}/v2\.0',iss):raise OAuthError('Unexpected Microsoft token issuer')
+        self._confirm_consumers_email(p,claims,token)
         return claims
+    def _confirm_consumers_email(self,p,claims,token):
+        """Personal Microsoft accounts: confirm the sign-in address with Microsoft Graph.
+
+        MSA v2 id_tokens have no verified-email claim and preferred_username is a
+        mutable alias, so it is never trusted on its own. For the well-known
+        consumers tenant only, the address is confirmed against the Graph directory
+        record for this token's own account (the access token comes from the same
+        verified code exchange as the id_token, so it is bound to the same user).
+        Work/school tenants keep the existing rule unchanged; any failure stays
+        fail-closed."""
+        if p.name!='microsoft':return
+        if str(claims.get('tid','')).lower()!=MSA_CONSUMERS_TENANT:return
+        if claims.get('xms_edov') is True or claims.get('email_verified') is True:return
+        email=(claims.get('email') or claims.get('preferred_username') or '').strip().lower()
+        if email and token.get('access_token') and self._msa_graph_email(token['access_token'])==email:claims['email_verified']=True
+    def _msa_graph_email(self,access_token):
+        try:
+            with urlopen(Request('https://graph.microsoft.com/v1.0/me',headers={'Authorization':'Bearer '+access_token}),timeout=10) as r: me=json.load(r)
+        except Exception: return ''
+        return str(me.get('mail') or me.get('userPrincipalName') or '').strip().lower()

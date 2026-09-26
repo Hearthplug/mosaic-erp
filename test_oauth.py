@@ -80,6 +80,44 @@ class OAuthTests(unittest.TestCase):
   self.assertEqual(self.s.get_workspace(created2['workspace_id'])['status'],'active')
   # an account not created by SSO cannot use link-instead
   self.assertRaises(Conflict,self.s.oauth_link_instead,w,u['user_id'],'person@example.test','a-secure-password')
+ def test_microsoft_scope_requests_graph_user_read(self):
+  ms=parse_qs(urlparse(self.o.start('microsoft')).query);self.assertEqual(ms['scope'],['openid email profile User.Read'])
+  gg=parse_qs(urlparse(self.o.start('google')).query);self.assertEqual(gg['scope'],['openid email profile'])
+ def test_msa_consumers_email_confirmed_only_when_graph_matches(self):
+  ms=self.o.providers()[1]['microsoft']
+  claims={'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','email':'person@outlook.test'}
+  with patch.object(self.o,'_msa_graph_email',return_value='person@outlook.test') as g:
+   self.o._confirm_consumers_email(ms,claims,{'access_token':'at'});self.assertTrue(claims['email_verified']);g.assert_called_once_with('at')
+  claims={'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','email':'person@outlook.test'}
+  with patch.object(self.o,'_msa_graph_email',return_value='other@outlook.test'):self.o._confirm_consumers_email(ms,claims,{'access_token':'at'})
+  self.assertNotIn('email_verified',claims)
+  claims={'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','preferred_username':'Person@Outlook.test'}
+  with patch.object(self.o,'_msa_graph_email',return_value='person@outlook.test'):self.o._confirm_consumers_email(ms,claims,{'access_token':'at'})
+  self.assertTrue(claims['email_verified'])
+ def test_work_tenant_and_already_verified_skip_graph(self):
+  ms=self.o.providers()[1]['microsoft']
+  for claims in ({'tid':'11111111-2222-3333-4444-555555555555','email':'w@corp.test'},{'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','xms_edov':True,'email':'p@outlook.test'},{'tid':'9188040d-6c67-4c5b-b112-36a304b66dad'}):
+   with patch.object(self.o,'_msa_graph_email') as g:self.o._confirm_consumers_email(ms,claims,{'access_token':'at'});g.assert_not_called()
+ def test_msa_graph_email_reads_directory_and_fails_closed(self):
+  import io,json as J
+  from unittest.mock import MagicMock
+  resp=MagicMock();resp.__enter__.return_value=io.BytesIO(J.dumps({'mail':None,'userPrincipalName':'Person@Outlook.test'}).encode())
+  with patch('oauth.urlopen',return_value=resp):self.assertEqual(self.o._msa_graph_email('at'),'person@outlook.test')
+  with patch('oauth.urlopen',side_effect=OSError('down')):self.assertEqual(self.o._msa_graph_email('at'),'')
+ def test_saas_msa_unknown_identity_blocked_until_graph_confirms(self):
+  before=self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n']
+  tid='9188040d-6c67-4c5b-b112-36a304b66dad';iss=f'https://login.microsoftonline.com/{tid}/v2.0'
+  with patch.dict(os.environ,{'MOSAIC_SAAS_MODE':'true'}):
+   url=self.o.start('microsoft');q=parse_qs(urlparse(url).query)
+   blocked={'sub':'msa-sub-1','iss':iss,'nonce':q['nonce'][0],'tid':tid,'preferred_username':'person@outlook.test'}
+   with patch.object(self.o,'_token_and_claims',return_value=blocked):
+    with self.assertRaises(OAuthError):self.o.callback('microsoft','dummy',q['state'][0])
+   self.assertEqual(self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n'],before)
+   url=self.o.start('microsoft');q=parse_qs(urlparse(url).query)
+   confirmed={**blocked,'nonce':q['nonce'][0],'email':'person@outlook.test','email_verified':True}
+   with patch.object(self.o,'_token_and_claims',return_value=confirmed):code,mode=self.o.callback('microsoft','code',q['state'][0])
+   self.assertEqual(mode,'signin');self.assertEqual(len(self.s.oauth_identity_users('microsoft',iss,'msa-sub-1')),1)
+
 class OAuthBrowserContract(unittest.TestCase):
  def setUp(self):
   import app,tempfile
