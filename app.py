@@ -31,6 +31,7 @@ from rbac import Denied
 from oauth import OAuth, OAuthError
 from provider_assets import GOOGLE_SIGNIN, MICROSOFT_SIGNIN
 from update_check import backup_before_upgrade_from_env, update_status
+from billing import verify_test_signature, apply_test_event, list_test_subscriptions
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -528,6 +529,9 @@ class H(BaseHTTPRequestHandler):
     def _get(self, rid):
         p = urlparse(self.path).path
         qs = parse_qs(urlparse(self.path).query)
+        if p == '/api/billing/test-subscriptions':
+            wid,_,_=self._auth('owner')
+            return self.out(200,list_test_subscriptions(STORE,wid),rid=rid) or 200
         if p == '/invite':
             return self.out(200,(ROOT/'invite.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p == '/signin':
@@ -779,6 +783,17 @@ class H(BaseHTTPRequestHandler):
         BOOKS.setup(wid,actor,base_currency=currency)
     def _post(self, rid):
         p = urlparse(self.path).path
+        if p == '/api/billing/test-webhook':
+            if os.environ.get('MOSAIC_BILLING_TEST_MODE') != 'true':
+                raise AuthError(404, 'Not found')
+            n=int(self.headers.get('Content-Length','0'))
+            if n<=0 or n>MAX_BYTES:raise AuthError(413,'Invalid request size')
+            body=self.rfile.read(n)
+            if not verify_test_signature(body,self.headers.get('X-Mosaic-Test-Timestamp',''),self.headers.get('X-Mosaic-Test-Signature',''),os.environ.get('MOSAIC_BILLING_TEST_SECRET','')):
+                raise AuthError(401,'Invalid sandbox webhook signature')
+            try: event=json.loads(body)
+            except json.JSONDecodeError:raise AuthError(400,'Invalid event JSON')
+            return self.out(200,apply_test_event(STORE,event),rid=rid) or 200
         if p in ('/api/questions', '/api/preview', '/api/configure', '/api/export', '/api/chat'):
             n = int(self.headers.get('Content-Length', '0'))
             if n <= 0 or n > MAX_BYTES:

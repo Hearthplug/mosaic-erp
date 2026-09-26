@@ -31,6 +31,7 @@ from ai_prefs_schema import AI_PREFS_SQLITE_SCHEMA
 from assistant_preview_schema import ASSISTANT_PREVIEW_SQLITE_SCHEMA
 from dayclose_schema import DAYCLOSE_SQLITE_SCHEMA
 from workspace_prefs_schema import WORKSPACE_PREFS_SQLITE_SCHEMA
+from billing_schema import SQLITE_BILLING_SCHEMA
 
 MIGRATIONS = [
     # 1: core workspace schema
@@ -181,6 +182,8 @@ class Conflict(Exception):
 
 class NotFound(Exception):
     """Requested record does not exist (HTTP 404)."""
+
+MIGRATIONS.append(SQLITE_BILLING_SCHEMA)
 
 class Store:
     """Thread-safe single-node store. One connection guarded by one lock:
