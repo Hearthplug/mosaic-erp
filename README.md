@@ -1,28 +1,8 @@
 # Mosaic ERP
 
-Mosaic is an interview-native operational ERP for core retailer work. An owner describes the business in plain language; Mosaic provisions the relevant workflows, reports, branding, verification tasks and fine-grained staff roles. The same system then runs persistent buying, receiving, selling, returns/refunds, stock, cash, supplier bills/payments, reconciliation, period close and core accounting reports.
+Mosaic is a free, open-source retail ERP for small shops. You answer a short interview in plain language - do you keep stock, do you buy from suppliers on credit, which country and currency - and Mosaic configures the working system for your stores, stock, credit, returns, staff and tax registration. Then it runs the daily work: selling, returns and refunds, supplier bills and payments, cash close and core accounting reports.
 
-## Scope of v2.1.2
-
-v2.1.2 is an evidence-backed **production-core retailer ERP release**. It is not a claim of complete advanced-retail or enterprise-suite breadth. Since v1.4.1: photo intake that turns paper bills, credit-book pages and stock registers into reviewed books (v2.0.0), the day close with a shareable summary, voice entry, your choice of AI provider per capability with masked key entry, in-app update notices (v2.0.0), natural-language report drafting on the Build screen and the Intel Mac installer (v2.0.1), and in v2.1.0 the per-page pick-first UX across Till, Stock, Buying, Money and Books with plain explanations beside terms, every report as PDF, XLSX or CSV, and plain-language custom reports on the Books page. v2.1.1 added a clearer interview review - explicit lists of what is on for you and what stays off - before Apply, and fixed cached pages after sign-out and workspace renames. v2.1.2 adds a real Settings screen (rename the shop, add stores, see the tax profile with a plain-language accountant checklist) and fixes 12 bugs found in a full sweep of every feature, including wrong default currency for 21 of 22 country packs, error toasts showing the wrong icon, and server errors on bad input now answered with clean 400/409 responses. The fine-tuned local assistant stays in Preview with owner confirmation on every action; Jev by TypeSafe stays available in Preview with the owner's own key.
-
-Implemented and source-tested:
-
-- guided owner interview that provisions an operating model and real controls
-- normal email/password sign-in, secure Google and Microsoft OIDC routes, expiring/revocable sessions, secure single-use invitations and company chooser
-- action, location, amount and record-state RBAC with segregation-of-duties checks
-- products, stores, suppliers/customers, purchase orders, receiving, sales, exact tenders, returns/refunds, transfers, counts and cash close
-- purchase bills, three-way match, payments, bank matching, immutable double-entry journals, period locks, aging, trial balance, P&L and balance sheet
-- validation-first migration with reviewed openings, reconciliation and correction/rollback guidance
-- PostgreSQL 16+ pooling, migrations, `FORCE ROW LEVEL SECURITY`, restricted runtime role, atomic domain commands and cross-replica locks
-- strict same-origin CSP, audit history, request limits, health/readiness and metrics
-- answer-shaping chooser: Standard built-in mapping by default, optional Jev by TypeSafe (Preview) with the owner's own TypeSafe key, and OpenAI, Claude and DeepSeek each available with the owner's own key from that provider; every interview answer and setting change still requires owner confirmation
-
-Explicitly excluded:
-
-- statutory invoice formats, tax filing, e-invoicing or jurisdiction certification without a separately verified local adapter/version
-- advanced modules such as held carts, promotions, printable fiscal receipts, deep batch/expiry/serial operations, landed cost, manufacturing, payroll and broad enterprise-suite replacement
-- managed hosting, database HA/PITR, target-cluster failover/capacity evidence or an operator restore certificate
+**Try it in your browser first, no install:** [live demo pre-loaded with a sample shop](https://mosaic-erp-demo.onrender.com/) (the demo sleeps when idle - give it about 20 seconds to wake up).
 
 ## Download the desktop app
 
@@ -44,6 +24,28 @@ python3 app.py
 Open `http://localhost:8000/signin`, choose **Set up a new company**, and enter the company name, work email and a password. Mosaic signs the owner in and opens the business interview. Ordinary users never handle workspace or API keys.
 
 SQLite is for evaluation and simple single-process use. It includes an integrity-checked local backup/restore path. PostgreSQL is required for concurrent production replicas.
+
+## What v2.1.2 covers (and what it does not)
+
+v2.1.2 is an evidence-backed **production-core retailer ERP release**. It is not a claim of complete advanced-retail or enterprise-suite breadth. Since v1.4.1: photo intake that turns paper bills, credit-book pages and stock registers into reviewed books (v2.0.0), the day close with a shareable summary, voice entry, your choice of AI provider per capability with masked key entry, in-app update notices (v2.0.0), natural-language report drafting on the Build screen and the Intel Mac installer (v2.0.1), and in v2.1.0 the per-page pick-first UX across Till, Stock, Buying, Money and Books with plain explanations beside terms, every report as PDF, XLSX or CSV, and plain-language custom reports on the Books page. v2.1.1 added a clearer interview review - explicit lists of what is on for you and what stays off - before Apply, and fixed cached pages after sign-out and workspace renames. v2.1.2 adds a real Settings screen (rename the shop, add stores, see the tax profile with a plain-language accountant checklist) and fixes 12 bugs found in a full sweep of every feature, including wrong default currency for 21 of 22 country packs, error toasts showing the wrong icon, and server errors on bad input now answered with clean 400/409 responses. The fine-tuned local assistant stays in Preview with owner confirmation on every action; Jev by TypeSafe stays available in Preview with the owner's own key.
+
+Implemented and source-tested:
+
+- guided owner interview that provisions an operating model and real controls
+- normal email/password sign-in, secure Google and Microsoft OIDC routes, expiring/revocable sessions, secure single-use invitations and company chooser
+- action, location, amount and record-state RBAC with segregation-of-duties checks
+- products, stores, suppliers/customers, purchase orders, receiving, sales, exact tenders, returns/refunds, transfers, counts and cash close
+- purchase bills, three-way match, payments, bank matching, immutable double-entry journals, period locks, aging, trial balance, P&L and balance sheet
+- validation-first migration with reviewed openings, reconciliation and correction/rollback guidance
+- PostgreSQL 16+ pooling, migrations, `FORCE ROW LEVEL SECURITY`, restricted runtime role, atomic domain commands and cross-replica locks
+- strict same-origin CSP, audit history, request limits, health/readiness and metrics
+- answer-shaping chooser: Standard built-in mapping by default, optional Jev by TypeSafe (Preview) with the owner's own TypeSafe key, and OpenAI, Claude and DeepSeek each available with the owner's own key from that provider; every interview answer and setting change still requires owner confirmation
+
+Explicitly excluded:
+
+- statutory invoice formats, tax filing, e-invoicing or jurisdiction certification without a separately verified local adapter/version
+- advanced modules such as held carts, promotions, printable fiscal receipts, deep batch/expiry/serial operations, landed cost, manufacturing, payroll and broad enterprise-suite replacement
+- managed hosting, database HA/PITR, target-cluster failover/capacity evidence or an operator restore certificate
 
 ## Production deployment
 
