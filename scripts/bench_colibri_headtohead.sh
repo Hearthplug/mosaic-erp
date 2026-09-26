@@ -19,7 +19,7 @@ python3 colibri/c/tools/convert_olmoe_merged.py --repo allenai/OLMoE-1B-7B-0125-
 du -sh olmoe_merged
 du -sb olmoe_merged colibri/c/olmoe | awk '{s+=$1} END {print s}' > disk-bytes.txt
 started=$(date +%s.%N)
-python3 colibri/c/openai_server.py --model "$work/olmoe_merged" --arch olmoe --engine "$work/colibri/c/olmoe" --host 127.0.0.1 --port 18081 --max-tokens 260 >server.log 2>&1 & pid=$!
+python3 colibri/c/openai_server.py --model "$work/olmoe_merged" --model-id olmoe --arch olmoe --engine "$work/colibri/c/olmoe" --host 127.0.0.1 --port 18081 --max-tokens 260 >server.log 2>&1 & pid=$!
 trap 'kill ${sampler:-} $pid 2>/dev/null || true' EXIT
 : > resource-samples.txt
 ready=0
