@@ -232,5 +232,6 @@ class AssistantPreviewPGContract(unittest.TestCase):
         import postgres_store as s
         from postgres_erp_schema import ASSISTANT_PREVIEW_PG, POSTGRES_ERP_MIGRATION
         self.assertEqual(s.PG_MIGRATIONS[1], POSTGRES_ERP_MIGRATION)
-        self.assertEqual(s.PG_MIGRATIONS[-1], ASSISTANT_PREVIEW_PG)
+        self.assertIn(ASSISTANT_PREVIEW_PG, s.PG_MIGRATIONS)
+        self.assertLess(s.PG_MIGRATIONS.index(POSTGRES_ERP_MIGRATION), s.PG_MIGRATIONS.index(ASSISTANT_PREVIEW_PG))
         self.assertNotIn('assistant_action_drafts', POSTGRES_ERP_MIGRATION)

@@ -789,6 +789,7 @@ class H(BaseHTTPRequestHandler):
             if u.get('operational_role'): PROVISIONER.rbac.bind_role(u['workspace_id'],u['user_id'],u['user_id'],u['operational_role'])
             result=STORE.login(u['workspace_id'],u['email'],d.get('password',''));result['workspace_name']=STORE.get_workspace(u['workspace_id'])['name'];result['landing']='/accounting' if u.get('operational_role')=='Accountant' else '/operations';return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
         if p == '/api/signup':
+            if os.getenv('MOSAIC_SAAS_MODE','').lower() in ('1','true','yes'): raise AuthError(403, 'Use Google or Microsoft to create a company')
             d=self._body();wid,key=STORE.create_workspace(d.get('company_name','My company'));user=STORE.create_user(wid,d.get('email',''),d.get('password',''),'owner','signup');result=STORE.login(wid,d.get('email',''),d.get('password',''));result['workspace_name']=d.get('company_name','My company');result['landing']='/interview';return self.out(201,result,hdrs={'Cache-Control':'no-store'},rid=rid) or 201
         if p == '/api/oauth/complete':
             d=self._body();return self.out(200,STORE.oauth_complete(d.get('code','')),hdrs={'Cache-Control':'no-store'},rid=rid) or 200
@@ -808,6 +809,7 @@ class H(BaseHTTPRequestHandler):
             result['workspace_name']=STORE.get_workspace(result['workspace_id'])['name']; result['landing']=self._landing(result)
             return self.out(201, result, hdrs={'Cache-Control':'no-store'}, rid=rid) or 201
         if p == '/api/workspaces':
+            if os.getenv('MOSAIC_SAAS_MODE','').lower() in ('1','true','yes'): raise AuthError(403, 'Use Google or Microsoft to create a company')
             d = self._body()
             idem = self.headers.get('Idempotency-Key')
             req_hash = sha256(canon(d))

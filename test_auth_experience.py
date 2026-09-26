@@ -27,6 +27,12 @@ class AuthExperience(unittest.TestCase):
   except urllib.error.HTTPError as e:status=e.code;raw=e.read()
   return status,json.loads(raw or b'{}')
  def signup(self,name,email):return self.call('/api/signup',{'company_name':name,'email':email,'password':'a-secure-password'})[1]
+ def test_saas_mode_rejects_unverified_password_and_key_company_creation(self):
+  from unittest.mock import patch
+  with patch.dict(os.environ,{'MOSAIC_SAAS_MODE':'true'}):
+   self.assertEqual(self.call('/api/signup',{'company_name':'Unverified','email':'new@example.test','password':'secure-long-password'})[0],403)
+   self.assertEqual(self.call('/api/workspaces',{'name':'Unverified'})[0],403)
+  self.assertEqual(self.call('/api/signup',{'company_name':'Local','email':'local@example.test','password':'secure-long-password'})[0],201)
  def test_first_sign_in_multi_workspace_choice_and_role_landing(self):
   first=self.signup('North Shop','same@example.test');second=self.signup('South Shop','same@example.test');self.assertEqual(first['landing'],'/interview')
   status,x=self.call('/api/session/options',{'email':'same@example.test','password':'a-secure-password'});self.assertEqual((status,{w['name'] for w in x['workspaces']}),(200,{'North Shop','South Shop'}))
