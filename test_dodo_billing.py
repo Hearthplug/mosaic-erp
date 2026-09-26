@@ -82,6 +82,17 @@ class DodoTest(unittest.TestCase):
    with self.subTest(n=n):
     with self.assertRaises(ValueError):apply_dodo_test_webhook(self.db,self.w1,json.dumps(bad).encode(),'bad_%s'%n)
   self.assertEqual(self.db._db.execute('SELECT COUNT(*) AS n FROM billing_events').fetchone()['n'],0)
+ def test_settings_checkout_is_owner_only_and_no_price_is_embedded(self):
+  from pathlib import Path
+  root=Path(__file__).parent
+  html=(root/'settings.html').read_text()
+  js=(root/'settings.js').read_text()
+  self.assertIn('id="dodo-test-card" hidden',html)
+  self.assertIn("identity.role==='owner'",js)
+  self.assertIn("api('/api/billing/dodo-test-checkout',{})",js)
+  self.assertIn('result.checkout_url',js)
+  self.assertNotIn('19/month',html+js)
+  self.assertNotIn('499',html+js)
  def test_owner_checkout_uses_only_test_host_and_external_product(self):
   import dodo_checkout
   old={k:os.environ.get(k) for k in ('MOSAIC_DODO_TEST_MODE','MOSAIC_DODO_TEST_API_KEY','MOSAIC_DODO_TEST_PRODUCT_ID','MOSAIC_DODO_TEST_RETURN_URL')}
