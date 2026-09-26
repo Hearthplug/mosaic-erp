@@ -22,6 +22,18 @@ function renderStores(locs){
 }
 function connect(){if(!MosaicAuth.require())return;
   const identity=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');
+  if(identity.role==='owner'){
+    $('#dodo-test-card').hidden=false;
+    $('#dodo-test-open').onclick=()=>{
+      const button=$('#dodo-test-open'),state=$('#dodo-test-state'),link=$('#dodo-test-link');
+      button.disabled=true;link.hidden=true;link.removeAttribute('href');state.textContent='Preparing test checkout…';
+      api('/api/billing/dodo-test-checkout',{}).then(result=>{
+        if(result.mode!=='test'||result.entitlements!=='none'||!result.checkout_url)throw Error('Unexpected checkout response');
+        link.href=result.checkout_url;link.hidden=false;
+        state.textContent='Test checkout ready. Check the price and tax before entering any test payment details.';
+      }).catch(e=>{state.textContent=e.message;toast(false,e.message)}).finally(()=>{button.disabled=false});
+    };
+  }
   $('#signout').onclick=()=>MosaicAuth.clear();
   api('/api/settings/summary').then(s=>{
     const name=s.workspace.name||'Your company';

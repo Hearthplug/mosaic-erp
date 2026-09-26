@@ -47,3 +47,31 @@ CREATE POLICY billing_events_tenant ON billing_events
  USING (workspace_id=current_setting('mosaic.workspace_id',true))
  WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));
 """
+
+DODO_INTENTS_SQLITE = """
+CREATE TABLE dodo_test_checkout_intents(
+ nonce TEXT PRIMARY KEY,
+ workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+ product_id TEXT NOT NULL,
+ session_id TEXT NOT NULL UNIQUE,
+ subscription_id TEXT UNIQUE,
+ created_at TEXT NOT NULL
+);
+CREATE INDEX idx_dodo_test_checkout_workspace ON dodo_test_checkout_intents(workspace_id);
+"""
+DODO_INTENTS_POSTGRES = """
+CREATE TABLE dodo_test_checkout_intents(
+ nonce text PRIMARY KEY,
+ workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+ product_id text NOT NULL,
+ session_id text NOT NULL UNIQUE,
+ subscription_id text UNIQUE,
+ created_at text NOT NULL
+);
+CREATE INDEX idx_dodo_test_checkout_workspace ON dodo_test_checkout_intents(workspace_id);
+ALTER TABLE dodo_test_checkout_intents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dodo_test_checkout_intents FORCE ROW LEVEL SECURITY;
+CREATE POLICY dodo_test_checkout_tenant ON dodo_test_checkout_intents
+ USING (workspace_id=current_setting('mosaic.workspace_id',true))
+ WITH CHECK (workspace_id=current_setting('mosaic.workspace_id',true));
+"""

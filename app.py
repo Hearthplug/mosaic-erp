@@ -32,6 +32,8 @@ from oauth import OAuth, OAuthError
 from provider_assets import GOOGLE_SIGNIN, MICROSOFT_SIGNIN
 from update_check import backup_before_upgrade_from_env, update_status
 from billing import verify_test_signature, apply_test_event, list_test_subscriptions
+from dodo_billing import verify_dodo_signature, apply_dodo_test_webhook
+from dodo_checkout import create_test_checkout
 
 def open_store():
     url=os.environ.get("MOSAIC_DATABASE_URL", "")
@@ -803,6 +805,28 @@ class H(BaseHTTPRequestHandler):
         BOOKS.setup(wid,actor,base_currency=currency)
     def _post(self, rid):
         p = urlparse(self.path).path
+        if p == '/api/billing/dodo-test-webhook':
+            if os.environ.get('MOSAIC_DODO_TEST_MODE') != 'true':
+                raise AuthError(404, 'Not found')
+            n=int(self.headers.get('Content-Length','0'))
+            if n<=0 or n>MAX_BYTES:raise AuthError(413,'Invalid request size')
+            body=self.rfile.read(n)
+            message_id=self.headers.get('webhook-id','')
+            if not verify_dodo_signature(body,message_id,self.headers.get('webhook-timestamp',''),
+                self.headers.get('webhook-signature',''),os.environ.get('MOSAIC_DODO_TEST_WEBHOOK_SECRET','')):
+                raise AuthError(401,'Invalid Dodo test webhook signature')
+            try:
+                event=json.loads(body)
+                metadata=event.get('data',{}).get('metadata',{})
+                wid=metadata.get('mosaic_workspace_id')
+                result=apply_dodo_test_webhook(STORE,wid,body,message_id)
+            except (ValueError,AttributeError,TypeError) as e:
+                raise AuthError(400,'Invalid Dodo test event')
+            return self.out(200,result,rid=rid) or 200
+        if p == '/api/billing/dodo-test-checkout':
+            wid,_,_=self._auth('owner')
+            try: return self.out(200,create_test_checkout(STORE,wid),rid=rid) or 200
+            except ValueError:raise AuthError(503,'Dodo test checkout unavailable')
         if p == '/api/billing/test-webhook':
             if os.environ.get('MOSAIC_BILLING_TEST_MODE') != 'true':
                 raise AuthError(404, 'Not found')
