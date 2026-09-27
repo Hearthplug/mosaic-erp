@@ -160,9 +160,7 @@ jobs:
             fi
           }
           accept_absent_or_exact "$GHCR_IMAGE:$plain" "$GHCR_DIGEST"
-          accept_absent_or_exact "$GHCR_IMAGE:$minor" "$GHCR_DIGEST"
           accept_absent_or_exact "$DOCKERHUB_IMAGE:$plain" "$DOCKERHUB_DIGEST"
-          accept_absent_or_exact "$DOCKERHUB_IMAGE:$minor" "$DOCKERHUB_DIGEST"
           test "$(docker buildx imagetools inspect "$GHCR_IMAGE:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$GHCR_DIGEST"
           test "$(docker buildx imagetools inspect "$DOCKERHUB_IMAGE:$STAGING_TAG" | awk '$1=="Digest:"{print $2;exit}')" = "$DOCKERHUB_DIGEST"
           for spec in "$GHCR_IMAGE@$GHCR_DIGEST" "$DOCKERHUB_IMAGE@$DOCKERHUB_DIGEST"; do
@@ -213,9 +211,14 @@ jobs:
             fi
           }
           promote "$GHCR_IMAGE" "$GHCR_DIGEST" "$plain"
-          promote "$GHCR_IMAGE" "$GHCR_DIGEST" "$minor"
           promote "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$plain"
-          promote "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$minor"
+          promote_rolling() {
+            local image="$1" digest="$2" tag="$3"
+            docker buildx imagetools create --tag "$image:$tag" "$image@$digest"
+            test "$(docker buildx imagetools inspect "$image:$tag" | awk '$1=="Digest:"{print $2;exit}')" = "$digest"
+          }
+          promote_rolling "$GHCR_IMAGE" "$GHCR_DIGEST" "$minor"
+          promote_rolling "$DOCKERHUB_IMAGE" "$DOCKERHUB_DIGEST" "$minor"
           promote_latest() {
             local image="$1" digest="$2"
             docker buildx imagetools create --tag "$image:latest" "$image@$digest"
