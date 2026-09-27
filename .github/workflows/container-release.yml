@@ -91,7 +91,7 @@ jobs:
           provenance: mode=max
       - uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
         with: {image-ref: '${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}', format: table, exit-code: '1', severity: 'CRITICAL,HIGH', ignore-unfixed: true}
-      - uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409
+      - uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da
       - env: {DIGEST: '${{ steps.build.outputs.digest }}'}
         run: cosign sign --yes "${IMAGE_NAME}@${DIGEST}"
 
@@ -129,7 +129,7 @@ jobs:
           provenance: mode=max
       - uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297
         with: {image-ref: '${{ vars.DOCKERHUB_IMAGE }}@${{ steps.build.outputs.digest }}', format: table, exit-code: '1', severity: 'CRITICAL,HIGH', ignore-unfixed: true}
-      - uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409
+      - uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da
       - env: {DIGEST: '${{ steps.build.outputs.digest }}', IMAGE: '${{ vars.DOCKERHUB_IMAGE }}'}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
@@ -170,7 +170,7 @@ jobs:
             test -z "$DOCKERHUB_IMAGE"
             test -z "$DOCKERHUB_DIGEST"
           fi
-      - uses: sigstore/cosign-installer@1aa8e0f2454b781fbf0fbf306a4c9533a0c57409
+      - uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da
       - name: Create and verify signed release receipt
         shell: bash
         run: |
