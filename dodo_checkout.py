@@ -35,7 +35,7 @@ def create_test_checkout(store, workspace_id, opener=None):
              'return_url':return_url,
              'metadata':{'mosaic_workspace_id':workspace_id,'mosaic_checkout_nonce':nonce}}
     request=urllib.request.Request(TEST_API,data=json.dumps(payload).encode(),
-        headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='POST')
+        headers={'Authorization':'Bearer '+key,'Content-Type':'application/json','User-Agent':'Hearthplug/1.0'},method='POST')
     try:
         with (opener or urllib.request.urlopen)(request,timeout=12) as response:
             result=json.load(response)
