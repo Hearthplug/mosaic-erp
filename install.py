@@ -1,4 +1,4 @@
-"""One-command local setup for Mosaic ERP.
+"""One-command local setup for Mosaic Shop Intelligence.
 
     python3 install.py
 
@@ -27,7 +27,7 @@ def step(ok, msg):
     print(f'[{"ok" if ok else ".."}] {msg}')
 
 def main():
-    print('Mosaic ERP setup')
+    print('Mosaic Shop Intelligence setup')
     if sys.version_info < (3, 10):
         sys.exit('Python 3.10 or newer is required. Install it from python.org and re-run.')
     step(True, f'Python {sys.version_info.major}.{sys.version_info.minor} found')

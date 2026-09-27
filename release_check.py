@@ -1,4 +1,4 @@
-"""Mosaic ERP release-readiness gate.
+"""Mosaic Shop Intelligence release-readiness gate.
 
     python3 release_check.py
 

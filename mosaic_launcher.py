@@ -1,4 +1,4 @@
-"""Windows desktop entry point for Mosaic ERP.
+"""Windows desktop entry point for Mosaic Shop Intelligence.
 
 Starts the same Mosaic server the source install runs, then opens the
 default browser at the sign-in page. Data lives in the per-user
@@ -56,7 +56,7 @@ def main():
 
     url = f'http://127.0.0.1:{port}/signin'
     threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    print(f'Mosaic ERP is running at {url}')
+    print(f'Mosaic Shop Intelligence is running at {url}')
     print(f'Your data is stored in: {data}')
     print('Keep this window open while you use Mosaic. Close it to stop.')
     try:

@@ -1191,7 +1191,7 @@ PROBE_LIMITER = MemoryRateLimiter(os.getenv('MOSAIC_PROBE_RATE_LIMIT_RPM', '600'
 
 def main():
     import argparse
-    ap = argparse.ArgumentParser(description='Mosaic ERP server and data operations')
+    ap = argparse.ArgumentParser(description='Mosaic Shop Intelligence server and data operations')
     sub = ap.add_subparsers(dest='cmd')
     sub.add_parser('serve', help='Run the HTTP server (default)')
     b = sub.add_parser('backup', help='Consistent online backup of the workspace database')
@@ -1213,7 +1213,7 @@ def main():
         return
     host = os.getenv('MOSAIC_HOST', '127.0.0.1')
     port = int(os.getenv('PORT', '8000'))
-    print(f'Mosaic ERP at http://{host}:{port} (database: {db_path})')
+    print(f'Mosaic Shop Intelligence at http://{host}:{port} (database: {db_path})')
     ThreadingHTTPServer((host, port), H).serve_forever()
 
 if __name__ == '__main__':

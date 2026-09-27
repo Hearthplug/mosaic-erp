@@ -35,6 +35,7 @@ function connect(){if(!MosaicAuth.require())return;
     };
   }
   $('#signout').onclick=()=>MosaicAuth.clear();
+  api('/api/update-check').then(u=>{if(u&&u.current)$('#about-version').textContent='Version '+u.current+'.';}).catch(()=>{});
   api('/api/settings/summary').then(s=>{
     const name=s.workspace.name||'Your company';
     $('#company').textContent=name;$('#state').textContent='Ready · '+(identity.role||'your role');

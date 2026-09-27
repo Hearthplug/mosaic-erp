@@ -1,4 +1,4 @@
-# Mosaic ERP data architecture
+# Mosaic Shop Intelligence data architecture
 
 Status: production-core retailer ERP candidate. Source-verifiable controls are covered by CI; deployment-dependent claims remain operator owned.
 

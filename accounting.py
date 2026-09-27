@@ -1,4 +1,4 @@
-"""Accounting core for Mosaic ERP.
+"""Accounting core for Mosaic Shop Intelligence.
 
 Amounts are stored as integer minor units. Posted journals are immutable: fixes are
 new reversing/correcting journals. Billing documents post through the same journal

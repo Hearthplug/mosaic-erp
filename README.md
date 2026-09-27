@@ -1,4 +1,4 @@
-# Mosaic ERP
+# Mosaic Shop Intelligence
 
 Mosaic is a free, open-source retail ERP for small shops. You answer a short interview in plain language - do you keep stock, do you buy from suppliers on credit, which country and currency - and Mosaic configures the working system for your stores, stock, credit, returns, staff and tax registration. Then it runs the daily work: selling, returns and refunds, supplier bills and payments, cash close and core accounting reports.
 
@@ -7,7 +7,7 @@ Mosaic is a free, open-source retail ERP for small shops. You answer a short int
 ## Download the desktop app
 
 - **Windows:** [MosaicERP-windows-x64-setup.exe](https://github.com/Hearthplug/mosaic-erp/releases/download/v2.1.6/MosaicERP-windows-x64-setup.exe) - run it and Mosaic opens in your browser at a private localhost address, with a proper uninstaller. A portable build ([MosaicERP-windows-x64.exe](https://github.com/Hearthplug/mosaic-erp/releases/download/v2.1.6/MosaicERP-windows-x64.exe)) is also available. The app is not code-signed yet; if SmartScreen shows "Windows protected your PC", choose **More info**, then **Run anyway**.
-- **Mac (Apple Silicon):** [MosaicERP-macos-arm64.dmg](https://github.com/Hearthplug/mosaic-erp/releases/download/v2.1.6/MosaicERP-macos-arm64.dmg) - open the dmg, drag Mosaic ERP to Applications, then right-click the app and choose **Open** on first run (the app is not signed with an Apple Developer ID yet).
+- **Mac (Apple Silicon):** [MosaicERP-macos-arm64.dmg](https://github.com/Hearthplug/mosaic-erp/releases/download/v2.1.6/MosaicERP-macos-arm64.dmg) - open the dmg, drag the app to Applications, then right-click the app and choose **Open** on first run (the app is not signed with an Apple Developer ID yet).
 - **Mac (Intel):** [MosaicERP-macos-x64.dmg](https://github.com/Hearthplug/mosaic-erp/releases/download/v2.1.6/MosaicERP-macos-x64.dmg) - same steps as Apple Silicon.
 
 Both desktop apps include the optional local assistant Preview: on first run the app downloads the assistant model (about 1.2 GB, sha256-verified) in the background, and everything else works while it downloads.
