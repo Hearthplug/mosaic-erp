@@ -237,7 +237,7 @@ jobs:
           if git ls-remote --exit-code --tags origin "$tag_ref" >/dev/null 2>&1; then
             test "$(git ls-remote --tags origin "${tag_ref}^{}" | awk '{print $1}')" = "$SOURCE_SHA"
           else
-            tag_object="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/tags" -f tag="$VERSION" -f message="Mosaic ERP ${VERSION}" -f object="$SOURCE_SHA" -f type=commit --jq .sha)"
+            tag_object="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/tags" -f tag="$VERSION" -f message="Mosaic Shop Intelligence ${VERSION}" -f object="$SOURCE_SHA" -f type=commit --jq .sha)"
             gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="$tag_ref" -f sha="$tag_object" >/dev/null
             test "$(git ls-remote --tags origin "${tag_ref}^{}" | awk '{print $1}')" = "$SOURCE_SHA"
           fi
@@ -253,7 +253,7 @@ jobs:
           (cd dist && sha256sum --check --strict SHA256SUMS)
           ! grep -RniE 'Instinct Agent|Co-authored-by|generated[ -]by|assistant contribution|AI[ -]agent|authored[ -]with' dist
           cat > dist/RELEASE_NOTES.md <<EOF
-          Mosaic ERP ${VERSION}
+          Mosaic Shop Intelligence ${VERSION}
 
           Evidence-backed production-core retailer release.
 
@@ -277,7 +277,7 @@ jobs:
           if gh release view "$VERSION" --json isDraft,tagName,targetCommitish >/tmp/release.json 2>/dev/null; then
             jq -e --arg tag "$VERSION" --arg sha "$SOURCE_SHA" '.isDraft == true and .tagName == $tag and .targetCommitish == $sha' /tmp/release.json >/dev/null
           else
-            gh release create "$VERSION" --draft --verify-tag --target "$SOURCE_SHA" --title "Mosaic ERP $VERSION" --notes-file dist/RELEASE_NOTES.md
+            gh release create "$VERSION" --draft --verify-tag --target "$SOURCE_SHA" --title "Mosaic Shop Intelligence $VERSION" --notes-file dist/RELEASE_NOTES.md
           fi
           gh release upload "$VERSION" dist/mosaic-erp-*.tar.gz dist/mosaic-erp-*.zip dist/SHA256SUMS --clobber
 
