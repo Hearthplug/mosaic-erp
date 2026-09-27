@@ -13,8 +13,13 @@ class PostgreSQLContract(unittest.TestCase):
   self.assertIn('ALTER TABLE oauth_grants FORCE ROW LEVEL SECURITY',p.PG_MIGRATIONS[2])
   self.assertIn('ALTER TABLE oauth_identities FORCE ROW LEVEL SECURITY',p.PG_MIGRATIONS[2])
   self.assertIn('mosaic_oauth_users',p.PG_MIGRATIONS[2])
-  self.assertIn('oauth_pending_links',p.PG_MIGRATIONS[-1])
-  self.assertIn('mosaic_oauth_email_users',p.PG_MIGRATIONS[-1])
+  self.assertIn('oauth_pending_links',p.PG_MIGRATIONS[-2])
+  self.assertIn('mosaic_oauth_email_users',p.PG_MIGRATIONS[-2])
+ def test_runtime_role_regrant_migration(self):
+  m=p.PG_MIGRATIONS[-1]
+  self.assertIn("current_setting('mosaic.runtime_role', true)",m)
+  for fn in ('mosaic_oauth_users','mosaic_invitation','mosaic_session_workspace','mosaic_login_options','mosaic_auth_session','mosaic_parent_workspace'):
+   self.assertIn(fn,m)
  def test_queries_are_portable(self):
   self.assertEqual(p._q('SELECT * FROM x WHERE a=? AND b=?'),'SELECT * FROM x WHERE a=%s AND b=%s')
  def test_pool_prepings_on_checkout(self):

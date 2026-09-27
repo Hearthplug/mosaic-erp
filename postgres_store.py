@@ -66,6 +66,23 @@ BEGIN
   END IF;
 END $grants$;
 ''')
+PG_MIGRATIONS.append(r'''
+-- Idempotent re-grant for the SECURITY DEFINER helpers added by earlier migrations.
+-- Grants EXECUTE to the runtime role named by MOSAIC_PG_RUNTIME_ROLE (mosaic.runtime_role GUC);
+-- no-op when unset. GRANT is idempotent, so re-running is safe.
+DO $grants$
+DECLARE runtime_role text := nullif(current_setting('mosaic.runtime_role', true), '');
+BEGIN
+  IF runtime_role IS NOT NULL THEN
+    EXECUTE format('GRANT EXECUTE ON FUNCTION mosaic_oauth_users(text,text,text) TO %I', runtime_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION mosaic_invitation(text) TO %I', runtime_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION mosaic_session_workspace(text,text) TO %I', runtime_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION mosaic_login_options(text) TO %I', runtime_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO %I', runtime_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION mosaic_parent_workspace(text,text) TO %I', runtime_role);
+  END IF;
+END $grants$;
+''')
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
 RLS_SQL=r'''
