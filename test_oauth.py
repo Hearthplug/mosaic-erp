@@ -86,24 +86,37 @@ class OAuthTests(unittest.TestCase):
  def test_msa_consumers_email_confirmed_only_when_graph_matches(self):
   ms=self.o.providers()[1]['microsoft']
   claims={'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','email':'person@outlook.test'}
-  with patch.object(self.o,'_msa_graph_email',return_value='person@outlook.test') as g:
+  with patch.object(self.o,'_msa_graph_emails',return_value=frozenset({'person@outlook.test'})) as g:
    self.o._confirm_consumers_email(ms,claims,{'access_token':'at'});self.assertTrue(claims['email_verified']);g.assert_called_once_with('at')
   claims={'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','email':'person@outlook.test'}
-  with patch.object(self.o,'_msa_graph_email',return_value='other@outlook.test'):self.o._confirm_consumers_email(ms,claims,{'access_token':'at'})
+  with patch.object(self.o,'_msa_graph_emails',return_value=frozenset({'other@outlook.test'})):self.o._confirm_consumers_email(ms,claims,{'access_token':'at'})
   self.assertNotIn('email_verified',claims)
   claims={'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','preferred_username':'Person@Outlook.test'}
-  with patch.object(self.o,'_msa_graph_email',return_value='person@outlook.test'):self.o._confirm_consumers_email(ms,claims,{'access_token':'at'})
+  with patch.object(self.o,'_msa_graph_emails',return_value=frozenset({'person@outlook.test'})):self.o._confirm_consumers_email(ms,claims,{'access_token':'at'})
   self.assertTrue(claims['email_verified'])
+ def test_msa_consumers_proxy_mail_matches_upn_signin(self):
+  # Gmail-based personal account: Graph mail is an outlook proxy, userPrincipalName
+  # is the real sign-in address; the id_token email must match EITHER, case-folded.
+  ms=self.o.providers()[1]['microsoft']
+  graph=frozenset({'outlook_3f2a1b9c4d@outlook.com','zia323798@gmail.com'})
+  claims={'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','email':'Zia323798@gmail.com'}
+  with patch.object(self.o,'_msa_graph_emails',return_value=graph):self.o._confirm_consumers_email(ms,claims,{'access_token':'at'})
+  self.assertTrue(claims['email_verified'])
+  claims={'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','email':'someone-else@gmail.com'}
+  with patch.object(self.o,'_msa_graph_emails',return_value=graph):self.o._confirm_consumers_email(ms,claims,{'access_token':'at'})
+  self.assertNotIn('email_verified',claims)
  def test_work_tenant_and_already_verified_skip_graph(self):
   ms=self.o.providers()[1]['microsoft']
   for claims in ({'tid':'11111111-2222-3333-4444-555555555555','email':'w@corp.test'},{'tid':'9188040d-6c67-4c5b-b112-36a304b66dad','xms_edov':True,'email':'p@outlook.test'},{'tid':'9188040d-6c67-4c5b-b112-36a304b66dad'}):
-   with patch.object(self.o,'_msa_graph_email') as g:self.o._confirm_consumers_email(ms,claims,{'access_token':'at'});g.assert_not_called()
- def test_msa_graph_email_reads_directory_and_fails_closed(self):
+   with patch.object(self.o,'_msa_graph_emails') as g:self.o._confirm_consumers_email(ms,claims,{'access_token':'at'});g.assert_not_called()
+ def test_msa_graph_emails_reads_directory_and_fails_closed(self):
   import io,json as J
   from unittest.mock import MagicMock
   resp=MagicMock();resp.__enter__.return_value=io.BytesIO(J.dumps({'mail':None,'userPrincipalName':'Person@Outlook.test'}).encode())
-  with patch('oauth.urlopen',return_value=resp):self.assertEqual(self.o._msa_graph_email('at'),'person@outlook.test')
-  with patch('oauth.urlopen',side_effect=OSError('down')):self.assertEqual(self.o._msa_graph_email('at'),'')
+  with patch('oauth.urlopen',return_value=resp):self.assertEqual(self.o._msa_graph_emails('at'),frozenset({'person@outlook.test'}))
+  resp=MagicMock();resp.__enter__.return_value=io.BytesIO(J.dumps({'mail':'Outlook_AB12@outlook.com','userPrincipalName':'Zia323798@gmail.com'}).encode())
+  with patch('oauth.urlopen',return_value=resp):self.assertEqual(self.o._msa_graph_emails('at'),frozenset({'outlook_ab12@outlook.com','zia323798@gmail.com'}))
+  with patch('oauth.urlopen',side_effect=OSError('down')):self.assertEqual(self.o._msa_graph_emails('at'),frozenset())
  def test_saas_msa_unknown_identity_blocked_until_graph_confirms(self):
   before=self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n']
   tid='9188040d-6c67-4c5b-b112-36a304b66dad';iss=f'https://login.microsoftonline.com/{tid}/v2.0'

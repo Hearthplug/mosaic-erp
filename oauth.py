@@ -92,9 +92,14 @@ class OAuth:
         if str(claims.get('tid','')).lower()!=MSA_CONSUMERS_TENANT:return
         if claims.get('xms_edov') is True or claims.get('email_verified') is True:return
         email=(claims.get('email') or claims.get('preferred_username') or '').strip().lower()
-        if email and token.get('access_token') and self._msa_graph_email(token['access_token'])==email:claims['email_verified']=True
-    def _msa_graph_email(self,access_token):
+        if email and token.get('access_token') and email in self._msa_graph_emails(token['access_token']):claims['email_verified']=True
+    def _msa_graph_emails(self,access_token):
+        """Directory addresses bound to this token's own account, from Graph /me.
+
+        Personal accounts created from a non-Microsoft address get an outlook proxy
+        in mail while the real sign-in address stays in userPrincipalName, so either
+        may be the id_token email; both come from the same verified directory record."""
         try:
             with urlopen(Request('https://graph.microsoft.com/v1.0/me',headers={'Authorization':'Bearer '+access_token}),timeout=10) as r: me=json.load(r)
-        except Exception: return ''
-        return str(me.get('mail') or me.get('userPrincipalName') or '').strip().lower()
+        except Exception: return frozenset()
+        return frozenset(a for a in (str(me.get('mail') or '').strip().lower(),str(me.get('userPrincipalName') or '').strip().lower()) if a)
