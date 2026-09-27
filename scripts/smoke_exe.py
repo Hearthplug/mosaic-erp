@@ -1,4 +1,4 @@
-"""Smoke-test a packaged Mosaic ERP executable: boot, health, pages, shutdown."""
+"""Smoke-test a packaged TillWeave executable: boot, health, pages, shutdown."""
 import subprocess
 import sys
 import time
@@ -37,8 +37,8 @@ try:
         print('--- executable output tail ---')
         print(log.read()[-4000:])
         sys.exit('executable did not answer /health within 60s')
-    for path, want in (('/', b'Mosaic ERP'), ('/signin', b'MOSAIC'),
-                       ('/mosaic-logo.svg', b'<svg'), ('/interview', b'Build my Mosaic'),
+    for path, want in (('/', b'TillWeave Shop Intelligence'), ('/signin', b'TILLWEAVE'),
+                       ('/mosaic-logo.svg', b'<svg'), ('/interview', b'Build my TillWeave'),
                        ('/assistant', b'Set it up by talking')):
         try:
             with urllib.request.urlopen(base + path, timeout=5) as r:
