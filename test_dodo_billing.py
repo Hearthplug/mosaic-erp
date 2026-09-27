@@ -111,6 +111,7 @@ class DodoTest(unittest.TestCase):
    self.assertEqual(calls[0][0],'https://test.dodopayments.com/checkouts')
    self.assertEqual(calls[0][2]['product_cart'],[{'product_id':'pdt_external','quantity':1}])
    self.assertNotIn('amount',str(calls[0][2]))
+   self.assertEqual({k.lower():v for k,v in calls[0][1].items()}.get('user-agent'),'Hearthplug/1.0')
    nonce=calls[0][2]['metadata']['mosaic_checkout_nonce']
    self.assertEqual(self.db._db.execute('SELECT workspace_id FROM dodo_test_checkout_intents WHERE nonce=?',(nonce,)).fetchone()['workspace_id'],self.w1)
    os.environ['MOSAIC_DODO_TEST_MODE']='false'
