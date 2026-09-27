@@ -50,6 +50,22 @@ REVOKE ALL ON FUNCTION mosaic_session_workspace(text,text) FROM PUBLIC; GRANT EX
 ''')
 PG_MIGRATIONS.append(POSTGRES_BILLING_SCHEMA)
 PG_MIGRATIONS.append(DODO_INTENTS_POSTGRES)
+PG_MIGRATIONS.append(r'''
+CREATE TABLE oauth_pending_links(id text PRIMARY KEY,provider text NOT NULL,issuer text NOT NULL,subject text NOT NULL,email text NOT NULL,next_path text NOT NULL DEFAULT '/',created_at text NOT NULL,expires_at text NOT NULL,used_at text);
+CREATE INDEX oauth_pending_links_email ON oauth_pending_links(email);
+ALTER TABLE oauth_pending_links ENABLE ROW LEVEL SECURITY; ALTER TABLE oauth_pending_links FORCE ROW LEVEL SECURITY;
+CREATE POLICY oauth_pending_links_tenant ON oauth_pending_links USING (email=current_setting('mosaic.oauth_email',true)) WITH CHECK (email=current_setting('mosaic.oauth_email',true));
+CREATE OR REPLACE FUNCTION mosaic_oauth_email_users(p_email text) RETURNS TABLE(id text,workspace_id text,email text,role text,name text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT u.id,u.workspace_id,u.email,u.role,w.name FROM users u JOIN workspaces w ON w.id=u.workspace_id WHERE u.email=p_email AND u.disabled_at IS NULL AND w.status='active' $$;
+REVOKE ALL ON FUNCTION mosaic_oauth_email_users(text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_oauth_email_users(text) TO CURRENT_USER;
+DO $grants$
+DECLARE runtime_role text := nullif(current_setting('mosaic.runtime_role', true), '');
+BEGIN
+  IF runtime_role IS NOT NULL THEN
+    EXECUTE format('GRANT EXECUTE ON FUNCTION mosaic_oauth_email_users(text) TO %I', runtime_role);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON oauth_pending_links TO %I', runtime_role);
+  END IF;
+END $grants$;
+''')
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
 RLS_SQL=r'''
@@ -182,6 +198,7 @@ class PostgresStore(Store):
     def migrate(self):
         with self._fresh() as conn, conn.transaction():
             conn.execute("SELECT pg_advisory_xact_lock(hashtext('mosaic-erp-schema'))")
+            conn.execute("SELECT set_config('mosaic.runtime_role',%s,true)", (os.environ.get('MOSAIC_PG_RUNTIME_ROLE','').strip(),))
             conn.execute('CREATE TABLE IF NOT EXISTS mosaic_schema_migrations(version integer PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())')
             rows=conn.execute('SELECT version FROM mosaic_schema_migrations ORDER BY version').fetchall();current=len(rows)
             if current>len(PG_MIGRATIONS): raise RuntimeError('PostgreSQL schema is newer than this build')
@@ -229,6 +246,24 @@ class PostgresStore(Store):
             self._audit(wid,user['user_id'],'identity.sso_signup',{'provider':provider,'email':email})
         return {'user_id':user['user_id'],'workspace_id':wid,'email':email}
 
+    def oauth_users_by_email(self, email):
+        with self._fresh() as conn:rows=conn.execute('SELECT * FROM mosaic_oauth_email_users(%s)',((email or '').strip().lower(),)).fetchall()
+        return [dict(x) for x in rows]
+    def oauth_pending_link_create(self, provider, issuer, subject, email, next_path):
+        email=(email or '').strip().lower()
+        with self.tx():
+            self._current().execute("SELECT set_config('mosaic.oauth_email',%s,true)",(email,))
+            super().oauth_pending_link_create(provider,issuer,subject,email,next_path)
+    def oauth_pending_links_for_email(self, email):
+        email=(email or '').strip().lower()
+        with self.tx():
+            self._current().execute("SELECT set_config('mosaic.oauth_email',%s,true)",(email,))
+            return super().oauth_pending_links_for_email(email)
+    def oauth_pending_link_apply(self, link, user_id, workspace_id):
+        with self.tx():
+            self._current().execute("SELECT set_config('mosaic.oauth_email',%s,true)",(link['email'],))
+            self._current().execute("SELECT set_config('mosaic.workspace_id',%s,true)",(workspace_id,))
+            return super().oauth_pending_link_apply(link,user_id,workspace_id)
     def authenticate_session(self, token):
         from datetime import datetime, timezone
         from store import sha256

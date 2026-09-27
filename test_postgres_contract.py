@@ -13,6 +13,8 @@ class PostgreSQLContract(unittest.TestCase):
   self.assertIn('ALTER TABLE oauth_grants FORCE ROW LEVEL SECURITY',p.PG_MIGRATIONS[2])
   self.assertIn('ALTER TABLE oauth_identities FORCE ROW LEVEL SECURITY',p.PG_MIGRATIONS[2])
   self.assertIn('mosaic_oauth_users',p.PG_MIGRATIONS[2])
+  self.assertIn('oauth_pending_links',p.PG_MIGRATIONS[-1])
+  self.assertIn('mosaic_oauth_email_users',p.PG_MIGRATIONS[-1])
  def test_queries_are_portable(self):
   self.assertEqual(p._q('SELECT * FROM x WHERE a=? AND b=?'),'SELECT * FROM x WHERE a=%s AND b=%s')
  def test_pool_prepings_on_checkout(self):
