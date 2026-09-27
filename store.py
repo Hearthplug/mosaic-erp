@@ -185,6 +185,23 @@ class NotFound(Exception):
 
 MIGRATIONS.append(SQLITE_BILLING_SCHEMA)
 MIGRATIONS.append(DODO_INTENTS_SQLITE)
+# Parked cross-provider sign-ins: a provider-verified email that already has a
+# Mosaic company parks its identity here instead of creating a duplicate one;
+# the next confirmed sign-in (provider enter or password login) links it.
+MIGRATIONS.append("""
+CREATE TABLE oauth_pending_links(
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    issuer TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    email TEXT NOT NULL,
+    next_path TEXT NOT NULL DEFAULT '/',
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT
+);
+CREATE INDEX oauth_pending_links_email ON oauth_pending_links(email);
+""")
 
 class Store:
     """Thread-safe single-node store. One connection guarded by one lock:
@@ -329,6 +346,7 @@ class Store:
         ok = self._password_ok(password or '', encoded)
         if not row or not ok:
             return None
+        self._oauth_pending_apply_all(row['email'],row['id'],row['workspace_id'])
         return self._session_for_user(row,ttl_hours)
 
     def authenticate_session(self, token: str):
@@ -369,6 +387,25 @@ class Store:
     def oauth_identity_users(self,provider,issuer,subject):
         rows=self._db.execute("SELECT u.id,u.workspace_id,u.email,u.role,w.name FROM oauth_identities i JOIN users u ON u.id=i.user_id JOIN workspaces w ON w.id=u.workspace_id WHERE i.provider=? AND i.issuer=? AND i.subject=? AND u.disabled_at IS NULL AND w.status='active'",(provider,issuer,subject)).fetchall()
         return [dict(x) for x in rows]
+    def oauth_users_by_email(self,email):
+        rows=self._db.execute("SELECT u.id,u.workspace_id,u.email,u.role,w.name FROM users u JOIN workspaces w ON w.id=u.workspace_id WHERE u.email=? AND u.disabled_at IS NULL AND w.status='active'",((email or '').strip().lower(),)).fetchall()
+        return [dict(x) for x in rows]
+    def oauth_pending_link_create(self,provider,issuer,subject,email,next_path):
+        now=datetime.now(timezone.utc);expires=now+timedelta(hours=1)
+        with self.tx():
+            self._db.execute('INSERT INTO oauth_pending_links(id,provider,issuer,subject,email,next_path,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',('opl_'+secrets.token_urlsafe(16),provider,issuer,subject,(email or '').strip().lower(),next_path or '/',now.isoformat(),expires.isoformat()))
+    def oauth_pending_links_for_email(self,email):
+        rows=self._db.execute('SELECT id,provider,issuer,subject,email,next_path,expires_at FROM oauth_pending_links WHERE email=? AND used_at IS NULL',((email or '').strip().lower(),)).fetchall()
+        return [dict(r) for r in rows if datetime.fromisoformat(r['expires_at'])>datetime.now(timezone.utc)]
+    def oauth_pending_link_apply(self,link,user_id,workspace_id):
+        with self.tx():
+            if self._db.execute('UPDATE oauth_pending_links SET used_at=? WHERE id=? AND used_at IS NULL',(utcnow(),link['id'])).rowcount!=1:return False
+            self._db.execute('INSERT INTO oauth_identities(provider,issuer,subject,user_id,workspace_id,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING',(link['provider'],link['issuer'],link['subject'],user_id,workspace_id,utcnow()))
+            self._audit(workspace_id,user_id,'identity.link',{'provider':link['provider'],'via':'verified_email_signin'})
+        return True
+    def _oauth_pending_apply_all(self,email,user_id,workspace_id):
+        for link in self.oauth_pending_links_for_email(email):
+            self.oauth_pending_link_apply(link,user_id,workspace_id)
     def oauth_grant_create(self,provider,issuer,subject,email,verified,next_path,mode):
         code='mog_'+secrets.token_urlsafe(32);now=datetime.now(timezone.utc);expires=now+timedelta(minutes=5)
         with self.tx():self._db.execute('INSERT INTO oauth_grants(code_hash,provider,issuer,subject,email,email_verified,mode,next_path,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)',(sha256(code),provider,issuer,subject,email,int(verified),mode,next_path,now.isoformat(),expires.isoformat()))
@@ -390,6 +427,7 @@ class Store:
         if not g:raise Conflict('company-selection grant is invalid or expired')
         users=self.oauth_identity_users(g['provider'],g['issuer'],g['subject']);row=next((x for x in users if x['workspace_id']==workspace_id),None)
         if not row:raise NotFound('company is not linked to this identity')
+        self._oauth_pending_apply_all(row['email'],row['id'],row['workspace_id'])
         return self._session_for_user(row)
     def oauth_link(self,code,email,password):
         g=self.oauth_grant_consume(code,'link')

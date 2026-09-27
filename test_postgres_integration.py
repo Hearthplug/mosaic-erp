@@ -19,6 +19,7 @@ class PostgreSQLIntegration(unittest.TestCase):
    conn.execute(f'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO {cls.role}')
    conn.execute(f'GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO {cls.role}')
    conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_login_options(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_invitation(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_session_workspace(text,text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_oauth_users(text,text,text) TO {cls.role}')
+   conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_oauth_email_users(text) TO {cls.role}')
   parts=conninfo_to_dict(url);parts.update(user=cls.role,password=runtime_secret)
   cls.s=PostgresStore(make_conninfo(**parts),min_size=1,max_size=8,auto_migrate=False)
  @classmethod
@@ -148,6 +149,37 @@ class PostgreSQLIntegration(unittest.TestCase):
    with self.owner._pool.connection() as q:self.assertEqual(q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n'],before+1)
   finally:
    srv.shutdown();srv.server_close()
+ def test_runtime_role_second_provider_same_verified_email_links_not_duplicates(self):
+  from oauth import OAuth
+  from urllib.parse import urlparse,parse_qs
+  from unittest.mock import patch
+  # The prod bug: Google and Microsoft sign-ins with the same verified email
+  # created two companies. Now the second provider parks a link instead.
+  msa_iss='https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0'
+  with self.owner._pool.connection() as q:before=q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n']
+  with patch.dict(os.environ,{'MOSAIC_PUBLIC_ORIGIN':'https://erp.example','MOSAIC_GOOGLE_CLIENT_ID':'id','MOSAIC_GOOGLE_CLIENT_SECRET':'secret','MOSAIC_MICROSOFT_CLIENT_ID':'id2','MOSAIC_MICROSOFT_CLIENT_SECRET':'secret2','MOSAIC_SAAS_MODE':'true'}):
+   oauth=OAuth(self.s)
+   link=oauth.start('google');params=parse_qs(urlparse(link).query)
+   g={'sub':'xp-google-sub','iss':'https://accounts.google.com','nonce':params['nonce'][0],'email':'xp@example.test','email_verified':True}
+   with patch.object(oauth,'_token_and_claims',return_value=g):code,mode=oauth.callback('google','dummy',params['state'][0])
+   self.assertEqual(mode,'signin')
+   sel=self.s.oauth_complete(code);self.assertEqual(len(sel['workspaces']),1);wid=sel['workspaces'][0]['workspace_id']
+   link=oauth.start('microsoft');params=parse_qs(urlparse(link).query)
+   m={'sub':'xp-ms-sub','iss':msa_iss,'nonce':params['nonce'][0],'email':'xp@example.test','xms_edov':True,'email_verified':True}
+   with patch.object(oauth,'_token_and_claims',return_value=m):code2,mode2=oauth.callback('microsoft','dummy',params['state'][0])
+   self.assertEqual(mode2,'link-required');self.assertEqual(code2,'')
+   with self.owner._pool.connection() as q:self.assertEqual(q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n'],before+1)
+   self.assertEqual(self.s.oauth_identity_users('microsoft',msa_iss,'xp-ms-sub'),[])
+   link=oauth.start('google');params=parse_qs(urlparse(link).query)
+   g['nonce']=params['nonce'][0]
+   with patch.object(oauth,'_token_and_claims',return_value=g):code3,mode3=oauth.callback('google','dummy',params['state'][0])
+   sel=self.s.oauth_complete(code3)
+   session=self.s.oauth_enter(sel['enter_code'],wid)
+   linked=self.s.oauth_identity_users('microsoft',msa_iss,'xp-ms-sub')
+   self.assertEqual(len(linked),1);self.assertEqual(linked[0]['workspace_id'],wid);self.assertEqual(linked[0]['id'],session['user_id'])
+   with self.owner._pool.connection() as q:
+    self.assertEqual(q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n'],before+1)
+    self.assertEqual(q.execute("SELECT COUNT(*) n FROM audit_events WHERE workspace_id=%s AND action='identity.link'",(wid,)).fetchone()['n'],1)
  def test_shared_rate_bucket_serializes_concurrent_attempts(self):
   import threading
   identity='security-test-'+secrets.token_hex(8);barrier=threading.Barrier(12);results=[]
