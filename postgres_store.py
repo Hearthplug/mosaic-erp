@@ -57,6 +57,14 @@ ALTER TABLE oauth_pending_links ENABLE ROW LEVEL SECURITY; ALTER TABLE oauth_pen
 CREATE POLICY oauth_pending_links_tenant ON oauth_pending_links USING (email=current_setting('mosaic.oauth_email',true)) WITH CHECK (email=current_setting('mosaic.oauth_email',true));
 CREATE OR REPLACE FUNCTION mosaic_oauth_email_users(p_email text) RETURNS TABLE(id text,workspace_id text,email text,role text,name text) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT u.id,u.workspace_id,u.email,u.role,w.name FROM users u JOIN workspaces w ON w.id=u.workspace_id WHERE u.email=p_email AND u.disabled_at IS NULL AND w.status='active' $$;
 REVOKE ALL ON FUNCTION mosaic_oauth_email_users(text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION mosaic_oauth_email_users(text) TO CURRENT_USER;
+DO $grants$
+DECLARE runtime_role text := nullif(current_setting('mosaic.runtime_role', true), '');
+BEGIN
+  IF runtime_role IS NOT NULL THEN
+    EXECUTE format('GRANT EXECUTE ON FUNCTION mosaic_oauth_email_users(text) TO %I', runtime_role);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON oauth_pending_links TO %I', runtime_role);
+  END IF;
+END $grants$;
 ''')
 
 TENANT_TABLES=('workspaces','api_keys','config_versions','audit_events','idempotency_keys','users')
@@ -190,6 +198,7 @@ class PostgresStore(Store):
     def migrate(self):
         with self._fresh() as conn, conn.transaction():
             conn.execute("SELECT pg_advisory_xact_lock(hashtext('mosaic-erp-schema'))")
+            conn.execute("SELECT set_config('mosaic.runtime_role',%s,true)", (os.environ.get('MOSAIC_PG_RUNTIME_ROLE','').strip(),))
             conn.execute('CREATE TABLE IF NOT EXISTS mosaic_schema_migrations(version integer PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())')
             rows=conn.execute('SELECT version FROM mosaic_schema_migrations ORDER BY version').fetchall();current=len(rows)
             if current>len(PG_MIGRATIONS): raise RuntimeError('PostgreSQL schema is newer than this build')
