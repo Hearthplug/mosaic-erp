@@ -78,7 +78,7 @@ jobs:
           mkdir -p dist/dmg-stage
           cp -R dist/MosaicERP.app dist/dmg-stage/
           ln -s /Applications dist/dmg-stage/Applications
-          hdiutil create -volname "Mosaic ERP" -srcfolder dist/dmg-stage -ov -format UDZO dist/MosaicERP-macos-arm64.dmg
+          hdiutil create -volname "Mosaic Shop Intelligence" -srcfolder dist/dmg-stage -ov -format UDZO dist/MosaicERP-macos-arm64.dmg
           shasum -a 256 dist/MosaicERP-macos-arm64.dmg
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -138,7 +138,7 @@ jobs:
           mkdir -p dist/dmg-stage
           cp -R dist/MosaicERP.app dist/dmg-stage/
           ln -s /Applications dist/dmg-stage/Applications
-          hdiutil create -volname "Mosaic ERP" -srcfolder dist/dmg-stage -ov -format UDZO dist/MosaicERP-macos-x64.dmg
+          hdiutil create -volname "Mosaic Shop Intelligence" -srcfolder dist/dmg-stage -ov -format UDZO dist/MosaicERP-macos-x64.dmg
           shasum -a 256 dist/MosaicERP-macos-x64.dmg
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
