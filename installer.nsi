@@ -1,14 +1,14 @@
-; Mosaic ERP per-user installer (NSIS). No admin required.
+; Mosaic Shop Intelligence per-user installer (NSIS). No admin required.
 !include "MUI2.nsh"
 
-Name "Mosaic ERP"
+Name "Mosaic Shop Intelligence"
 OutFile "MosaicERP-windows-x64-setup.exe"
 Unicode true
 InstallDir "$LOCALAPPDATA\Programs\MosaicERP"
 InstallDirRegKey HKCU "Software\MosaicERP" "InstallDir"
 RequestExecutionLevel user
 
-!define APPNAME "Mosaic ERP"
+!define APPNAME "Mosaic Shop Intelligence"
 !define PUBLISHER "Hearthplug"
 !define VERSION "1.4.1"
 !define EXE "MosaicERP.exe"
@@ -25,10 +25,10 @@ Section "Install"
   SetOutPath "$INSTDIR"
   File "dist\MosaicERP.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
-  CreateDirectory "$SMPROGRAMS\Mosaic ERP"
-  CreateShortcut "$SMPROGRAMS\Mosaic ERP\Mosaic ERP.lnk" "$INSTDIR\${EXE}"
-  CreateShortcut "$SMPROGRAMS\Mosaic ERP\Uninstall Mosaic ERP.lnk" "$INSTDIR\Uninstall.exe"
-  CreateShortcut "$DESKTOP\Mosaic ERP.lnk" "$INSTDIR\${EXE}"
+  CreateDirectory "$SMPROGRAMS\Mosaic Shop Intelligence"
+  CreateShortcut "$SMPROGRAMS\Mosaic Shop Intelligence\Mosaic Shop Intelligence.lnk" "$INSTDIR\${EXE}"
+  CreateShortcut "$SMPROGRAMS\Mosaic Shop Intelligence\Uninstall Mosaic Shop Intelligence.lnk" "$INSTDIR\Uninstall.exe"
+  CreateShortcut "$DESKTOP\Mosaic Shop Intelligence.lnk" "$INSTDIR\${EXE}"
   WriteRegStr HKCU "Software\MosaicERP" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MosaicERP" "DisplayName" "${APPNAME}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MosaicERP" "DisplayVersion" "${VERSION}"
@@ -48,8 +48,8 @@ Section "Uninstall"
   RMDir /r "$LOCALAPPDATA\MosaicERP"
 keep_data:
   RMDir /r "$INSTDIR"
-  RMDir /r "$SMPROGRAMS\Mosaic ERP"
-  Delete "$DESKTOP\Mosaic ERP.lnk"
+  RMDir /r "$SMPROGRAMS\Mosaic Shop Intelligence"
+  Delete "$DESKTOP\Mosaic Shop Intelligence.lnk"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MosaicERP"
   DeleteRegKey HKCU "Software\MosaicERP"
 SectionEnd

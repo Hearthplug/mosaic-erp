@@ -1,4 +1,4 @@
-"""Persistent operational retail flows for Mosaic ERP's real-product target."""
+"""Persistent operational retail flows for Mosaic Shop Intelligence's real-product target."""
 from decimal import Decimal, ROUND_HALF_UP
 import threading
 import secrets

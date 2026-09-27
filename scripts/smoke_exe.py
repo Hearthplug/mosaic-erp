@@ -1,4 +1,4 @@
-"""Smoke-test a packaged Mosaic ERP executable: boot, health, pages, shutdown."""
+"""Smoke-test a packaged Mosaic Shop Intelligence executable: boot, health, pages, shutdown."""
 import subprocess
 import sys
 import time
@@ -37,7 +37,7 @@ try:
         print('--- executable output tail ---')
         print(log.read()[-4000:])
         sys.exit('executable did not answer /health within 60s')
-    for path, want in (('/', b'Mosaic ERP'), ('/signin', b'MOSAIC'),
+    for path, want in (('/', b'Mosaic Shop Intelligence'), ('/signin', b'MOSAIC'),
                        ('/mosaic-logo.svg', b'<svg'), ('/interview', b'Build my Mosaic'),
                        ('/assistant', b'Set it up by talking')):
         try:

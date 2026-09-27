@@ -10,7 +10,7 @@ const MosaicAuth={token:sessionStorage.getItem('mosaicSession')||localStorage.ge
     var link=document.createElement('link');link.rel='stylesheet';link.href='/update.css';document.head.appendChild(link);
     var mobile=/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent||'');
     var card=document.createElement('div');card.className='mosupd';card.setAttribute('role','status');
-    var h=document.createElement('h2');h.textContent='Mosaic ERP '+u.latest+' is available';card.appendChild(h);
+    var h=document.createElement('h2');h.textContent='Mosaic Shop Intelligence '+u.latest+' is available';card.appendChild(h);
     var p=document.createElement('p'),code=null,sub=null;
     if(u.docker){
       p.textContent="You're running "+u.current+". Run this where Mosaic is installed:";

@@ -1,4 +1,4 @@
-"""Durable, tenant-isolated persistence for Mosaic ERP workspaces.
+"""Durable, tenant-isolated persistence for Mosaic Shop Intelligence workspaces.
 
 Design notes (docs/ARCHITECTURE.md carries the full rationale and sources):
 - SQLite in WAL mode: atomic commits, consistent reads during writes, crash

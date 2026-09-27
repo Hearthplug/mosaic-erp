@@ -1,4 +1,4 @@
-"""Release-gate tests for Mosaic ERP's persistence, security, and recovery layer."""
+"""Release-gate tests for Mosaic Shop Intelligence's persistence, security, and recovery layer."""
 from __future__ import annotations
 import json, os, tempfile, threading, time, unittest, urllib.request, urllib.error
 from pathlib import Path
