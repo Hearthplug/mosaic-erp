@@ -1,9 +1,9 @@
-"""Windows desktop entry point for Mosaic ERP.
+"""Windows desktop entry point for TillWeave Shop Intelligence.
 
-Starts the same Mosaic server the source install runs, then opens the
+Starts the same TillWeave server the source install runs, then opens the
 default browser at the sign-in page. Data lives in the per-user
 %LOCALAPPDATA%\\MosaicERP folder so the app never needs write access to
-its own install directory. Close the console window to stop Mosaic.
+its own install directory. Close the console window to stop TillWeave.
 """
 import os
 import socket
@@ -56,9 +56,9 @@ def main():
 
     url = f'http://127.0.0.1:{port}/signin'
     threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    print(f'Mosaic ERP is running at {url}')
+    print(f'TillWeave Shop Intelligence is running at {url}')
     print(f'Your data is stored in: {data}')
-    print('Keep this window open while you use Mosaic. Close it to stop.')
+    print('Keep this window open while you use TillWeave. Close it to stop.')
     try:
         ThreadingHTTPServer(('127.0.0.1', port), app.H).serve_forever()
     except KeyboardInterrupt:

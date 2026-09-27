@@ -395,7 +395,7 @@ class Store:
         g=self.oauth_grant_consume(code,'link')
         if not g:raise Conflict('account-link grant is invalid or expired')
         email=(email or '').strip().lower();options=self.login_options(email,password)
-        if not options:raise Conflict('email or password did not match an existing Mosaic account')
+        if not options:raise Conflict('email or password did not match an existing TillWeave account')
         if g['email_verified'] and g['email'] and email!=g['email']:raise Conflict('use the verified provider email to link this identity')
         with self.tx():
             for o in options:
@@ -410,7 +410,7 @@ class Store:
         auto=self._db.execute("SELECT 1 FROM audit_events WHERE workspace_id=? AND action='identity.sso_signup' LIMIT 1",(workspace_id,)).fetchone()
         if not auto:raise Conflict('this company was not created by a Google or Microsoft sign-in')
         email=(email or '').strip().lower();options=self.login_options(email,password)
-        if not options:raise Conflict('email or password did not match an existing Mosaic account')
+        if not options:raise Conflict('email or password did not match an existing TillWeave account')
         with self.tx():
             for r in rows:
                 for o in options:

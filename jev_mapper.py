@@ -81,7 +81,7 @@ TEXT_FIELD_SPECS = {
     'brand_colors': {'kind': 'clean', 'maps_to': 'brand_colors',
         'ask': 'the colours customers associate with the business'},
     'goal': {'kind': 'clean', 'maps_to': 'first_goal',
-        'ask': 'the one thing Mosaic should fix in the first month'},
+        'ask': 'the one thing TillWeave should fix in the first month'},
 }
 
 _COUNTRY_ALIASES = {

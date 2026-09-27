@@ -23,11 +23,11 @@ QUESTIONS=[
  {'key':'product_tax_facts','text':'Do any products or services have special tax treatment that your accountant checks today?','why':'Routes uncertain classification to professional verification instead of guessing.','type':'text','examples':['Some food is zero-rated','We sell medicine and general goods','I am not sure']},
  {'key':'existing_records','text':'Where are your products, customers, supplier balances and old bills kept now?','why':'Plans a safe migration and reconciliation.','type':'choice','options':['Paper books','Spreadsheets','Another accounting app','Another ERP or POS','Starting fresh']},
  {'key':'exceptions','text':'What unusual situation causes the most confusion for staff?','why':'Finds exception workflows before they become mistakes.','type':'text'},
- {'key':'brand_style','text':'How should Mosaic look and feel like your business?','why':'Applies your brand without asking you to design software.','type':'choice','options':['Warm and welcoming','Clean and professional','Bold and energetic','Simple and calm','Use my existing brand']},
+ {'key':'brand_style','text':'How should TillWeave look and feel like your business?','why':'Applies your brand without asking you to design software.','type':'choice','options':['Warm and welcoming','Clean and professional','Bold and energetic','Simple and calm','Use my existing brand']},
  {'key':'brand_colors','text':'Which colours do customers already associate with your business?','why':'Uses familiar brand colours while keeping every screen readable.','type':'text','examples':['Dark green and cream','Use the colours from our signboard']},
  {'key':'logo','text':'Do you have a logo you want on the sign-in screen, receipts and reports?','why':'Places your logo in useful customer and staff documents.','type':'choice','options':['Yes, I will upload it','No, use the business name for now']},
  {'key':'screen_preference','text':'What should staff see first when they begin work?','why':'Builds each person’s home screen around their daily job.','type':'choice','options':['Start selling','Orders to prepare','Stock needing attention','Money and collections','Today’s manager checklist']},
- {'key':'goal','text':'If Mosaic fixes one thing in the first month, what should it be?','why':'Keeps setup focused on business value.','type':'text'},
+ {'key':'goal','text':'If TillWeave fixes one thing in the first month, what should it be?','why':'Keeps setup focused on business value.','type':'text'},
 ]
 
 def detect(a):
@@ -47,7 +47,7 @@ def map_answers(a):
 def infer(a):
  mapped=map_answers(a)
  p=compile_profile(mapped);explanations=[]
- reasons={'transfers':'You have more than one place, so stock can move between them.','receivables':'Customers sometimes pay later, so Mosaic tracks what they owe.','payables':'Suppliers give credit, so Mosaic tracks what you owe.','expiry':'Expiry or health-product answers require batch and expiry control.','serials':'Electronics need serial and warranty traceability.','service':'Your business handles repairs, service or warranties.'}
+ reasons={'transfers':'You have more than one place, so stock can move between them.','receivables':'Customers sometimes pay later, so TillWeave tracks what they owe.','payables':'Suppliers give credit, so TillWeave tracks what you owe.','expiry':'Expiry or health-product answers require batch and expiry control.','serials':'Electronics need serial and warranty traceability.','service':'Your business handles repairs, service or warranties.'}
  for m in p['enabled_modules']:
   if m in reasons:explanations.append({'enabled':m,'because':reasons[m]})
  accountant=[{'decision':'Opening balances and chart mapping','reason':'These must match your existing books.'},{'decision':'Tax registration, invoice rules and filing adapters','reason':'Local legal rules require qualified verification.'},{'decision':'When income is recognized','reason':'A professional must confirm whether your business records income at sale, delivery or another event.'}]

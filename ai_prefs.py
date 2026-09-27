@@ -18,7 +18,7 @@ from byok_clients import provider_client, PROVIDER_SPECS
 
 PROVIDERS = (
     {'id': 'standard', 'name': 'Standard (built in)',
-     'line': 'Mosaic matches your words to settings itself. Nothing leaves your workspace. No key needed.',
+     'line': 'TillWeave matches your words to settings itself. Nothing leaves your workspace. No key needed.',
      'available': True, 'needs_key': False},
     {'id': 'jev', 'name': 'Jev by TypeSafe (your key)',
      'line': 'A focused English-first model maps your words faster and more precisely. Needs your own TypeSafe key.',
@@ -36,7 +36,7 @@ PROVIDERS = (
      'line': 'Any server that speaks the OpenAI API - Ollama, LM Studio, LocalAI, vLLM or a self-hosted Whisper. Set its address and models; a key is optional.',
      'available': True, 'needs_key': False, 'key_brand': 'Custom server'},
 )
-CONSENT_NOTE = 'With a key option, your interview answers go to that provider to be mapped. Standard keeps everything inside Mosaic.'
+CONSENT_NOTE = 'With a key option, your interview answers go to that provider to be mapped. Standard keeps everything inside TillWeave.'
 KEY_PROVIDERS = tuple(p['id'] for p in PROVIDERS if p['needs_key'])
 BRANDS = {p['id']: p.get('key_brand', '') for p in PROVIDERS}
 

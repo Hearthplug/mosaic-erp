@@ -87,7 +87,7 @@ class AssistantSetup:
   if not key:return None
   try:
    base=_public_https(cur['endpoint']);url=base if base.endswith('/chat/completions') else base+'/chat/completions'
-   body=canon({'model':cur['model'],'messages':[{'role':'system','content':'You are the Mosaic ERP assistant. Answer briefly and plainly. Mosaic screens: Today, Stock, Sales, Buying, Money, Books, Assistant, Settings. If the question is about a Mosaic screen or setting, name the exact menu item.'},{'role':'user','content':text}],'temperature':0,'max_tokens':300}).encode()
+   body=canon({'model':cur['model'],'messages':[{'role':'system','content':'You are the TillWeave Shop Intelligence assistant. Answer briefly and plainly. TillWeave screens: Today, Stock, Sales, Buying, Money, Books, Assistant, Settings. If the question is about a TillWeave screen or setting, name the exact menu item.'},{'role':'user','content':text}],'temperature':0,'max_tokens':300}).encode()
    parsed=urllib.parse.urlparse(url);addresses=[]
    for x in socket.getaddrinfo(parsed.hostname,parsed.port or 443,type=socket.SOCK_STREAM):
     ip=ipaddress.ip_address(x[4][0])

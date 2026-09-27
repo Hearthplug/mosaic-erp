@@ -25,7 +25,7 @@ class AiPrefsAPI(unittest.TestCase):
   for oid,o in opts.items():self.assertTrue(o['available'],oid)
   self.assertFalse(opts['standard']['needs_key'])
   for oid in ('jev','openai','claude','deepseek'):self.assertTrue(opts[oid]['needs_key'],oid)
-  self.assertIn('Standard keeps everything inside Mosaic',r['consent_note'])
+  self.assertIn('Standard keeps everything inside TillWeave',r['consent_note'])
 
  def test_openai_key_flow_and_keys_kept_per_provider(self):
   from byok_clients import ChatProviderClient

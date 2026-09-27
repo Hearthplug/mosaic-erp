@@ -34,5 +34,5 @@ def close_share_text(summary, close, currency):
                          f"({_money(abs(diff), currency)} {word})")
         if close.get('note'):
             lines.append(f"Note: {close['note']}")
-    lines.append("Sent from Mosaic")
+    lines.append("Sent from TillWeave")
     return '\n'.join(lines)
