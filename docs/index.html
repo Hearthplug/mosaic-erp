@@ -97,6 +97,17 @@ section{padding:110px 0}
 .benefit h3{font-size:20px;font-weight:650;margin-bottom:8px}
 .benefit p{margin:0;color:var(--muted);font-size:16px}
 
+
+/* feature showcase */
+.featgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:28px}
+.featcard{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column}
+.featcard>img{display:block;width:100%;height:auto;border-bottom:1px solid var(--line)}
+.featcard .fc-body{padding:22px 24px 26px}
+.featcard h3{font-size:20px;font-weight:650;margin-bottom:8px}
+.featcard p{margin:0;color:var(--muted);font-size:16px}
+.featcard.wide{grid-column:1/-1}
+.featcard .pill{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--green-deep);background:#e5f4ef;border-radius:999px;padding:4px 10px;margin-bottom:10px}
+
 /* day trio */
 .day{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
 .day article{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:34px;color:var(--ink)}
@@ -158,6 +169,7 @@ footer a:hover{color:var(--ink)}
   .split.flip .shot{order:2}
   .stats{grid-template-columns:repeat(2,1fr);gap:24px}
   .benefits{grid-template-columns:1fr}
+  .featgrid{grid-template-columns:1fr}
   .day{grid-template-columns:1fr}
   .cta{padding:80px 0}
 }
@@ -226,6 +238,25 @@ footer a:hover{color:var(--ink)}
     <div class="benefit reveal"><h3>Clearer interview review</h3><p>Before anything applies, the review lists each module on or off with a plain explanation of what changes in your system.</p></div>
     <div class="benefit reveal"><h3>More ways to install</h3><p>An Intel Mac installer joins the Windows and Apple Silicon downloads on the release page.</p></div>
     <div class="benefit reveal"><h3>Real Settings screen</h3><p>Rename the shop, add a store, and see the tax profile with a plain-language checklist of what your accountant should check - all from one Settings page.</p></div>
+  </div>
+</div></section>
+
+<section style="background:var(--white)"><div class="wrap">
+  <div class="sectionhead center reveal">
+    <div class="eyebrow">New in v2.1.8</div>
+    <h2>A faster counter, a tidier stockroom.</h2>
+    <p>Real screens from the running app - no mockups. This is the demo shop, Northstar General Store, in US dollars.</p>
+  </div>
+  <div class="featgrid">
+    <div class="featcard reveal"><img src="assets/ml-feat-till.png" width="1356" height="847" loading="lazy" decoding="async" alt="The Mosaic sales counter: a scan-or-search box, product tiles, and the running sale with two items, a total and a cash numpad"><div class="fc-body"><h3>Scan it and it's in the sale</h3><p>Point a barcode scanner at an item - or type the code - and it lands in the sale. Anything without a barcode is one tap on a tile. Stock, money and the books update together.</p></div></div>
+    <div class="featcard reveal"><img src="assets/ml-feat-receipt.png" width="1356" height="847" loading="lazy" decoding="async" alt="A Mosaic receipt print preview on an 80 mm receipt roll for Northstar General Store, with bill number, items, total and a Print button"><div class="fc-body"><h3>A receipt for every sale</h3><p>Print on a receipt roll or plain A4, right from the sale. The preview on screen is exactly what prints.</p></div></div>
+    <div class="featcard reveal"><img src="assets/ml-feat-why.png" width="1356" height="847" loading="lazy" decoding="async" alt="The Why panel for Organic Honey 500g at Main store, listing every movement - a sale and a delivery - with the change and the on-hand count after each"><div class="fc-body"><h3>Every stock number explains itself</h3><p>Tap Why? next to any count and see the deliveries, sales and moves that add up to it. No mystery numbers.</p></div></div>
+    <div class="featcard reveal"><img src="assets/ml-feat-recount.png" width="1356" height="847" loading="lazy" decoding="async" alt="The Recount a store card: each item shows the register count beside a counted field, behind one Post recount button"><div class="fc-body"><h3>Recounts without the mess</h3><p>Count what is actually on the shelf and Mosaic shows the difference for every item, then posts one reviewed adjustment - never a silent change.</p></div></div>
+    <div class="featcard reveal"><img src="assets/ml-feat-first.png" width="1356" height="847" loading="lazy" decoding="async" alt="The first-sale guide on the Today screen: a five-minute checklist with Add a store and Add an item ticked, and Ring up your first bill next"><div class="fc-body"><h3>First sale in about five minutes</h3><p>A short checklist on the Today screen walks a brand-new shop from first item to first bill, ticking each step off as you finish it.</p></div></div>
+    <div class="featcard reveal"><img src="assets/ml-feat-dash.png" width="1356" height="847" loading="lazy" decoding="async" alt="Dashboards built by asking: the question box reads sales by item last month and two live cards show Sales by item and Stock by store"><div class="fc-body"><h3>Dashboards by asking</h3><p>Type what you want to keep an eye on - "sales by item this month" - and the card stays on your Today screen, always up to date.</p></div></div>
+    <div class="featcard reveal"><img src="assets/ml-feat-billstock.png" width="1356" height="847" loading="lazy" decoding="async" alt="Add stock from the Golden Grains Co. bill: each bill line is matched to a catalog item with a dropdown, behind one Add to stock button"><div class="fc-body"><h3>Supplier bill to shelf in one step</h3><p>Show Mosaic a supplier bill and match each line to your items. Stock updates only when you confirm.</p></div></div>
+    <div class="featcard reveal"><img src="assets/ml-feat-map.png" width="1356" height="847" loading="lazy" decoding="async" alt="The Match your columns step of a spreadsheet import: Mosaic columns like Name and Selling price each get a dropdown to pick the matching column from the file"><div class="fc-body"><h3>Bring your spreadsheets with you</h3><p>Moving from another system? Load a CSV/XLSX file (a spreadsheet export) and match your columns to Mosaic's with a tap. Nothing applies until you review it.</p></div></div>
+    <div class="featcard reveal wide"><img src="assets/ml-feat-preview.png" width="1356" height="847" loading="lazy" decoding="async" alt="The review screen's See it before it goes live block: the real app twice, side by side - how it looks now and how it will look after applying"><div class="fc-body"><div><span class="pill">Newest addition</span></div><h3>See it before it goes live</h3><p>Every setup change on the review screen shows the real app side by side - how it looks now, and how it will look after - marked Preview until you say go.</p></div></div>
   </div>
 </div></section>
 
