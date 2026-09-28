@@ -47,6 +47,18 @@
         <div class="cardhead"><h2 id="next-title">What’s next</h2><span class="cardmeta" id="next-meta">from your live workspace</span><button class="btn ghostbtn small" id="next-skip" type="button" hidden>Skip the guide</button></div>
         <ol class="steps" id="next"><li class="empty">Connect to load live choices and next steps.</li></ol>
       </div>
+      <div class="card dashcard">
+        <div class="cardhead"><h2>Dashboards</h2><span class="cardmeta">built by asking, always up to date</span></div>
+        <div class="dashbody">
+          <form class="dashask" id="dash-form">
+            <label for="dash-q">What do you want to keep an eye on?</label>
+            <div class="askrow"><input id="dash-q" autocomplete="off" placeholder="sales by item last month"><button class="btn primary" type="submit">Add dashboard</button></div>
+            <span class="hint">Try: sales by store this week · stock by store · what each customer owes you</span>
+            <p class="dasherr" id="dash-err" role="alert" hidden></p>
+          </form>
+          <div class="dashgrid" id="dash-grid"></div>
+        </div>
+      </div>
       <div class="card closecard">
         <div class="cardhead"><h2>Close the day</h2><span class="cardmeta">evening ritual</span></div>
         <div class="closecard-body">

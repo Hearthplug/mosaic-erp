@@ -294,6 +294,31 @@ tr.po-picked td{background:var(--accent-soft)}
 #next-skip{margin-left:auto;font-size:12px;padding:4px 10px}
 .cardhead{gap:10px;flex-wrap:wrap}
 
+/* Chat-built dashboards on Today */
+.dashbody{padding:14px 16px}
+.dashask>label{display:block;font-size:12px;font-weight:600;color:var(--secondary);margin-bottom:6px}
+.dashask .askrow{display:flex;gap:8px}
+.dashask input{flex:1;min-width:0;min-height:40px;padding:0 12px;border:1px solid var(--hairline);border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
+.dashask .hint{display:block;margin-top:8px;font-size:11.5px;color:var(--tertiary)}
+.dasherr{margin:8px 0 0;font-size:12px;color:#b3261e}
+.dashgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:14px}
+.dashgrid>.hint{grid-column:1/-1;margin:0}
+.dash{border:1px solid var(--hairline);border-radius:10px;padding:12px 14px;background:#fff}
+.dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.dash-title{font-size:13.5px;font-weight:650}
+.dash-sub{font-size:11px;color:var(--tertiary);margin-top:2px}
+.dash-remove{border:0;background:none;color:var(--tertiary);cursor:pointer;font-size:11.5px;padding:2px 6px;border-radius:6px}
+.dash-remove:hover{color:#b3261e;background:#f6e9e6}
+.dashbars{margin-top:10px;display:grid;gap:8px}
+.dashbar-top{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;margin-bottom:2px}
+.dashbar-label{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.dashbar-val{color:var(--secondary);font-variant-numeric:tabular-nums;flex:none}
+.dashbar-track{height:8px;border-radius:99px;background:var(--fill);overflow:hidden}
+.dashbar-fill{height:100%;border-radius:99px;background:var(--accent)}
+.dashbar-fill.w5{width:5%}.dashbar-fill.w10{width:10%}.dashbar-fill.w20{width:20%}.dashbar-fill.w30{width:30%}.dashbar-fill.w40{width:40%}.dashbar-fill.w50{width:50%}.dashbar-fill.w60{width:60%}.dashbar-fill.w70{width:70%}.dashbar-fill.w80{width:80%}.dashbar-fill.w90{width:90%}.dashbar-fill.w100{width:100%}
+.dash-totals{margin-top:10px;padding-top:8px;border-top:1px solid var(--hairline);font-size:12px;font-weight:600;display:flex;justify-content:space-between}
+.dash-more{margin:6px 0 0;font-size:11px;color:var(--tertiary)}
+@media(max-width:720px){.dashgrid{grid-template-columns:1fr}.dashask .askrow{flex-wrap:wrap}.dashask input{flex:1 0 100%}}
 /* Receipt print preview */
 .receipt-wrap{position:fixed;inset:0;background:rgba(20,22,26,.55);display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;z-index:60;overflow-y:auto}
 .receipt-dialog{background:var(--card,#fff);border-radius:14px;padding:18px 20px;max-width:560px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.25)}

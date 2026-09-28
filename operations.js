@@ -206,7 +206,7 @@ function connect(){if(!MosaicAuth.require())return;
       tasks.forEach(t=>{const li=document.createElement('li');li.className='todo-step';li.textContent=t.label;li.onclick=()=>select(t.view);ol.appendChild(li)});
     }
     }
-    reload();refreshExport()
+    reload();refreshExport();dashLoad()
   }).catch(e=>{$('#state').textContent='Could not open workspace';notice(false,e.message)})}
 
 
@@ -532,3 +532,47 @@ function cashRender(){if(!$('#cash-store'))return;
   else diff.textContent=ses?'Count the drawer and type what you find.':'';
   $('#cash-close-go').disabled=!(ses&&closeAmt);
   $('#cash-close-go').textContent=ses?'Close '+ses.location_code+' till':'Pick an open session'}
+
+/* Dashboards: chat-built cards on the Today view. Each card is a saved plain-language
+   question the server re-runs live on every load. */
+let DASH=[];
+function dashWidth(v,max){if(!(max>0))return 'w5';const pct=Math.max(5,Math.min(100,Math.round((v/max)*100/10)*10));return 'w'+pct}
+function dashCard(d){
+  const el=document.createElement('div');el.className='dash';
+  const head=document.createElement('div');head.className='dash-head';
+  const hw=document.createElement('div');
+  const t=document.createElement('div');t.className='dash-title';t.textContent=d.title||d.name;hw.appendChild(t);
+  const sub=document.createElement('div');sub.className='dash-sub';sub.textContent=d.subtitle||'';hw.appendChild(sub);
+  head.appendChild(hw);
+  const rm=document.createElement('button');rm.type='button';rm.className='dash-remove';rm.textContent='Remove';
+  rm.setAttribute('aria-label','Remove dashboard '+(d.title||d.name));rm.onclick=()=>dashRemove(d.id);
+  head.appendChild(rm);el.appendChild(head);
+  if(d.error){const p=document.createElement('p');p.className='dash-more';p.textContent='Mosaic could not read this question any more: '+d.error;el.appendChild(p);return el}
+  const series=d.series||[];
+  const max=Math.max.apply(null,series.map(s=>s.value).concat([0]));
+  const bars=document.createElement('div');bars.className='dashbars';
+  series.forEach(s=>{
+    const row=document.createElement('div');
+    const top=document.createElement('div');top.className='dashbar-top';
+    const lab=document.createElement('span');lab.className='dashbar-label';lab.textContent=s.label;top.appendChild(lab);
+    const val=document.createElement('span');val.className='dashbar-val';val.textContent=s.display;top.appendChild(val);
+    row.appendChild(top);
+    const track=document.createElement('div');track.className='dashbar-track';
+    const fill=document.createElement('div');fill.className='dashbar-fill '+dashWidth(s.value,max);track.appendChild(fill);
+    row.appendChild(track);bars.appendChild(row)});
+  if(!series.length){const p=document.createElement('p');p.className='dash-more';p.textContent='Nothing matched yet - it fills in as you record work.';bars.appendChild(p)}
+  el.appendChild(bars);
+  if(d.totals&&d.totals.length){const tot=document.createElement('div');tot.className='dash-totals';
+    const l=document.createElement('span');l.textContent=d.totals[0]==='Totals'?'Total':d.totals[0];tot.appendChild(l);
+    const v=document.createElement('span');v.textContent=d.totals[d.totals.length-1];tot.appendChild(v);el.appendChild(tot)}
+  if(d.row_count>series.length){const m=document.createElement('p');m.className='dash-more';m.textContent='+'+(d.row_count-series.length)+' more - ask in Books for the full table';el.appendChild(m)}
+  return el}
+function dashRender(){const grid=$('#dash-grid');grid.innerHTML='';
+  if(!DASH.length){const p=document.createElement('p');p.className='hint';p.id='dash-empty';p.textContent='No dashboards yet. Ask for one above and it stays here, always up to date.';grid.appendChild(p);return}
+  DASH.forEach(d=>grid.appendChild(dashCard(d)))}
+async function dashLoad(){try{const d=await get('/api/dashboards');DASH=d.dashboards||[];dashRender()}catch(e){}}
+function dashRemove(id){api('/api/dashboards/delete',{id}).then(()=>{notice(true,'Dashboard removed');dashLoad()}).catch(e=>notice(false,e.message))}
+$('#dash-form').onsubmit=e=>{e.preventDefault();const q=$('#dash-q').value.trim();const err=$('#dash-err');err.hidden=true;if(!q)return;
+  api('/api/dashboards',{query:q}).then(d=>{
+    if(d.clarify){err.textContent=d.clarify+((d.examples&&d.examples.length)?' Try: '+d.examples.join(' · '):'');err.hidden=false;return}
+    $('#dash-q').value='';notice(true,'Dashboard added');dashLoad()}).catch(e=>{err.textContent=e.message;err.hidden=false})};
