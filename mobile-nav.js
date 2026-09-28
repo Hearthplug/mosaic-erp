@@ -15,5 +15,6 @@
   menu.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{close();if(location.pathname==='/operations'&&a.getAttribute('href')==='/operations#money'){const view=document.querySelector('.rail-item[data-view="money"]');if(view)view.click();active()}}));
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){close();more.focus()}});
   document.addEventListener('click',e=>{if(!root.contains(e.target)&&!menu.hidden)close()});
+  document.querySelectorAll('.rail-item[data-view]').forEach(b=>b.addEventListener('click',active));
   addEventListener('hashchange',active);active();
 })();
