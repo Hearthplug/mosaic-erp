@@ -116,6 +116,13 @@ class Retail:
   p=self.s._db.execute('SELECT cost_minor FROM retail_products WHERE id=? AND workspace_id=?',(product_id,wid)).fetchone();x=ident('xfer');self.move_stock(wid,actor,product_id,from_location,-Decimal(str(quantity)),p['cost_minor'],'transfer_out','transfer',x);self.move_stock(wid,actor,product_id,to_location,quantity,p['cost_minor'],'transfer_in','transfer',x);return {'id':x}
  def reorder(self,wid,location_id,minimum=5):
   rows=self.s._db.execute('SELECT id,sku,name FROM retail_products WHERE workspace_id=? AND active=1',(wid,)).fetchall();return [{'product_id':r['id'],'sku':r['sku'],'name':r['name'],'on_hand':str(self.stock(wid,r['id'],location_id)),'suggested':str(max(Decimal(str(minimum))-self.stock(wid,r['id'],location_id),0))} for r in rows if self.stock(wid,r['id'],location_id)<Decimal(str(minimum))]
+ def stock_movements(self,wid,product_id,location_id,limit=100):
+  rows=self.s._db.execute("SELECT sl.id,sl.effective_at,sl.kind,sl.quantity_delta,sl.unit_cost_minor,sl.source_type,sl.source_id,(SELECT number FROM sales WHERE id=sl.source_id) AS sale_number,(SELECT number FROM purchase_orders WHERE id=substr(sl.source_id,1,19)) AS po_number FROM stock_ledger sl WHERE sl.workspace_id=? AND sl.product_id=? AND sl.location_id=? ORDER BY sl.created_at ASC,sl.id ASC",(wid,product_id,location_id)).fetchall()
+  bal=Decimal('0');out=[]
+  for r in rows:
+   bal+=Decimal(str(r['quantity_delta']))
+   out.append({'id':r['id'],'effective_at':r['effective_at'],'kind':r['kind'],'quantity_delta':format(Decimal(str(r['quantity_delta'])).normalize(),'f'),'balance_after':format(bal.normalize(),'f'),'source_type':r['source_type'],'sale_number':r['sale_number'],'po_number':r['po_number']})
+  out.reverse();return {'movements':out[:int(limit)],'on_hand':format(bal.normalize(),'f')}
  def count_stock(self,wid,actor,location_id,counts,approved_by):
   cid=ident('cnt')
   with self.s.tx():self.s._db.execute("INSERT INTO stock_counts(id,workspace_id,location_id,status,created_by,approved_by,created_at) VALUES(?,?,?,'approved',?,?,?)",(cid,wid,location_id,actor,approved_by,utcnow()))
