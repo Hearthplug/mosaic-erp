@@ -22,8 +22,14 @@ def compile_profile(a):
  return profile
 class Profiles:
  def __init__(self,s):self.s=s
- def apply(self,wid,actor,answers):
-  p=compile_profile(answers);current=self.s._db.execute('SELECT operational_profile_json FROM workspaces WHERE id=?',(wid,)).fetchone()
+ def apply(self,wid,actor,answers,enabled_override=None):
+  p=compile_profile(answers)
+  if enabled_override is not None:
+   valid={k for k,_,_ in MODULE_INFO}
+   unknown=set(enabled_override)-valid
+   if unknown:raise Conflict('unknown modules: '+', '.join(sorted(unknown)))
+   p['enabled_modules']=sorted(set(enabled_override))
+  current=self.s._db.execute('SELECT operational_profile_json FROM workspaces WHERE id=?',(wid,)).fetchone()
   with self.s.tx():
    self.s._db.execute('UPDATE workspaces SET operational_profile_json=?,operational_profile_hash=?,operational_profile_at=? WHERE id=?',(canon(p),sha256(canon(p)),utcnow(),wid));self.s._audit(wid,actor,'operational_profile.apply',{'enabled_modules':p['enabled_modules'],'profile_hash':sha256(canon(p))})
   return p

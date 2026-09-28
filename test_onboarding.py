@@ -13,4 +13,27 @@ class OwnerInterview(unittest.TestCase):
  def test_no_question_asks_for_modules_or_technology(self):
   text=' '.join(q['text'].lower() for q in QUESTIONS)
   for forbidden in ('module','database','docker','kubernetes','api','chart of accounts','debit','credit account'):self.assertNotIn(forbidden,text)
+ def test_owner_toggles_modules_and_apply_uses_exactly_the_reviewed_set(self):
+  import json
+  for q in self.o.get(self.w,self.x)['questions']:self.o.answer(self.w,'owner',self.x,q['key'],q.get('options',[None])[0] if q['type']!='text' else 'Ravi Stores')
+  d=self.o.get(self.w,self.x);self.assertEqual(d['status'],'ready')
+  reviewed={m['key']:m['enabled'] for m in d['inference']['module_review']}
+  self.assertTrue(reviewed['inventory'])
+  d=self.o.set_modules(self.w,'owner',self.x,{'inventory':False,'manufacturing':True})
+  now={m['key']:m['enabled'] for m in d['inference']['module_review']}
+  self.assertFalse(now['inventory']);self.assertTrue(now['manufacturing'])
+  self.assertEqual(d['inference']['module_overrides'],{'inventory':False,'manufacturing':True})
+  res=self.o.apply(self.w,'owner',self.x)
+  self.assertNotIn('inventory',res['profile']['enabled_modules'])
+  self.assertIn('manufacturing',res['profile']['enabled_modules'])
+  ws=json.loads(self.o.s._db.execute('SELECT operational_profile_json FROM workspaces WHERE id=?',(self.w,)).fetchone()[0])
+  self.assertNotIn('inventory',ws['enabled_modules']);self.assertIn('manufacturing',ws['enabled_modules'])
+ def test_toggling_back_to_the_inferred_state_clears_the_override(self):
+  for q in self.o.get(self.w,self.x)['questions']:self.o.answer(self.w,'owner',self.x,q['key'],q.get('options',[None])[0] if q['type']!='text' else 'Ravi Stores')
+  self.o.set_modules(self.w,'owner',self.x,{'inventory':False})
+  d=self.o.set_modules(self.w,'owner',self.x,{'inventory':True})
+  self.assertEqual(d['inference']['module_overrides'],{})
+  self.assertTrue({m['key']:m['enabled'] for m in d['inference']['module_review']}['inventory'])
+ def test_unknown_module_keys_are_rejected(self):
+  with self.assertRaises(ValueError):self.o.set_modules(self.w,'owner',self.x,{'warp_drive':True})
 if __name__=='__main__':unittest.main()
