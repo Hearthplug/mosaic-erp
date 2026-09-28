@@ -24,7 +24,7 @@ function showApplied(out){
  else{t='Import applied - '+out.row_count+' record'+(out.row_count===1?'':'s')+' created. '+(out.status==='reconciled'?'The control total matches.':'The control total did not match (expected '+money(out.expected_control_total_minor,batch.base_currency)+', posted '+money(out.actual_control_total_minor,batch.base_currency)+') - check the import before relying on it.')}
  $('#result').textContent=t;
 }
-async function connect(){if(!MosaicAuth.require())return;try{const boot=await api('/api/migrations');SCHEMAS=boot.schemas||{};$('#state').textContent='Ready';$('#studio').hidden=false;$('#signout').onclick=()=>MosaicAuth.clear()}catch(e){if(String(e).includes('401'))MosaicAuth.clear();else $('#state').textContent=e.message}}connect()
+async function connect(){if(!MosaicAuth.require())return;try{const id=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');$('#company').textContent=id.workspace_name||'Your company';const boot=await api('/api/migrations');SCHEMAS=boot.schemas||{};$('#state').textContent='Ready for '+(id.role||'your role');$('#studio').hidden=false;$('#signout').onclick=()=>MosaicAuth.clear()}catch(e){if(String(e).includes('401'))MosaicAuth.clear();else $('#state').textContent=e.message}}connect()
 async function doStage(){batch=await api('/api/migrations/stage',{kind:$('#kind').value,source_system:$('#source').value,csv:$('#csv').value});showStage(batch,$('#kind').value);$('#apply').disabled=batch.status!=='validated';$('#rollback').disabled=true;$('#reviewfields').hidden=$('#kind').value!=='opening_balances'}
 function renderMap(missing){const hs=csvHeaders($('#csv').value);const rows=$('#maprows');rows.innerHTML='';
  missing.forEach(f=>{const row=document.createElement('div');row.className='maprow';

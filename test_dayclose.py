@@ -185,5 +185,27 @@ class PosSalesInSummaryTest(unittest.TestCase):
         self.assertEqual(summary['expected_cash_minor'], 2500)
 
 
+    def test_cash_refund_counts_against_cash_not_bank(self):
+        """A till refund paid out as cash is stored as tender kind refund_cash; the close
+        summary must bucket it with cash (matching retail.py cash-session math), so the
+        drawer figure on the Close page is not silently moved into the bank column."""
+        s, wid, books, r, loc, prod = self._pos()
+        sale = r.complete_sale(wid, 'cashier', loc, [{'product_id': prod, 'quantity': '2'}], [{'kind': 'cash', 'amount_minor': 1000}])
+        line = s._db.execute('SELECT id FROM sale_lines WHERE sale_id=?', (sale['id'],)).fetchone()['id']
+        r.return_sale(wid, 'cashier', sale['id'], {line: '1'}, 'damaged', 'owner', refund_kind='cash')
+        summary = dayclose.day_summary(s, wid, TODAY)
+        self.assertEqual(summary['payments_cash_minor'], 500)   # 1000 in - 500 cash refund out
+        self.assertEqual(summary['payments_bank_minor'], 0)
+
+    def test_bank_refund_stays_in_bank(self):
+        s, wid, books, r, loc, prod = self._pos()
+        sale = r.complete_sale(wid, 'cashier', loc, [{'product_id': prod, 'quantity': '2'}], [{'kind': 'cash', 'amount_minor': 1000}])
+        line = s._db.execute('SELECT id FROM sale_lines WHERE sale_id=?', (sale['id'],)).fetchone()['id']
+        r.return_sale(wid, 'cashier', sale['id'], {line: '1'}, 'changed mind', 'owner', refund_kind='bank')
+        summary = dayclose.day_summary(s, wid, TODAY)
+        self.assertEqual(summary['payments_cash_minor'], 1000)
+        self.assertEqual(summary['payments_bank_minor'], -500)
+
+
 if __name__ == '__main__':
     unittest.main()

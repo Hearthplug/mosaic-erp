@@ -574,7 +574,7 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,(ROOT/'assistant.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p in ('/assistant.css','/assistant.js','/assist.css','/assist.js'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
-        if p in ('/interview.css','/retail.css','/accounting.css'):
+        if p in ('/interview.css','/accounting.css'):
             return self.out(200,(ROOT / p[1:]).read_text(encoding='utf-8'),'text/css; charset=utf-8',rid=rid) or 200
         if p == '/interview.js':
             return self.out(200, (ROOT / 'interview.js').read_text(encoding='utf-8'), 'application/javascript; charset=utf-8', rid=rid) or 200
@@ -591,13 +591,11 @@ class H(BaseHTTPRequestHandler):
         if p in ('/build.css','/build.js'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p == '/retail':
-            return self.out(200, (ROOT / 'retail.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
+            return self.out(302,'','text/plain; charset=utf-8',hdrs={'Location':'/operations','Cache-Control':'no-store'},rid=rid) or 302
         if p == '/accounting':
             return self.out(200, (ROOT / 'accounting.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/close':
             return self.out(200, (ROOT / 'close.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
-        if p == '/retail.js':
-            return self.out(200,(ROOT / 'retail.js').read_text(encoding='utf-8'),'application/javascript; charset=utf-8',rid=rid) or 200
         if p in ('/close.css','/close.js','/voice.js'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p == '/accounting.js':
@@ -899,6 +897,8 @@ class H(BaseHTTPRequestHandler):
             wid, actor, _ = self._auth('owner'); return self.out(201,ONBOARDING.start(wid,actor),rid=rid) or 201
         if p == '/api/onboarding/answer':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.answer(wid,actor,d['id'],d['key'],d['value']),rid=rid) or 200
+        if p == '/api/onboarding/modules':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.set_modules(wid,actor,d['id'],d.get('overrides') or {}),rid=rid) or 200
         if p == '/api/onboarding/apply':
             wid, actor, _ = self._auth('owner'); d=self._body()
             result=ONBOARDING.apply(wid,actor,d['id'])

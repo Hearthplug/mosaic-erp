@@ -157,7 +157,7 @@ function connect(){if(!MosaicAuth.require())return;
 
 $('#bill-match').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/three-way-match',{purchase_order_id:resolveId('po',d.purchase_order_id),bill_id:resolveId('bill',d.bill_id)},'Match complete')};
 $('#add-vendor').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/accounting/parties',{kind:'vendor',name:d.name},'Supplier added');e.target.reset()};
-$('#add-item').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/products',{sku:d.sku,name:d.name,selling_price_minor:Math.round(+d.price*100),cost_minor:Math.round(+d.cost*100)},'Item added');e.target.reset()};
+$('#add-item').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/products',{sku:d.sku,name:d.name,selling_price_minor:Math.round(+d.price*100),cost_minor:Math.round(+d.cost*100),...(d.barcode?{barcode:d.barcode}:{})},'Item added');e.target.reset()};
 $('#add-location').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/locations',{code:d.code.toUpperCase(),name:d.name,kind:'store'},'Store added');e.target.reset()};
 const periodChips=$('#period-chips'),periodLockId=$('#period-lock-id'),periodLockBtn=$('#close button[type=submit]');
 const loadPeriods=async()=>{const ps=await get('/api/accounting/periods');periodChips.innerHTML='';const today=new Date().toISOString().slice(0,10);const open=ps.filter(p=>p.status==='open');const lockable=open.filter(p=>p.ends_on<today);const running=open.filter(p=>p.ends_on>=today);if(!lockable.length){periodChips.innerHTML='<span class="hint">No finished periods to lock yet</span>';}lockable.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=p.name+' ('+p.starts_on+' to '+p.ends_on+')';b.onclick=()=>{periodChips.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));b.classList.add('on');periodLockId.value=p.id;periodLockBtn.disabled=false;};periodChips.appendChild(b);});running.forEach(p=>{const s=document.createElement('span');s.className='hint';s.textContent=p.name+' is still running - it can be locked after '+p.ends_on+'.';periodChips.appendChild(s);});};
@@ -202,6 +202,8 @@ function tillSetup(locs){TILL_LOCS=locs||[];const wrap=$('#till-store-wrap'),sel
   if(TILL_LOCS.length===1){TILL_LOC=TILL_LOCS[0].id;if(wrap)wrap.hidden=true}
   else if(TILL_LOCS.length>1){if(wrap)wrap.hidden=false;if(sel){sel.innerHTML=TILL_LOCS.map(l=>'<option value="'+l.id+'">'+esc(l.code+' - '+l.name)+'</option>').join('');TILL_LOC=TILL_LOCS[0].id;sel.onchange=()=>{TILL_LOC=sel.value}}}
   $('#till-search').oninput=tillRenderTiles;
+  $('#till-search').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();tillSearchEnter()}};
+  document.addEventListener('keydown',e=>{if(e.key!=='/'||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable))return;const v=$('#view-sales');if(v&&!v.hidden){e.preventDefault();const box=$('#till-search');if(box)box.focus()}});
   $('#till-given').oninput=()=>{const g=$('#till-given');g.value=g.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1');tillRefreshTender()};
   $('#till-pad').querySelectorAll('button').forEach(b=>b.onclick=()=>{const g=$('#till-given');const k=b.dataset.k;if(k==='back')g.value=g.value.slice(0,-1);else if(k==='.'&&g.value.includes('.'))return;else g.value+=k;tillRefreshTender()});
   $('#till-take').onclick=()=>tillComplete('cash');
@@ -210,8 +212,14 @@ function tillSetup(locs){TILL_LOCS=locs||[];const wrap=$('#till-store-wrap'),sel
   $('#refund-go').onclick=refundGo;
   $('#sale-detail-close').onclick=()=>{$('#sale-detail').hidden=true;DETAIL_SALE=null};
   tillRenderCart()}
+function tillFilter(q){return tillProducts().filter(p=>!q||String(p.name).toLowerCase().includes(q)||String(p.sku).toLowerCase().includes(q)||String(p.barcode||'').toLowerCase()===q)}
+function tillAdd(p){CART.set(p.id,(CART.get(p.id)||0)+1);const box=$('#till-search');if(box){box.value='';box.focus()}tillRenderTiles();tillRenderCart()}
+function tillSearchEnter(){const q=($('#till-search').value||'').trim().toLowerCase();if(!q)return;
+  const exact=tillProducts().find(p=>String(p.barcode||'').toLowerCase()===q)||tillProducts().find(p=>String(p.sku).toLowerCase()===q);
+  if(exact){tillAdd(exact);return}
+  const prods=tillFilter(q);if(prods.length===1)tillAdd(prods[0])}
 function tillRenderTiles(){const box=$('#till-tiles');if(!box)return;const q=($('#till-search').value||'').toLowerCase();
-  const prods=tillProducts().filter(p=>!q||String(p.name).toLowerCase().includes(q)||String(p.sku).toLowerCase().includes(q));
+  const prods=tillFilter(q);
   if(!prods.length){box.innerHTML='<p class="tilegrid-empty">'+((EXP.retail_products||[]).length?'Nothing matches that search.':'No items yet - add your first item on the Buying page, then sell it here.')+'</p>';return}
   box.innerHTML='';prods.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='tile'+(CART.has(p.id)?' incart':'');
     const inCart=CART.get(p.id)||0;
