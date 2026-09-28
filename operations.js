@@ -64,21 +64,32 @@ function whyOpen(r){get('/api/retail/stock-movements?product_id='+encodeURICompo
    tr.appendChild(cell(fmtWhen(m.effective_at)));tr.appendChild(cell(what));
    const d=Number(m.quantity_delta);tr.appendChild(cell((d>0?'+':'')+fmtQty(m.quantity_delta),'num'));tr.appendChild(cell(fmtQty(m.balance_after),'num'));return tr});
   fill('why-table',rows,'No movements yet.');$('#why-card').hidden=false;$('#why-card').scrollIntoView({behavior:'smooth',block:'nearest'})}).catch(e=>notice(false,e.message))}
+function stockActionSetup(locations){
+  const move=$('#move-open'),recount=$('#recount-open');
+  move.hidden=(locations||[]).length<2;
+  const open=(button,card)=>{
+    const expanded=button.getAttribute('aria-expanded')==='true';
+    [move,recount].forEach(b=>{b.setAttribute('aria-expanded','false');$('#'+b.getAttribute('aria-controls')).hidden=true});
+    if(!expanded){button.setAttribute('aria-expanded','true');card.hidden=false;card.scrollIntoView({behavior:'smooth',block:'nearest'})}
+  };
+  move.onclick=()=>open(move,$('#move-card'));
+  recount.onclick=()=>open(recount,$('#recount-card'));
+}
 let RECOUNT_STORE='';
 function recountStores(){const box=$('#recount-store');if(!box)return;const seen={};LISTS.stock.forEach(r=>{seen[r.location_id]=r.location_name});box.innerHTML='';
  Object.keys(seen).forEach(lid=>{const b=document.createElement('button');b.type='button';b.className='filter-chip'+(RECOUNT_STORE===lid?' on':'');b.textContent=seen[lid];b.onclick=()=>{RECOUNT_STORE=lid;$('#recount-result').textContent='';recountStores();recountItems()};box.appendChild(b)});recountItems()}
 function recountItems(){const wrap=$('#recount-items');if(!wrap)return;wrap.innerHTML='';
- if(!RECOUNT_STORE){$('#recount-go').disabled=true;return}
+ if(!RECOUNT_STORE){$('#recount-go').disabled=true;$('#recount-go').textContent='Pick a store first';return}
  LISTS.stock.filter(r=>r.location_id===RECOUNT_STORE).forEach(r=>{
   const row=document.createElement('div');row.className='recount-row';
   const lab=document.createElement('span');lab.className='recount-name';lab.textContent=r.name;
   const exp=document.createElement('span');exp.className='recount-exp';exp.textContent='register '+fmtQty(r.on_hand);
-  const inp=document.createElement('input');inp.type='number';inp.min='0';inp.step='any';inp.placeholder='counted';inp.setAttribute('aria-label','Counted '+r.name);inp.dataset.pid=r.product_id;
+  const inp=document.createElement('input');inp.type='number';inp.min='0';inp.step='any';inp.placeholder='Count';inp.setAttribute('aria-label','Counted '+r.name);inp.dataset.pid=r.product_id;
   const v=document.createElement('span');v.className='recount-var';
   inp.oninput=()=>{if(inp.value===''){v.textContent=''}else{const d=Number(inp.value)-Number(r.on_hand);v.textContent=(d>0?'+':'')+fmtQty(d);v.style.color=d?'#c94b25':'inherit'}recountReady()};
   row.appendChild(lab);row.appendChild(exp);row.appendChild(inp);row.appendChild(v);wrap.appendChild(row)});
  recountReady()}
-function recountReady(){$('#recount-go').disabled=![...document.querySelectorAll('#recount-items input')].some(i=>i.value!=='')}
+function recountReady(){const b=$('#recount-go');b.disabled=![...document.querySelectorAll('#recount-items input')].some(i=>i.value!=='');b.textContent=b.disabled?'Enter a count to post':'Post recount'}
 $('#why-close').onclick=()=>{$('#why-card').hidden=true};
 $('#recount-go').onclick=()=>{const counts={};document.querySelectorAll('#recount-items input').forEach(i=>{if(i.value!=='')counts[i.dataset.pid]=i.value});
  api('/api/retail/counts',{location_id:RECOUNT_STORE,counts}).then(x=>{
@@ -171,7 +182,7 @@ function connect(){if(!MosaicAuth.require())return;
   Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(async([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
     const safe=(label,fn)=>{try{fn()}catch(e){console.error('setup '+label+' failed',e)}};
-    safe('lists',()=>refreshLists(c));safe('till',()=>tillSetup(c.locations||[]));safe('move',moveSetup);safe('receipt',receiptSetup);safe('buying',()=>buySetup(c.vendors||[]));safe('money',cashSetup);
+    safe('lists',()=>refreshLists(c));safe('till',()=>tillSetup(c.locations||[]));safe('move',moveSetup);safe('stock-actions',()=>stockActionSetup(c.locations||[]));safe('receipt',receiptSetup);safe('buying',()=>buySetup(c.vendors||[]));safe('money',cashSetup);
     Promise.all((c.locations||[]).map(l=>get('/api/retail/reorder?location_id='+encodeURIComponent(l.id)).then(r=>(r.items||[]).forEach(i=>{if(Number(i.suggested)>0)LOW_SET.add(l.id+':'+i.product_id)})).catch(()=>{}))).then(()=>renderStock());
     const ol=$('#next');ol.innerHTML='';ol.classList.remove('checklist');
     const guideDone=localStorage.getItem('mosaicGuideDone')==='1';
@@ -188,7 +199,7 @@ function connect(){if(!MosaicAuth.require())return;
       $('#next-meta').textContent='we tick each step as you finish it';
       ol.classList.add('checklist');
       const steps=[
-        {label:'Add a store to sell from',view:'stock',done:(c.locations||[]).length>0},
+        {label:'Add a store to sell from',href:'/',view:'stock',done:(c.locations||[]).length>0},
         {label:'Add an item with its selling price',view:'buying',done:c.products.length>0},
         {label:'Ring up your first bill on the counter',view:'sales',done:hasSale},
         {label:'Close the day when the shop shuts',href:'/close',done:closedToday}
@@ -201,11 +212,11 @@ function connect(){if(!MosaicAuth.require())return;
       ol.classList.add('checklist');
       const steps=[
         {label:'Add your first item',view:'buying',done:false},
-        {label:'Add a store to sell from',view:'stock',done:(c.locations||[]).length>0},
+        {label:'Add a store to sell from',href:'/',view:'stock',done:(c.locations||[]).length>0},
         {label:'Open a till to take cash',view:'money',done:(c.cash_sessions||[]).length>0},
         {label:'Ring up your first sale',view:'sales',done:false}
       ];
-      steps.forEach(s=>{const li=document.createElement('li');li.className='todo-step'+(s.done?' done':'');li.textContent=s.label;li.onclick=()=>select(s.view);ol.appendChild(li)});
+      steps.forEach(s=>{const li=document.createElement('li');li.className='todo-step'+(s.done?' done':'');li.textContent=s.label;li.onclick=()=>{if(s.href)location.href=s.href;else select(s.view)};ol.appendChild(li)});
     }else{
       ol.classList.add('checklist');
       const tasks=[];
@@ -228,7 +239,6 @@ function connect(){if(!MosaicAuth.require())return;
 $('#bill-match').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/three-way-match',{purchase_order_id:resolveId('po',d.purchase_order_id),bill_id:resolveId('bill',d.bill_id)},'Match complete')};
 $('#add-vendor').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/accounting/parties',{kind:'vendor',name:d.name},'Supplier added');e.target.reset()};
 $('#add-item').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/products',{sku:d.sku,name:d.name,selling_price_minor:Math.round(+d.price*100),cost_minor:Math.round(+d.cost*100),...(d.barcode?{barcode:d.barcode}:{})},'Item added');e.target.reset()};
-$('#add-location').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/locations',{code:d.code.toUpperCase(),name:d.name,kind:'store'},'Store added');e.target.reset()};
 const periodChips=$('#period-chips'),periodLockId=$('#period-lock-id'),periodLockBtn=$('#close button[type=submit]');
 const loadPeriods=async()=>{const ps=await get('/api/accounting/periods');periodChips.innerHTML='';const today=new Date().toISOString().slice(0,10);const open=ps.filter(p=>p.status==='open');const lockable=open.filter(p=>p.ends_on<today);const running=open.filter(p=>p.ends_on>=today);if(!lockable.length){periodChips.innerHTML='<span class="hint">No finished periods to lock yet</span>';}lockable.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=p.name+' ('+p.starts_on+' to '+p.ends_on+')';b.onclick=()=>{periodChips.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));b.classList.add('on');periodLockId.value=p.id;periodLockBtn.disabled=false;};periodChips.appendChild(b);});running.forEach(p=>{const s=document.createElement('span');s.className='hint';s.textContent=p.name+' is still running - it can be locked after '+p.ends_on+'.';periodChips.appendChild(s);});};
 $('#close').onsubmit=e=>{e.preventDefault();if(!periodLockId.value)return;run('/api/accounting/periods/lock',{period_id:periodLockId.value},'Period locked').then(()=>{periodLockId.value='';periodLockBtn.disabled=true;loadPeriods();});};
