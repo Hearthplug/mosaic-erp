@@ -13,7 +13,7 @@ from accounting import Accounting
 from retail import Retail
 from operational_profile import Profiles
 from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
-from migration_packs import Migrations
+from migration_packs import Migrations,SCHEMAS as MIGRATION_SCHEMAS
 import report_export, custom_report
 from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
 import build_bills, build_registers
@@ -692,6 +692,10 @@ class H(BaseHTTPRequestHandler):
             for v in agg.values():
                 q=v['on_hand']; v['on_hand']=format(q.normalize(),'f'); out.append(v)
             return self.out(200,{'rows':out},rid=rid) or 200
+        if p == '/api/retail/receipt':
+            wid, _, _ = self._auth('viewer'); sale=qs.get('sale_id',[None])[0]
+            if not sale: raise AuthError(400,'sale_id is required')
+            return self.out(200,RETAIL.receipt(wid,sale),rid=rid) or 200
         if p == '/api/retail/stock-movements':
             wid, _, _ = self._auth('viewer'); product=qs.get('product_id',[None])[0]; location=qs.get('location_id',[None])[0]
             if not product or not location: raise AuthError(400,'product_id and location_id are required')
@@ -723,7 +727,7 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/tax/checklist':
             wid, _, _ = self._auth('viewer'); country=qs.get('jurisdiction',[''])[0]; from tax_pack_operational import candidate; return self.out(200,TAX.verification_checklist(candidate(country)),rid=rid) or 200
         if p == '/api/migrations':
-            wid, _, _ = self._auth('viewer'); return self.out(200,{'batches':MIGRATIONS_API.list(wid)},rid=rid) or 200
+            wid, _, _ = self._auth('viewer'); return self.out(200,{'batches':MIGRATIONS_API.list(wid),'schemas':{k:sorted(v[0]) for k,v in MIGRATION_SCHEMAS.items()}},rid=rid) or 200
         if p == '/api/accounting/status':
             wid, _, _ = self._auth('viewer'); return self.out(200, BOOKS.status(wid), rid=rid) or 200
         if p == '/api/accounting/periods':

@@ -7,6 +7,9 @@
 pre{white-space:pre-wrap;background:var(--fill);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:12px;min-height:120px;max-height:340px;overflow:auto;font:11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;margin:12px 0 0}
 #reviewfields{margin-bottom:4px}#confirmrollback{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--fill)}#confirmrollback p{margin:0;font-size:12.5px}
 *:focus-visible{outline:3px solid var(--accent-soft);outline-offset:2px;border-radius:6px}
-@media(max-width:760px){.appshell{display:block}.rail{position:sticky;z-index:10;height:auto;flex-direction:row;overflow-x:auto;padding:9px 10px}.brand{padding:2px 8px}.rail nav{display:flex}.rail nav p,.rail footer{display:none}.rail nav a{white-space:nowrap}.main{padding:18px 12px 40px}.fieldrow{grid-template-columns:1fr}}
+@media(max-width:760px){.appshell{display:block}.rail{position:sticky;z-index:10;height:auto;flex-direction:row;flex-wrap:wrap;padding:9px 10px}.brand{padding:2px 8px}.rail nav{display:flex;flex-wrap:wrap;flex-basis:100%}.rail nav p,.rail footer{display:none}.rail nav a{white-space:nowrap}.main{padding:18px 12px 40px}.fieldrow{grid-template-columns:1fr}}
 
 #file{margin-bottom:8px}
+
+.maprow{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;margin:6px 0}.maprow label{font-weight:600}.maprow select{min-width:0}
+@media(max-width:560px){.maprow{grid-template-columns:1fr}}

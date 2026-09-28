@@ -156,7 +156,7 @@ function connect(){if(!MosaicAuth.require())return;
   Promise.all([get('/api/operations/context'),get('/api/accounting/status').catch(()=>({base_currency:'USD'}))]).then(async([c,book])=>{CURRENCY=book.base_currency||'USD';updateMoneyLabels();
     $('#state').textContent='Ready · '+(identity.role||'your role');
     const safe=(label,fn)=>{try{fn()}catch(e){console.error('setup '+label+' failed',e)}};
-    safe('lists',()=>refreshLists(c));safe('till',()=>tillSetup(c.locations||[]));safe('move',moveSetup);safe('buying',()=>buySetup(c.vendors||[]));safe('money',cashSetup);
+    safe('lists',()=>refreshLists(c));safe('till',()=>tillSetup(c.locations||[]));safe('move',moveSetup);safe('receipt',receiptSetup);safe('buying',()=>buySetup(c.vendors||[]));safe('money',cashSetup);
     Promise.all((c.locations||[]).map(l=>get('/api/retail/reorder?location_id='+encodeURIComponent(l.id)).then(r=>(r.items||[]).forEach(i=>{if(Number(i.suggested)>0)LOW_SET.add(l.id+':'+i.product_id)})).catch(()=>{}))).then(()=>renderStock());
     const ol=$('#next');ol.innerHTML='';ol.classList.remove('checklist');
     if(!c.products.length){
@@ -287,7 +287,7 @@ function tillComplete(kind){const t=tillTotalMinor();if(!t)return;
   if(kind==='cash'&&given!==null&&given<t){notice(false,'The cash given is short of the total.');return}
   const btn=kind==='cash'?$('#till-take'):$('#till-bank');btn.disabled=true;
   api('/api/retail/sales',{location_id:TILL_LOC,lines,tenders:[{kind,amount_minor:t}],currency:CURRENCY})
-    .then(x=>{notice(true,'Sale '+x.number+' completed - '+fmtMoney(x.total_minor));CART.clear();$('#till-given').value='';tillRenderTiles();tillRenderCart();reload();refreshContext();refreshExport()})
+    .then(x=>{notice(true,'Sale '+x.number+' completed - '+fmtMoney(x.total_minor));CART.clear();$('#till-given').value='';tillRenderTiles();tillRenderCart();reload();refreshContext();refreshExport();openReceipt(x.id)})
     .catch(e=>{notice(false,e.message);tillRefreshTender()})}
 function openSaleDetail(id){const s=LISTS.sales.find(r=>r.id===id);if(!s)return;DETAIL_SALE=id;
   const lines=(EXP.sale_lines||[]).filter(l=>l.sale_id===id);
@@ -317,6 +317,31 @@ function refundGo(){if(!DETAIL_SALE)return;const lines={};document.querySelector
   api('/api/retail/returns',{sale_id:DETAIL_SALE,lines,reason:$('#refund-reason').value.trim(),approved_by:'manager',refund_kind:'cash'})
     .then(x=>{notice(true,'Return refunded');$('#sale-detail').hidden=true;DETAIL_SALE=null;reload();refreshExport()})
     .catch(e=>{notice(false,e.message);refundCheck()})}
+
+/* ===== Receipt ===== */
+let RECEIPT_SALE=null;
+function openReceipt(id){RECEIPT_SALE=id;
+  get('/api/retail/receipt?sale_id='+encodeURIComponent(id)).then(r=>{
+    const v=$('#receipt-paper-view');const cur=r.currency||CURRENCY;
+    let h='<div class="rc-head"><b>'+esc(r.company||'Mosaic shop')+'</b><span>'+esc(r.store_name)+' ('+esc(r.store_code)+')</span></div>';
+    h+='<div class="rc-meta"><span>Bill '+esc(r.number)+'</span><span>'+esc(fmtWhen(r.sold_at))+'</span></div>';
+    h+='<div class="rc-lines">';
+    if(!r.lines.length)h+='<div class="rc-line"><span>Sale</span><b>'+esc(fmtMoney(r.total_minor,cur))+'</b></div>';
+    r.lines.forEach(l=>{h+='<div class="rc-line"><span>'+esc(l.name)+'<small>'+l.quantity+' x '+esc(fmtMoney(l.unit_price_minor,cur))+(int(l.discount_minor)?' - '+esc(fmtMoney(l.discount_minor,cur))+' off':'')+'</small></span><b>'+esc(fmtMoney(l.total_minor,cur))+'</b></div>'});
+    h+='</div><div class="rc-totals">';
+    h+='<div><span>Subtotal</span><span>'+esc(fmtMoney(r.subtotal_minor,cur))+'</span></div>';
+    if(int(r.tax_minor))h+='<div><span>Tax</span><span>'+esc(fmtMoney(r.tax_minor,cur))+'</span></div>';
+    h+='<div class="rc-grand"><span>Total</span><span>'+esc(fmtMoney(r.total_minor,cur))+'</span></div>';
+    r.tenders.forEach(t=>{h+='<div><span>'+esc(t.kind==='cash'?'Cash':'Card or bank')+'</span><span>'+esc(fmtMoney(t.amount_minor,cur))+'</span></div>'});
+    h+='</div><div class="rc-foot">Thank you - come again.</div>';
+    v.innerHTML=h;applyReceiptSize();
+    $('#receipt-wrap').hidden=false}).catch(e=>notice(false,e.message))}
+function applyReceiptSize(){const s=$('#receipt-paper').value;const v=$('#receipt-paper-view');if(v)v.className='receipt-paper size-'+(s==='a4'?'a4':'mm'+s)}
+function receiptSetup(){const w=$('#receipt-wrap');if(!w)return;
+  $('#receipt-close').onclick=()=>{w.hidden=true;RECEIPT_SALE=null};
+  $('#receipt-print').onclick=()=>window.print();
+  $('#receipt-paper').onchange=applyReceiptSize;
+  $('#receipt-open').onclick=()=>{if(DETAIL_SALE)openReceipt(DETAIL_SALE)}}
 
 /* ===== Move stock (pick-first) ===== */
 let MOVE={product:null,from:null,to:null,qty:1};
