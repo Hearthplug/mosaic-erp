@@ -1,0 +1,23 @@
+/* A small persistent route bar replaces the wrapped module rail on phones. */
+.mobile-nav{display:none}
+@media(max-width:720px){
+  .appshell .rail{display:flex;position:relative;top:auto;z-index:1;height:42px;min-height:42px;align-items:center;justify-content:flex-start;overflow:hidden;padding:5px 12px;border-right:0;border-bottom:1px solid #d8d4ca}
+  .appshell .rail .rail-brand,.appshell .rail .brand{padding:0;align-items:center}
+  .appshell .rail .lockup small{display:none}
+  .appshell .rail nav,.appshell .rail footer{display:none}
+  .appshell .main,.appshell .assistant{padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+  .appshell .rail .rail-brand .lockup,.appshell .rail .brand .lockup{display:block}
+  #stock-table .cell-sub{color:#555b56}
+  #stock-table .filter-chip{color:#424842}
+  .mobile-nav{display:block;position:fixed;z-index:70;bottom:0;left:0;right:0;background:#fffefa;border-top:1px solid #c4c5bf;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -5px 20px rgba(20,25,22,.1)}
+  .mobile-nav-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));height:61px;gap:0}
+  .mobile-nav-tabs a,.mobile-nav-tabs button{min-width:0;height:61px;border:0;border-radius:0;background:transparent;color:#414841;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:600 11px/1.1 -apple-system,BlinkMacSystemFont,"SF Pro Text",Arial,sans-serif;text-decoration:none;cursor:pointer;padding:4px 0}
+  .mobile-nav-tabs svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .mobile-nav-tabs .on{color:#1c211f;background:#e8e9e5}
+  .mobile-nav-tabs :is(a,button):focus-visible,.mobile-nav-menu a:focus-visible{outline:2px solid #c94b25;outline-offset:-2px}
+  .mobile-nav-menu{position:absolute;bottom:calc(61px + env(safe-area-inset-bottom));left:12px;right:12px;max-height:min(70vh,480px);overflow-y:auto;background:#fffefa;border:1px solid #c4c5bf;border-radius:12px;box-shadow:0 -12px 40px rgba(20,25,22,.18);padding:8px}
+  .mobile-nav-menu[hidden]{display:none}
+  .mobile-nav-menu a{display:block;padding:13px 15px;border-radius:8px;color:#1c211f;text-decoration:none;font-size:14px;font-weight:600}
+  .mobile-nav-menu a.on{background:#e8e9e5}
+  .mobile-nav-menu a small{display:inline;font-size:12px;color:#555b56;margin-left:4px}
+}
