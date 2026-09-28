@@ -11,8 +11,8 @@ from urllib.parse import parse_qs
 from store import Store, Conflict, NotFound, canon, sha256, utcnow
 from accounting import Accounting
 from retail import Retail
-from operational_profile import Profiles
-from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION
+from operational_profile import Profiles,compile_profile,MODULE_INFO
+from onboarding import Onboarding,QUESTIONS,SCHEMA_VERSION,map_answers
 from migration_packs import Migrations,SCHEMAS as MIGRATION_SCHEMAS
 import report_export, custom_report
 from build_intake import read_file as build_read_file, decode_upload as build_decode_upload, sniff_mime as build_sniff_mime, PHOTO_TYPES as BUILD_PHOTO_TYPES
@@ -196,6 +196,65 @@ def pack_key_for_answer(country):
     except Exception:return None
     name=(mapped.get('proposed') or '').strip()
     return name if name in PACKS else None
+
+
+WORKFLOW_LABELS=[('purchase_approval','Manager approval before buying'),('sale_exact_tender','Exact cash at the till'),('negative_stock','Selling below zero stock'),('period_lock','Locking past periods')]
+def review_diff(wid,session_id):
+    """Field-level before/after of what /api/onboarding/apply will change: the live workspace
+    setup versus the setup the reviewed interview proposes. Currency is set once at first apply
+    and never re-applied, so an established workspace shows it as staying the same."""
+    d=ONBOARDING.get(wid,session_id)
+    proposed=compile_profile(map_answers(d['answers']))
+    wrow=STORE._db.execute('SELECT name,operational_profile_json FROM workspaces WHERE id=?',(wid,)).fetchone()
+    current=json.loads(wrow['operational_profile_json']) if wrow and wrow['operational_profile_json'] else None
+    fresh=current is None
+    cur_mods=set(current['enabled_modules']) if current else set()
+    pro_mods=set(proposed['enabled_modules'])
+    rows=[]
+    def group_of(key):
+        if key.startswith('module.'): return 'features'
+        if key.startswith('workflow.'): return 'rules'
+        return 'business'
+    def add(key,label,before,after,changed): rows.append({'key':key,'label':label,'before':before,'after':after,'changed':changed,'group':group_of(key)})
+    newname=(d['answers'].get('business_name') or '').strip()
+    if newname: add('workspace_name','Workspace name','Not set up yet' if fresh else wrow['name'],newname,fresh or wrow['name']!=newname)
+    try:
+        cur_ccy=BOOKS.status(wid)['base_currency'];ccy_locked=True
+    except NotFound:
+        cur_ccy=None;ccy_locked=False
+    if ccy_locked: add('base_currency','Base currency',cur_ccy,cur_ccy,False)
+    else: add('base_currency','Base currency','Not set up yet',pack_currency_for_answer(d['answers'].get('country')),True)
+    for k,lbl,_plain in MODULE_INFO:
+        on_now=k in cur_mods;on_next=k in pro_mods
+        add('module.'+k,lbl,'On' if on_now else ('Off' if not fresh else 'Not set up yet'),'On' if on_next else 'Off',on_now!=on_next)
+    cur_term=(current or {}).get('terminology',{});pro_term=proposed['terminology']
+    for tk,tlbl in (('sale','Word for a sale'),('location','Word for a store')):
+        add('terminology.'+tk,tlbl,'Not set up yet' if fresh else cur_term.get(tk,''),pro_term[tk],fresh or cur_term.get(tk)!=pro_term[tk])
+    cur_wf=(current or {}).get('workflows',{});pro_wf=proposed['workflows']
+    for wk,wlbl in WORKFLOW_LABELS:
+        bv=cur_wf.get(wk);av=pro_wf[wk]
+        add('workflow.'+wk,wlbl,'Not set up yet' if fresh else ('On' if bv else 'Off'),'On' if av else 'Off',fresh or bv!=av)
+    cur_j=(current or {}).get('localization',{}).get('jurisdiction');pro_j=proposed['localization']['jurisdiction']
+    add('localization.jurisdiction','Region for tax and formats','Not set up yet' if fresh else (cur_j or 'Not set'),pro_j or 'Not answered',fresh or cur_j!=pro_j)
+    cur_roles=(current or {}).get('roles') or [];pro_roles=proposed['roles']
+    add('roles','Team roles','Not set up yet' if fresh else ', '.join(cur_roles),', '.join(pro_roles),fresh or cur_roles!=pro_roles)
+    return {'fresh':fresh,'status':d['status'],'rows':rows,'changed_count':sum(1 for r in rows if r['changed']),'same_count':sum(1 for r in rows if not r['changed'])}
+
+
+def review_preview(wid,session_id):
+    """The setup the reviewed interview proposes, shaped for the live-app preview: the compiled
+    operational profile the app will consume after apply, plus the base currency it will show."""
+    d=ONBOARDING.get(wid,session_id)
+    proposed=compile_profile(map_answers(d['answers']))
+    inf=d.get('inference') or {}
+    if inf.get('module_overrides') or inf.get('module_review'):
+        reviewed={m['key'] for m in inf.get('module_review',[]) if m.get('enabled')}
+        proposed['enabled_modules']=sorted(reviewed)
+    try:
+        ccy=BOOKS.status(wid)['base_currency']
+    except NotFound:
+        ccy=pack_currency_for_answer(d['answers'].get('country'))
+    return {'profile':proposed,'currency':ccy}
 
 def pack_currency_for_answer(country):
     """Resolve the accounting base currency for the interview's free-text country answer.
@@ -417,7 +476,11 @@ class H(BaseHTTPRequestHandler):
             # Pages and assets ship unversioned URLs; without this a browser can
             # pair a stale page with fresh scripts after an upgrade and break.
             self.send_header('Cache-Control', 'no-cache')
-            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'")
+            # /operations is embedded in same-origin iframes on the interview review screen
+            # (the before/after "see it before it goes live" preview). 'self' keeps external
+            # clickjacking protection while allowing that embed; every other page stays 'none'.
+            fa = "frame-ancestors 'self'" if self.path.split('?', 1)[0] == '/operations' else "frame-ancestors 'none'"
+            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'self'; frame-src 'self'; " + fa + "; object-src 'none'")
         if rid:
             self.send_header('X-Request-ID', rid)
         for h, v in (hdrs or {}).items():
@@ -675,6 +738,15 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,{'version':SCHEMA_VERSION,'questions':QUESTIONS},rid=rid) or 200
         if p == '/api/onboarding/session':
             wid, _, _ = self._auth('viewer'); return self.out(200,ONBOARDING.get(wid,qs.get('id',[''])[0]),rid=rid) or 200
+        if p == '/api/onboarding/review-diff':
+            wid, _, _ = self._auth('owner'); return self.out(200,review_diff(wid,qs.get('id',[''])[0]),rid=rid) or 200
+        if p == '/api/onboarding/review-preview':
+            wid, _, _ = self._auth('owner'); return self.out(200,review_preview(wid,qs.get('id',[''])[0]),rid=rid) or 200
+        if p == '/api/operations/profile':
+            wid, _, _ = self._auth('viewer')
+            prow=STORE._db.execute('SELECT operational_profile_json FROM workspaces WHERE id=?',(wid,)).fetchone()
+            prof=json.loads(prow['operational_profile_json']) if prow and prow['operational_profile_json'] else None
+            return self.out(200,{'profile':prof},rid=rid) or 200
         if p == '/api/operations/context':
             wid, _, _ = self._auth('viewer')
             return self.out(200,{'locations':[dict(x) for x in STORE._db.execute('SELECT id,code,name FROM locations WHERE workspace_id=? AND active=1 ORDER BY name',(wid,)).fetchall()],'products':[dict(x) for x in STORE._db.execute('SELECT id,sku,name FROM retail_products WHERE workspace_id=? AND active=1 ORDER BY name',(wid,)).fetchall()],'vendors':[dict(x) for x in STORE._db.execute("SELECT id,name FROM parties WHERE workspace_id=? AND kind IN ('vendor','both') AND active=1 ORDER BY name",(wid,)).fetchall()],'purchase_orders':[dict(x) for x in STORE._db.execute("SELECT id,number,status FROM purchase_orders WHERE workspace_id=? AND status IN ('draft','approved','part_received') ORDER BY ordered_on DESC",(wid,)).fetchall()],'open_bills':[dict(x) for x in STORE._db.execute("SELECT id,number,balance_minor FROM documents WHERE workspace_id=? AND kind='purchase_bill' AND status IN ('approved','posted') ORDER BY issue_date DESC",(wid,)).fetchall()],'cash_sessions':[dict(x) for x in STORE._db.execute("SELECT cs.id,cs.location_id,cs.opened_at,l.name AS location_name FROM cash_sessions cs JOIN locations l ON l.id=cs.location_id WHERE cs.workspace_id=? AND cs.status='open' ORDER BY cs.opened_at",(wid,)).fetchall()],'next_steps':['Approve draft purchase orders before receiving','Match received orders to supplier bills','Close cash only after the final sale and refund','Lock a period (stop all changes to that month\'s books) only after the books match your bank and cash']},rid=rid) or 200
