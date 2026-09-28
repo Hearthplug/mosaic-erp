@@ -63,6 +63,13 @@ class OAuth:
             return self.store.oauth_grant_create(provider,issuer,sub,email,verified,challenge['next_path'],'signin')
         if os.getenv('MOSAIC_SAAS_MODE','').lower() in ('1','true','yes') and (not verified or not email or '@' not in email):
             raise OAuthError('A verified provider email is required to create a company')
+        # One company per verified email: a new provider identity whose verified
+        # email already has a Mosaic account never creates a second company. Park
+        # it; the next confirmed sign-in (any already-linked method, or password)
+        # links this identity to the existing account.
+        if verified and email and '@' in email and self.store.oauth_users_by_email(email):
+            self.store.oauth_pending_link_create(provider,issuer,sub,email,challenge['next_path'])
+            return '','link-required'
         self.store.oauth_auto_provision(provider,issuer,sub,email)
         return self.store.oauth_grant_create(provider,issuer,sub,email,verified,challenge['next_path'],'signin')
     def _token_and_claims(self,p,code,verifier,redirect_uri):

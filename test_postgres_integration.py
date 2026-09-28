@@ -19,6 +19,7 @@ class PostgreSQLIntegration(unittest.TestCase):
    conn.execute(f'GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO {cls.role}')
    conn.execute(f'GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO {cls.role}')
    conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_auth_session(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_login_options(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_invitation(text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_session_workspace(text,text) TO {cls.role}');conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_oauth_users(text,text,text) TO {cls.role}')
+   conn.execute(f'GRANT EXECUTE ON FUNCTION mosaic_oauth_email_users(text) TO {cls.role}')
   parts=conninfo_to_dict(url);parts.update(user=cls.role,password=runtime_secret)
   cls.s=PostgresStore(make_conninfo(**parts),min_size=1,max_size=8,auto_migrate=False)
  @classmethod
@@ -99,6 +100,86 @@ class PostgreSQLIntegration(unittest.TestCase):
     link2=oauth.start('google');p2=parse_qs(urlparse(link2).query);claims['nonce']=p2['nonce'][0]
     oauth.callback('google','dummy',p2['state'][0])
    with self.owner._pool.connection() as q:self.assertEqual(q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n'],count+1)
+
+ def test_http_second_google_signin_lands_in_existing_company(self):
+  """Full HTTP sign-in twice with the same Google claims: one company, same landing.
+
+  Reproduces the prod report where each Google sign-in by the same user created a
+  fresh company. Drives the real routes (/oauth/google/start, /callback,
+  /api/oauth/complete, /api/oauth/enter) against PostgreSQL under the restricted
+  runtime role; only the provider token exchange is stubbed."""
+  import importlib,json,threading,urllib.request,urllib.error
+  from http.server import ThreadingHTTPServer
+  from unittest.mock import patch
+  from urllib.parse import urlparse,parse_qs
+  os.environ.setdefault('MOSAIC_DB_PATH','/tmp/mosaic-ci-http-boot.db')
+  appmod=importlib.import_module('app')
+  from oauth import OAuth
+  appmod.STORE=self.s
+  appmod.OAUTH=OAuth(self.s,appmod.PROVISIONER)
+  class NoRedirect(urllib.request.HTTPRedirectHandler):
+   def redirect_request(self,*a,**k):return None
+  opener=urllib.request.build_opener(NoRedirect)
+  srv=ThreadingHTTPServer(('127.0.0.1',0),appmod.H);threading.Thread(target=srv.serve_forever,daemon=True).start()
+  base=f'http://127.0.0.1:{srv.server_address[1]}'
+  claims={'sub':'http-repeat-sub','iss':'https://accounts.google.com','email':'repeat@example.test','email_verified':True}
+  env={'MOSAIC_PUBLIC_ORIGIN':'https://erp.example','MOSAIC_GOOGLE_CLIENT_ID':'id','MOSAIC_GOOGLE_CLIENT_SECRET':'secret','MOSAIC_SAAS_MODE':'true'}
+  def run_signin():
+   try:opener.open(base+'/oauth/google/start',timeout=10);self.fail('expected 302 from /oauth/google/start')
+   except urllib.error.HTTPError as e:self.assertEqual(e.status,302);loc=e.headers['Location']
+   params=parse_qs(urlparse(loc).query)
+   with patch.object(appmod.OAUTH,'_token_and_claims',return_value=dict(claims,nonce=params['nonce'][0])):
+    try:opener.open(base+'/oauth/google/callback?code=dummy&state='+params['state'][0],timeout=10);self.fail('expected 302 from callback')
+    except urllib.error.HTTPError as e:self.assertEqual(e.status,302);back=e.headers['Location']
+   grant=parse_qs(urlparse(back).query)['oauth'][0]
+   req=urllib.request.Request(base+'/api/oauth/complete',data=json.dumps({'code':grant}).encode(),headers={'Content-Type':'application/json'})
+   complete=json.load(opener.open(req,timeout=10))
+   wid=complete['workspaces'][0]['workspace_id']
+   req=urllib.request.Request(base+'/api/oauth/enter',data=json.dumps({'code':complete['enter_code'],'workspace_id':wid}).encode(),headers={'Content-Type':'application/json'})
+   entered=json.load(opener.open(req,timeout=10))
+   self.assertEqual(entered['workspace_id'],wid)
+   return wid,entered
+  try:
+   with patch.dict(os.environ,env):
+    with self.owner._pool.connection() as q:before=q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n']
+    wid1,session1=run_signin()
+    wid2,session2=run_signin()
+   self.assertEqual(wid1,wid2)
+   self.assertEqual(self.s.authenticate_session(session2['session_token'])[0],wid1)
+   with self.owner._pool.connection() as q:self.assertEqual(q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n'],before+1)
+  finally:
+   srv.shutdown();srv.server_close()
+ def test_runtime_role_second_provider_same_verified_email_links_not_duplicates(self):
+  from oauth import OAuth
+  from urllib.parse import urlparse,parse_qs
+  from unittest.mock import patch
+  # The prod bug: Google and Microsoft sign-ins with the same verified email
+  # created two companies. Now the second provider parks a link instead.
+  msa_iss='https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0'
+  with self.owner._pool.connection() as q:before=q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n']
+  with patch.dict(os.environ,{'MOSAIC_PUBLIC_ORIGIN':'https://erp.example','MOSAIC_GOOGLE_CLIENT_ID':'id','MOSAIC_GOOGLE_CLIENT_SECRET':'secret','MOSAIC_MICROSOFT_CLIENT_ID':'id2','MOSAIC_MICROSOFT_CLIENT_SECRET':'secret2','MOSAIC_SAAS_MODE':'true'}):
+   oauth=OAuth(self.s)
+   link=oauth.start('google');params=parse_qs(urlparse(link).query)
+   g={'sub':'xp-google-sub','iss':'https://accounts.google.com','nonce':params['nonce'][0],'email':'xp@example.test','email_verified':True}
+   with patch.object(oauth,'_token_and_claims',return_value=g):code,mode=oauth.callback('google','dummy',params['state'][0])
+   self.assertEqual(mode,'signin')
+   sel=self.s.oauth_complete(code);self.assertEqual(len(sel['workspaces']),1);wid=sel['workspaces'][0]['workspace_id']
+   link=oauth.start('microsoft');params=parse_qs(urlparse(link).query)
+   m={'sub':'xp-ms-sub','iss':msa_iss,'nonce':params['nonce'][0],'email':'xp@example.test','xms_edov':True,'email_verified':True}
+   with patch.object(oauth,'_token_and_claims',return_value=m):code2,mode2=oauth.callback('microsoft','dummy',params['state'][0])
+   self.assertEqual(mode2,'link-required');self.assertEqual(code2,'')
+   with self.owner._pool.connection() as q:self.assertEqual(q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n'],before+1)
+   self.assertEqual(self.s.oauth_identity_users('microsoft',msa_iss,'xp-ms-sub'),[])
+   link=oauth.start('google');params=parse_qs(urlparse(link).query)
+   g['nonce']=params['nonce'][0]
+   with patch.object(oauth,'_token_and_claims',return_value=g):code3,mode3=oauth.callback('google','dummy',params['state'][0])
+   sel=self.s.oauth_complete(code3)
+   session=self.s.oauth_enter(sel['enter_code'],wid)
+   linked=self.s.oauth_identity_users('microsoft',msa_iss,'xp-ms-sub')
+   self.assertEqual(len(linked),1);self.assertEqual(linked[0]['workspace_id'],wid);self.assertEqual(linked[0]['id'],session['user_id'])
+   with self.owner._pool.connection() as q:
+    self.assertEqual(q.execute('SELECT COUNT(*) n FROM workspaces').fetchone()['n'],before+1)
+    self.assertEqual(q.execute("SELECT COUNT(*) n FROM audit_events WHERE workspace_id=%s AND action='identity.link'",(wid,)).fetchone()['n'],1)
  def test_shared_rate_bucket_serializes_concurrent_attempts(self):
   import threading
   identity='security-test-'+secrets.token_hex(8);barrier=threading.Barrier(12);results=[]

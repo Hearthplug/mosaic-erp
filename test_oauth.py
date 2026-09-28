@@ -49,7 +49,7 @@ class OAuthTests(unittest.TestCase):
  def test_unknown_identity_auto_provisions_fresh_company_and_lands_in_signin(self):
   w,u=self.user();before=self.s._db.execute('SELECT count(*) n FROM users').fetchone()['n']
   url=self.o.start('google');state=parse_qs(urlparse(url).query)['state'][0]
-  with patch.object(self.o,'_token_and_claims',return_value={'sub':'brand-new-sub','iss':'https://accounts.google.com','nonce':parse_qs(urlparse(url).query)['nonce'][0],'email':'person@example.test','email_verified':True}):
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'brand-new-sub','iss':'https://accounts.google.com','nonce':parse_qs(urlparse(url).query)['nonce'][0],'email':'newcomer@example.test','email_verified':True}):
    code,mode=self.o.callback('google','code',state)
   self.assertEqual(mode,'signin')
   ids=self.s.oauth_identity_users('google','https://accounts.google.com','brand-new-sub')
@@ -63,9 +63,72 @@ class OAuthTests(unittest.TestCase):
   # second sign-in for the same identity goes straight in, no duplicate tenant
   before_ws=self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n']
   url=self.o.start('google');state=parse_qs(urlparse(url).query)['state'][0]
-  with patch.object(self.o,'_token_and_claims',return_value={'sub':'brand-new-sub','iss':'https://accounts.google.com','nonce':parse_qs(urlparse(url).query)['nonce'][0],'email':'person@example.test','email_verified':True}):
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'brand-new-sub','iss':'https://accounts.google.com','nonce':parse_qs(urlparse(url).query)['nonce'][0],'email':'newcomer@example.test','email_verified':True}):
    code2,mode2=self.o.callback('google','code',state)
   self.assertEqual(mode2,'signin');self.assertEqual(self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n'],before_ws)
+ def test_second_provider_with_same_verified_email_parks_link_and_next_signin_links(self):
+  # Google sign-in creates the company; a Microsoft sign-in with the same
+  # verified email must NOT create a second company - it parks a pending link.
+  msa_iss='https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0'
+  before=self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n']
+  url=self.o.start('google');q=parse_qs(urlparse(url).query)
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'google-sub-1','iss':'https://accounts.google.com','nonce':q['nonce'][0],'email':'shared@example.test','email_verified':True}):
+   code,mode=self.o.callback('google','code',q['state'][0])
+  self.assertEqual(mode,'signin')
+  x=self.s.oauth_complete(code);self.assertEqual(len(x['workspaces']),1);wid=x['workspaces'][0]['workspace_id']
+  self.assertEqual(self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n'],before+1)
+  url=self.o.start('microsoft');q=parse_qs(urlparse(url).query)
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'ms-sub-1','iss':msa_iss,'nonce':q['nonce'][0],'email':'shared@example.test','email_verified':True}):
+   code2,mode2=self.o.callback('microsoft','code',q['state'][0])
+  self.assertEqual(mode2,'link-required');self.assertEqual(code2,'')
+  self.assertEqual(self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n'],before+1)
+  self.assertEqual(self.s.oauth_identity_users('microsoft',msa_iss,'ms-sub-1'),[])
+  # Signing back in with the original provider and entering the company links it.
+  url=self.o.start('google');q=parse_qs(urlparse(url).query)
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'google-sub-1','iss':'https://accounts.google.com','nonce':q['nonce'][0],'email':'shared@example.test','email_verified':True}):
+   code3,mode3=self.o.callback('google','code',q['state'][0])
+  self.assertEqual(mode3,'signin')
+  x=self.s.oauth_complete(code3)
+  session=self.s.oauth_enter(x['enter_code'],wid)
+  linked=self.s.oauth_identity_users('microsoft',msa_iss,'ms-sub-1')
+  self.assertEqual(len(linked),1);self.assertEqual(linked[0]['workspace_id'],wid);self.assertEqual(linked[0]['id'],session['user_id'])
+  actions=[r['action'] for r in self.s.audit_trail(wid)]
+  self.assertIn('identity.link',actions)
+  # From then on the Microsoft sign-in goes straight into the same company.
+  url=self.o.start('microsoft');q=parse_qs(urlparse(url).query)
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'ms-sub-1','iss':msa_iss,'nonce':q['nonce'][0],'email':'shared@example.test','email_verified':True}):
+   code4,mode4=self.o.callback('microsoft','code',q['state'][0])
+  self.assertEqual(mode4,'signin')
+  x=self.s.oauth_complete(code4);self.assertEqual([ws['workspace_id'] for ws in x['workspaces']],[wid])
+  self.assertEqual(self.s._db.execute('SELECT count(*) n FROM workspaces').fetchone()['n'],before+1)
+ def test_unverified_provider_email_never_parks_a_link(self):
+  # An unverified email claim cannot park a link against someone else's account.
+  msa_iss='https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0'
+  w,u=self.user('victim@example.test')
+  url=self.o.start('microsoft');q=parse_qs(urlparse(url).query)
+  with patch.object(self.o,'_token_and_claims',return_value={'sub':'ms-sub-9','iss':msa_iss,'nonce':q['nonce'][0],'email':'victim@example.test','email_verified':False}):
+   code,mode=self.o.callback('microsoft','code',q['state'][0])
+  self.assertEqual(mode,'signin')
+  self.assertEqual(self.s.oauth_pending_links_for_email('victim@example.test'),[])
+  ids=self.s.oauth_identity_users('microsoft',msa_iss,'ms-sub-9')
+  self.assertEqual(len(ids),1);self.assertNotEqual(ids[0]['workspace_id'],w)
+ def test_pending_link_also_applies_on_password_login(self):
+  msa_iss='https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0'
+  w,u=self.user('pass@example.test')
+  self.s.oauth_pending_link_create('microsoft',msa_iss,'ms-sub-7','pass@example.test','/')
+  self.assertIsNone(self.s.login(w,'pass@example.test','wrong-password-value'))
+  self.assertEqual(self.s.oauth_identity_users('microsoft',msa_iss,'ms-sub-7'),[])
+  result=self.s.login(w,'pass@example.test','a-secure-password')
+  self.assertEqual(result['workspace_id'],w)
+  linked=self.s.oauth_identity_users('microsoft',msa_iss,'ms-sub-7')
+  self.assertEqual(len(linked),1);self.assertEqual(linked[0]['workspace_id'],w)
+ def test_expired_pending_link_is_not_applied(self):
+  msa_iss='https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0'
+  w,u=self.user('stale@example.test')
+  self.s.oauth_pending_link_create('microsoft',msa_iss,'ms-sub-8','stale@example.test','/')
+  self.s._db.execute("UPDATE oauth_pending_links SET expires_at='2020-01-01T00:00:00+00:00'");self.s._db.commit()
+  self.s.login(w,'stale@example.test','a-secure-password')
+  self.assertEqual(self.s.oauth_identity_users('microsoft',msa_iss,'ms-sub-8'),[])
  def test_link_instead_binds_identity_to_password_account_and_closes_fresh_company(self):
   w,u=self.user()
   created=self.s.oauth_auto_provision('google','https://accounts.google.com','link-sub','fresh@example.test')
