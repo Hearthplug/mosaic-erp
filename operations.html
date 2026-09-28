@@ -82,8 +82,13 @@
         <div class="cardhead"><h2 id="why-title">Why this number</h2><span class="cardmeta"><button class="filter-chip" id="why-close" type="button">Close</button></span></div>
         <div class="tablewrap"><table class="dt" id="why-table"><thead><tr><th>When</th><th>What happened</th><th class="num">Change</th><th class="num">On hand after</th></tr></thead><tbody></tbody></table></div>
       </div>
-      <div class="actions">
-        <div class="card actioncard" id="move-card">
+      <div class="stock-action-bar" id="stock-action-bar" aria-label="Stock actions">
+        <span>Stock actions</span>
+        <button class="btn" id="recount-open" type="button" aria-expanded="false" aria-controls="recount-card">Recount a store</button>
+        <button class="btn" id="move-open" type="button" aria-expanded="false" aria-controls="move-card" hidden>Move stock</button>
+      </div>
+      <div class="actions stock-action-panels">
+        <div class="card actioncard" id="move-card" hidden>
           <h3>Move stock</h3>
           <p class="hint">Tap an item, pick the stores, set how many. Both sides stay in sync.</p>
           <label class="search movesearch"><span>&#8982;</span><input type="search" id="move-search" placeholder="Search items" aria-label="Search items to move"></label>
@@ -98,7 +103,7 @@
           </div>
           <div class="actionrow"><button class="btn primary" id="move-go" type="button" disabled>Move stock</button></div>
         </div>
-        <div class="card actioncard" id="recount-card">
+        <div class="card actioncard" id="recount-card" hidden>
           <h3>Recount a store</h3>
           <p class="hint">Count what is actually on the shelf. Mosaic shows the difference for every item, then posts one reviewed adjustment - never a silent change.</p>
           <div class="pick-label">Store</div>
@@ -107,15 +112,6 @@
           <div class="actionrow"><button class="btn primary" id="recount-go" type="button" disabled>Post recount</button></div>
           <p class="hint" id="recount-result" role="status"></p>
         </div>
-        <form class="card actioncard" id="add-location">
-          <h3>Add a store</h3>
-          <p class="hint">Stores appear in orders, transfers and the stock register.</p>
-          <div class="fieldrow">
-            <label>Store code<input name="code" required></label>
-            <label>Store name<input name="name" required></label>
-          </div>
-          <div class="actionrow"><button class="btn" type="submit">Add store</button></div>
-        </form>
       </div>
     </section>
 
