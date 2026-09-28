@@ -17,6 +17,7 @@ class API(unittest.TestCase):
   _,b=self.call('/api/migrations/stage',{'kind':'products','source_system':'upload','csv':'sku,name,selling_price_minor,cost_minor\nA,Apple,100,60'});self.assertEqual(b['status'],'validated')
   _,a=self.call('/api/migrations/apply',{'batch_id':b['id']});self.assertEqual(a['status'],'reconciled')
   _,x=self.call('/api/migrations');self.assertEqual(x['batches'][0]['status'],'reconciled')
+  self.assertEqual(x['schemas']['products'],sorted({'sku','name','selling_price_minor','cost_minor'}))
   _,r=self.call('/api/migrations/rollback',{'batch_id':b['id']});self.assertEqual(r['status'],'rolled_back')
  def test_viewer_cannot_mutate(self):
   _,viewer=app.STORE.create_key(app.STORE.authenticate(self.key)[0],'viewer','v','owner')
