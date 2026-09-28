@@ -140,7 +140,7 @@
         <div class="fieldrow salerefundrow">
           <label>Reason for the return<input id="refund-reason" placeholder="For example: damaged, wrong item"></label>
         </div>
-        <div class="actionrow"><button class="btn danger" id="refund-go" type="button" disabled>Refund the selected items</button><button class="btn ghostbtn" id="sale-detail-close" type="button">Close</button></div>
+        <div class="actionrow"><button class="btn" id="receipt-open" type="button">Receipt</button><button class="btn danger" id="refund-go" type="button" disabled>Refund the selected items</button><button class="btn ghostbtn" id="sale-detail-close" type="button">Close</button></div>
       </div>
       <div class="till-chargebar" id="till-chargebar"><div><div class="cb-total" id="cb-total">0.00</div><div class="cb-count" id="cb-count">No items yet</div></div><button id="cb-charge" type="button" disabled>Charge</button></div>
     </section>
@@ -262,6 +262,17 @@
     <button id="notice-close" type="button" aria-label="Dismiss">×</button>
   </div>
   <details id="notice-details"><summary>Details</summary><pre id="notice-json"></pre></details>
+</div>
+<div class="receipt-wrap" id="receipt-wrap" hidden>
+  <div class="receipt-dialog" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
+    <div class="receiptbar no-print"><h2 id="receipt-title">Receipt</h2>
+      <label class="receipt-size">Paper <select id="receipt-paper" aria-label="Paper size"><option value="80">80 mm receipt roll</option><option value="58">58 mm receipt roll</option><option value="a4">A4 sheet</option></select></label>
+      <button class="btn" id="receipt-print" type="button">Print</button>
+      <button class="btn ghostbtn" id="receipt-close" type="button">Close</button>
+    </div>
+    <p class="hint no-print" style="margin:0 0 10px">This is the print preview - what you see is what prints on the chosen paper.</p>
+    <div class="receipt-paper size-80" id="receipt-paper-view"></div>
+  </div>
 </div>
 <datalist id="locations"></datalist><datalist id="products"></datalist><datalist id="vendors"></datalist><datalist id="orders"></datalist><datalist id="bill-options"></datalist>
 <script src="/auth.js"></script>
