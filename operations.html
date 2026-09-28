@@ -61,10 +61,14 @@
         <div class="cardhead"><h2>Stock register</h2><span class="cardmeta" id="stock-count"></span></div><div class="toolbar" data-table="stock-table"><label class="search"><span>⌕</span><input type="search" placeholder="Search items or stores" aria-label="Search stock"></label><button class="filter-chip on" type="button" data-filter="all">All stock</button><button class="filter-chip" type="button" data-filter="low" title="Items under their reorder level in a store">Low stock</button><button class="export-btn" type="button">Export ▾</button></div>
         <div class="tablewrap">
           <table class="dt" id="stock-table">
-            <thead><tr><th>Item</th><th>Store</th><th class="num">On hand</th></tr></thead>
+            <thead><tr><th>Item</th><th>Store</th><th class="num">On hand</th><th class="num">Why</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
+      </div>
+      <div class="card tablecard" id="why-card" hidden>
+        <div class="cardhead"><h2 id="why-title">Why this number</h2><span class="cardmeta"><button class="filter-chip" id="why-close" type="button">Close</button></span></div>
+        <div class="tablewrap"><table class="dt" id="why-table"><thead><tr><th>When</th><th>What happened</th><th class="num">Change</th><th class="num">On hand after</th></tr></thead><tbody></tbody></table></div>
       </div>
       <div class="actions">
         <div class="card actioncard" id="move-card">
@@ -81,6 +85,15 @@
             <div class="stepper big"><button type="button" id="move-minus">&#8722;</button><b id="move-qty">1</b><button type="button" id="move-plus">+</button></div>
           </div>
           <div class="actionrow"><button class="btn primary" id="move-go" type="button" disabled>Move stock</button></div>
+        </div>
+        <div class="card actioncard" id="recount-card">
+          <h3>Recount a store</h3>
+          <p class="hint">Count what is actually on the shelf. Mosaic shows the difference for every item, then posts one reviewed adjustment - never a silent change.</p>
+          <div class="pick-label">Store</div>
+          <div class="chiprow" id="recount-store"></div>
+          <div id="recount-items"></div>
+          <div class="actionrow"><button class="btn primary" id="recount-go" type="button" disabled>Post recount</button></div>
+          <p class="hint" id="recount-result" role="status"></p>
         </div>
         <form class="card actioncard" id="add-location">
           <h3>Add a store</h3>
