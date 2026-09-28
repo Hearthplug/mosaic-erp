@@ -574,7 +574,7 @@ class H(BaseHTTPRequestHandler):
             return self.out(200,(ROOT/'assistant.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
         if p in ('/assistant.css','/assistant.js','/assist.css','/assist.js'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
-        if p in ('/interview.css','/retail.css','/accounting.css'):
+        if p in ('/interview.css','/accounting.css'):
             return self.out(200,(ROOT / p[1:]).read_text(encoding='utf-8'),'text/css; charset=utf-8',rid=rid) or 200
         if p == '/interview.js':
             return self.out(200, (ROOT / 'interview.js').read_text(encoding='utf-8'), 'application/javascript; charset=utf-8', rid=rid) or 200
@@ -591,13 +591,11 @@ class H(BaseHTTPRequestHandler):
         if p in ('/build.css','/build.js'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p == '/retail':
-            return self.out(200, (ROOT / 'retail.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
+            return self.out(302,'','text/plain; charset=utf-8',hdrs={'Location':'/operations','Cache-Control':'no-store'},rid=rid) or 302
         if p == '/accounting':
             return self.out(200, (ROOT / 'accounting.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
         if p == '/close':
             return self.out(200, (ROOT / 'close.html').read_text(encoding='utf-8'), 'text/html; charset=utf-8', rid=rid) or 200
-        if p == '/retail.js':
-            return self.out(200,(ROOT / 'retail.js').read_text(encoding='utf-8'),'application/javascript; charset=utf-8',rid=rid) or 200
         if p in ('/close.css','/close.js','/voice.js'):
             kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8';return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p == '/accounting.js':
@@ -694,6 +692,10 @@ class H(BaseHTTPRequestHandler):
             for v in agg.values():
                 q=v['on_hand']; v['on_hand']=format(q.normalize(),'f'); out.append(v)
             return self.out(200,{'rows':out},rid=rid) or 200
+        if p == '/api/retail/stock-movements':
+            wid, _, _ = self._auth('viewer'); product=qs.get('product_id',[None])[0]; location=qs.get('location_id',[None])[0]
+            if not product or not location: raise AuthError(400,'product_id and location_id are required')
+            return self.out(200,RETAIL.stock_movements(wid,product,location),rid=rid) or 200
         if p == '/api/retail/sales-list':
             wid, _, _ = self._auth('viewer')
             rows=STORE._db.execute("SELECT s.id,s.number,s.sold_at,s.status,s.currency,s.total_minor,s.paid_minor,l.code AS location_code,(SELECT COUNT(*) FROM sale_lines sl WHERE sl.sale_id=s.id) AS line_count FROM sales s JOIN locations l ON l.id=s.location_id WHERE s.workspace_id=? ORDER BY s.sold_at DESC LIMIT 50",(wid,)).fetchall()
@@ -910,6 +912,8 @@ class H(BaseHTTPRequestHandler):
             wid, actor, _ = self._auth('owner'); return self.out(201,ONBOARDING.start(wid,actor),rid=rid) or 201
         if p == '/api/onboarding/answer':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.answer(wid,actor,d['id'],d['key'],d['value']),rid=rid) or 200
+        if p == '/api/onboarding/modules':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.set_modules(wid,actor,d['id'],d.get('overrides') or {}),rid=rid) or 200
         if p == '/api/onboarding/apply':
             wid, actor, _ = self._auth('owner'); d=self._body()
             result=ONBOARDING.apply(wid,actor,d['id'])

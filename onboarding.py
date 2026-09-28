@@ -1,7 +1,7 @@
 """Layperson business interview. Owners describe their day; Mosaic infers the ERP."""
 import json,secrets
 from store import canon,utcnow,Conflict,NotFound
-from operational_profile import compile_profile,module_review
+from operational_profile import compile_profile,module_review,MODULE_INFO
 SCHEMA_VERSION=1
 QUESTIONS=[
  {'key':'business_name','text':'What do people call your business?','why':'Uses your real name throughout the system.','type':'text'},
@@ -69,10 +69,29 @@ class Onboarding:
   d=self.get(wid,x);a=d['answers'];a[key]=value;contr=detect(a);inf=infer(a);answered=set(a);nxt=next((q['key'] for q in QUESTIONS if q['key'] not in answered),None);status='needs_review' if contr else ('ready' if not nxt else 'in_progress')
   with self.s.tx():self.s._db.execute('UPDATE onboarding_sessions SET answers_json=?,inference_json=?,contradictions_json=?,current_question=?,status=?,updated_at=? WHERE id=?',(canon(a),canon(inf),canon(contr),nxt,status,utcnow(),x));self.s._audit(wid,actor,'onboarding.answer',{'id':x,'key':key,'status':status})
   return self.get(wid,x)
+ def set_modules(self,wid,actor,x,overrides):
+  valid={k for k,_,_ in MODULE_INFO}
+  unknown=set(overrides)-valid
+  if unknown:raise ValueError('unknown module: '+', '.join(sorted(unknown)))
+  d=self.get(wid,x)
+  if d['status']=='applied':raise Conflict('this setup is already live - use the reconfiguration below')
+  inf=d['inference']
+  compiled=set(compile_profile(map_answers(d['answers']))['enabled_modules'])
+  kept={k:bool(v) for k,v in (inf.get('module_overrides') or {}).items() if k in valid}
+  for k,v in overrides.items():
+   if bool(v)==(k in compiled):kept.pop(k,None)
+   else:kept[k]=bool(v)
+  final=(compiled|{k for k,v in kept.items() if v})-{k for k,v in kept.items() if not v}
+  inf['module_overrides']=kept
+  inf['module_review']=module_review(final)
+  with self.s.tx():self.s._db.execute('UPDATE onboarding_sessions SET inference_json=?,updated_at=? WHERE id=?',(canon(inf),utcnow(),x));self.s._audit(wid,actor,'onboarding.modules',{'id':x,'overrides':kept})
+  return self.get(wid,x)
  def apply(self,wid,actor,x):
   d=self.get(wid,x)
   if d['status']!='ready':raise Conflict('finish and review the interview before applying it')
-  profile=self.profiles.apply(wid,actor,map_answers(d['answers']))
+  reviewed={m['key'] for m in d['inference'].get('module_review',[]) if m['enabled']}
+  override=reviewed if (d['inference'].get('module_overrides') or d['inference'].get('module_review')) else None
+  profile=self.profiles.apply(wid,actor,map_answers(d['answers']),enabled_override=override)
   name=(d['answers'].get('business_name') or '').strip()
   with self.s.tx():
    self.s._db.execute("UPDATE onboarding_sessions SET status='applied',updated_at=? WHERE id=?",(utcnow(),x));self.s._audit(wid,actor,'onboarding.apply',{'id':x})
