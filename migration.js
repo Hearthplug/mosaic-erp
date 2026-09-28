@@ -1,5 +1,6 @@
 const $=s=>document.querySelector(s);let batch;let SCHEMAS={};
-const norm=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+const norm=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');const FIELD_LABEL={sku:'SKU - the item code (sku)',name:'Name (name)',selling_price_minor:'Selling price (selling_price_minor)',cost_minor:'Cost (cost_minor)',external_id:'ID from your old system (external_id)',account_code:'Account code (account_code)',balance_minor:'Balance (balance_minor)',normal:'Debit or credit (normal)',location_code:'Location code (location_code)',quantity:'Quantity (quantity)',unit_cost_minor:'Unit cost (unit_cost_minor)',customer_external_id:'Customer ID (customer_external_id)',vendor_external_id:'Supplier ID (vendor_external_id)',issue_date:'Issue date (issue_date)',total_minor:'Total (total_minor)'};
+
 function csvHeaders(text){let line='';for(const l of text.split(/\r?\n/)){if(l.trim()){line=l;break}}
  const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const c=line[i];
   if(q){if(c==='"'){if(line[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}
@@ -27,7 +28,7 @@ async function connect(){if(!MosaicAuth.require())return;try{const boot=await ap
 async function doStage(){batch=await api('/api/migrations/stage',{kind:$('#kind').value,source_system:$('#source').value,csv:$('#csv').value});showStage(batch,$('#kind').value);$('#apply').disabled=batch.status!=='validated';$('#rollback').disabled=true;$('#reviewfields').hidden=$('#kind').value!=='opening_balances'}
 function renderMap(missing){const hs=csvHeaders($('#csv').value);const rows=$('#maprows');rows.innerHTML='';
  missing.forEach(f=>{const row=document.createElement('div');row.className='maprow';
-  const lab=document.createElement('label');lab.textContent=f;lab.htmlFor='map-'+f;row.appendChild(lab);
+  const lab=document.createElement('label');lab.textContent=FIELD_LABEL[f]||f;lab.htmlFor='map-'+f;row.appendChild(lab);
   const sel=document.createElement('select');sel.id='map-'+f;sel.dataset.field=f;
   const blank=document.createElement('option');blank.value='';blank.textContent='Choose a column';sel.appendChild(blank);
   hs.forEach(h=>{if(!h)return;const o=document.createElement('option');o.value=h;o.textContent=h;sel.appendChild(o)});
