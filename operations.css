@@ -291,6 +291,8 @@ tr.po-picked td{background:var(--accent-soft)}
 .denom-total{text-align:right;color:var(--secondary);font-variant-numeric:tabular-nums;font-size:12px}
 .denom-sum{margin-top:4px;font-weight:600;text-align:right}
 .denom-coins{display:flex;flex-direction:column;gap:6px}
+#next-skip{margin-left:auto;font-size:12px;padding:4px 10px}
+.cardhead{gap:10px;flex-wrap:wrap}
 
 /* Receipt print preview */
 .receipt-wrap{position:fixed;inset:0;background:rgba(20,22,26,.55);display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;z-index:60;overflow-y:auto}

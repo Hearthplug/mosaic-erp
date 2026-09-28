@@ -159,6 +159,29 @@ function connect(){if(!MosaicAuth.require())return;
     safe('lists',()=>refreshLists(c));safe('till',()=>tillSetup(c.locations||[]));safe('move',moveSetup);safe('receipt',receiptSetup);safe('buying',()=>buySetup(c.vendors||[]));safe('money',cashSetup);
     Promise.all((c.locations||[]).map(l=>get('/api/retail/reorder?location_id='+encodeURIComponent(l.id)).then(r=>(r.items||[]).forEach(i=>{if(Number(i.suggested)>0)LOW_SET.add(l.id+':'+i.product_id)})).catch(()=>{}))).then(()=>renderStock());
     const ol=$('#next');ol.innerHTML='';ol.classList.remove('checklist');
+    const guideDone=localStorage.getItem('mosaicGuideDone')==='1';
+    const skipBtn=$('#next-skip');
+    const [salesRes,closesRes]=await Promise.all([get('/api/retail/sales-list').catch(()=>({rows:[]})),get('/api/dayclose/closes').catch(()=>({closes:[]}))]);
+    const hasSale=(salesRes.rows||[]).length>0;
+    const todayLocal=new Date().toLocaleDateString('en-CA');
+    const closedToday=(closesRes.closes||[]).some(x=>x.close_date===todayLocal);
+    const showGuide=!guideDone&&!hasSale;
+    skipBtn.hidden=!showGuide;
+    skipBtn.onclick=()=>{localStorage.setItem('mosaicGuideDone','1');connect()};
+    if(showGuide){
+      $('#next-title').textContent='Your first sale - about 5 minutes';
+      $('#next-meta').textContent='we tick each step as you finish it';
+      ol.classList.add('checklist');
+      const steps=[
+        {label:'Add a store to sell from',view:'stock',done:(c.locations||[]).length>0},
+        {label:'Add an item with its selling price',view:'buying',done:c.products.length>0},
+        {label:'Ring up your first bill on the counter',view:'sales',done:hasSale},
+        {label:'Close the day when the shop shuts',href:'/close',done:closedToday}
+      ];
+      steps.forEach(s=>{const li=document.createElement('li');li.className='todo-step'+(s.done?' done':'');li.textContent=s.label;li.onclick=()=>{if(s.href)location.href=s.href;else select(s.view)};ol.appendChild(li)});
+    }else{
+      $('#next-title').textContent='What\u2019s next';
+      $('#next-meta').textContent='from your live workspace';
     if(!c.products.length){
       ol.classList.add('checklist');
       const steps=[
@@ -181,6 +204,7 @@ function connect(){if(!MosaicAuth.require())return;
       if(unpaid)tasks.push({label:unpaid+(unpaid===1?' supplier bill':' supplier bills')+' unpaid',view:'buying'});
       if(!tasks.length){const li=document.createElement('li');li.className='todo-step done';li.textContent='All caught up';ol.appendChild(li)}
       tasks.forEach(t=>{const li=document.createElement('li');li.className='todo-step';li.textContent=t.label;li.onclick=()=>select(t.view);ol.appendChild(li)});
+    }
     }
     reload();refreshExport()
   }).catch(e=>{$('#state').textContent='Could not open workspace';notice(false,e.message)})}
