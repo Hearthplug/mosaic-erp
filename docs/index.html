@@ -20,7 +20,9 @@
 <meta name="twitter:description" content="A self-hosted retail ERP for inventory and core accounting, configured through a plain-English owner interview.">
 <meta name="twitter:image" content="https://mosaic-erp.pages.dev/assets/ml-workspace.png">
 <link rel="icon" href="assets/mosaic-logo.svg" type="image/svg+xml">
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","name":"Mosaic Shop Intelligence","applicationCategory":"BusinessApplication","applicationSubCategory":"Retail ERP software","operatingSystem":"Windows, macOS (Apple Silicon and Intel), Docker","description":"Open-source, self-hosted retail ERP for inventory, purchasing, sales and core accounting, configured through a plain-English owner interview.","softwareVersion":"2.1.7","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/Hearthplug/mosaic-erp","downloadUrl":"https://github.com/Hearthplug/mosaic-erp/releases/latest","url":"https://mosaic-erp.pages.dev/","image":"https://mosaic-erp.pages.dev/assets/ml-workspace.png","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Retail inventory management","Purchasing and receiving","Sales and returns","Supplier bills and payments","Bank reconciliation","Core accounting reports","Multi-store configuration","Plain-English ERP configuration"],"alternateName":"Mosaic Shop Intelligence by Hearthplug","author":{"@type":"Organization","name":"Hearthplug","url":"https://github.com/Hearthplug"},"publisher":{"@type":"Organization","name":"Hearthplug","url":"https://github.com/Hearthplug"},"sameAs":["https://github.com/Hearthplug/mosaic-erp","https://sourceforge.net/projects/mosaic-erp","https://www.producthunt.com/products/mosaic-erp","https://dev.to/hearthplug","https://www.youtube.com/@hearthplug"]},{"@type":"WebSite","name":"Mosaic Shop Intelligence","url":"https://mosaic-erp.pages.dev/"}]}</script>
+<script>/* The one place the hosted app URL lives - change it here when the app moves. */
+window.MOSAIC_APP_URL = 'https://mosaic-shop-intelligence.pages.dev';</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","name":"Mosaic Shop Intelligence","applicationCategory":"BusinessApplication","applicationSubCategory":"Retail ERP software","operatingSystem":"Windows, macOS (Apple Silicon and Intel), Docker","description":"Open-source retail ERP for inventory, purchasing, sales and core accounting, configured through a plain-English owner interview. Use the hosted app or self-host it.","softwareVersion":"2.1.7","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/Hearthplug/mosaic-erp","downloadUrl":"https://github.com/Hearthplug/mosaic-erp/releases/latest","url":"https://mosaic-erp.pages.dev/","image":"https://mosaic-erp.pages.dev/assets/ml-workspace.png","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Retail inventory management","Purchasing and receiving","Sales and returns","Supplier bills and payments","Bank reconciliation","Core accounting reports","Multi-store configuration","Plain-English ERP configuration"],"alternateName":"Mosaic Shop Intelligence by Hearthplug","author":{"@type":"Organization","name":"Hearthplug","url":"https://github.com/Hearthplug"},"publisher":{"@type":"Organization","name":"Hearthplug","url":"https://github.com/Hearthplug"},"sameAs":["https://github.com/Hearthplug/mosaic-erp","https://sourceforge.net/projects/mosaic-erp","https://www.producthunt.com/products/mosaic-erp","https://dev.to/hearthplug","https://www.youtube.com/@hearthplug"]},{"@type":"WebSite","name":"Mosaic Shop Intelligence","url":"https://mosaic-erp.pages.dev/"}]}</script>
 <style>
 :root{
   --ink:#0c1f19;
@@ -170,20 +172,20 @@ footer a:hover{color:var(--ink)}
     <a href="#story">How it works</a>
     <a href="#benefits">Benefits</a>
     <a href="#faq">Questions</a>
-    <a class="cta-nav" href="https://github.com/Hearthplug/mosaic-erp/releases/latest">Review the latest release</a>
+    <a class="cta-nav" data-app-link href="">Open the app</a>
   </div>
 </div></nav>
 
 <header class="hero" id="top"><div class="wrap">
-  <div class="eyebrow reveal">A business system shaped around your shop</div>
-  <h1 class="reveal">Free open-source ERP for small shops.<br><em>Shaped around yours.</em></h1>
-  <p class="lede reveal">Run Mosaic on the shop PC, or host it securely to check the shop from anywhere on a phone. Mosaic Shop Intelligence by Hearthplug is a free, self-hosted ERP for inventory, purchasing, sales and core accounting. Answer plain-English questions about how your shop works, and Mosaic configures the working system for your stores, channels, stock, credit, returns, staff and tax registration.</p>
+  <div class="eyebrow reveal">Shop intelligence for everyday shop owners</div>
+  <h1 class="reveal">Your shop's ERP, live in the browser.<br><em>Shaped around yours.</em></h1>
+  <p class="lede reveal">Mosaic Shop Intelligence by Hearthplug is an open-source (MIT) ERP for inventory, purchasing, sales and core accounting - also running hosted, so your shop is one sign-in away on any phone or computer. Answer plain-English questions about how your shop works, and Mosaic configures the working system for your stores, channels, stock, credit, returns, staff and tax registration. Sign in with Google, Microsoft, or email. You focus on your business - we take care of the technology.</p>
   <div class="actions reveal">
-    <a class="btn" href="https://mosaic-erp-demo.onrender.com/?ref=product-page">Try the live demo - no install</a>
-    <a class="btn alt" href="#download">Download Mosaic Shop Intelligence</a>
+    <a class="btn" data-app-link href="">Open the app</a>
+    <a class="btn alt" href="https://mosaic-erp-demo.onrender.com/?ref=product-page">Try the live demo first</a>
     <a class="btn alt" href="#story">See how it works</a>
   </div>
-  <p class="demo-note reveal">Free demo pre-loaded with a sample shop. It sleeps when idle, so give it about 20 seconds to wake up.</p>
+  <p class="demo-note reveal">The demo is pre-loaded with a sample shop and needs no sign-up. It sleeps when idle, so give it about 20 seconds to wake up.</p>
   <div class="shot reveal">
     <div class="frame"><img src="assets/ml-workspace.png" width="2880" height="1800" fetchpriority="high" decoding="async" alt="The real Mosaic Today screen for the demo store Northstar General Store, showing stock on hand, today's sales, recent bills and the next steps for the day"></div>
   </div>
@@ -195,6 +197,20 @@ footer a:hover{color:var(--ink)}
   <div><b>4 installers</b><span>Windows and Mac (Apple Silicon and Intel)</span></div>
   <div><b>Your data</b><span>exportable and self-hosted</span></div>
 </div></div>
+
+<section><div class="wrap">
+  <div class="sectionhead reveal">
+    <div class="eyebrow">Why owners pick Mosaic</div>
+    <h2>Made for shop owners, not IT teams.</h2>
+    <p>You focus on your business - Mosaic takes care of the technology.</p>
+  </div>
+  <div class="benefits">
+    <div class="benefit reveal"><h3>Set up by answering questions</h3><p>No consultants and no code: answer plain-English questions about your shop and Mosaic configures the working system, with every change reviewable before it applies.</p></div>
+    <div class="benefit reveal"><h3>We run the technology</h3><p>The hosted app is one sign-in away on any phone or computer - no servers, updates or installs for you to manage.</p></div>
+    <div class="benefit reveal"><h3>Your numbers stay yours</h3><p>Every report exports as a PDF or CSV/XLSX file, and the whole workspace exports too. Open source under the MIT license, so you can self-host the same system anytime.</p></div>
+    <div class="benefit reveal"><h3>Help that speaks plainly</h3><p>Built-in deterministic chat answers how-to questions without internet, the optional local assistant Preview runs on your own machine, and your own AI provider key works too.</p></div>
+  </div>
+</div></section>
 
 <section style="background:var(--white)"><div class="wrap">
   <div class="sectionhead reveal">
@@ -250,6 +266,18 @@ footer a:hover{color:var(--ink)}
   </div>
 </div></section>
 
+<section style="padding-top:36px"><div class="wrap">
+  <div class="sectionhead center reveal">
+    <div class="eyebrow">In motion</div>
+    <h2>Watch a real shop day.</h2>
+    <p>Recorded from the live app - the owner moves through Today, Sales and Stock. No mockups.</p>
+  </div>
+  <div class="shot reveal" style="margin-top:0">
+    <div class="frame" style="border-radius:var(--radius);padding:10px"><video autoplay muted loop playsinline preload="metadata" poster="assets/ml-motion-desktop-poster.jpg" width="1280" height="657" style="border-radius:12px;display:block;width:100%;height:auto" aria-label="Short recording of the real Mosaic app: the Today screen, the Sales screen and the Stock screen for the demo store"><source src="assets/ml-motion-desktop.webm" type="video/webm"><source src="assets/ml-motion-desktop.mp4" type="video/mp4"></video></div>
+    <div class="figure-note">Real footage from the running app - Today, Sales and Stock for the demo store</div>
+  </div>
+</div></section>
+
 <section style="background:var(--white)"><div class="wrap split">
   <div class="reveal">
     <div class="eyebrow">Step four</div>
@@ -292,7 +320,7 @@ footer a:hover{color:var(--ink)}
   <div class="sectionhead reveal">
     <div class="eyebrow">Retail ERP coverage</div>
     <h2>Inventory and accounting ERP for one store or many.</h2>
-    <p>Use one self-hosted system for multi-store retail inventory, purchasing, receiving, sales, returns, supplier bills, bank matching and core accounting reports. The owner interview configures the working ERP without requiring custom code.</p>
+    <p>Use one system - hosted or self-hosted - for multi-store retail inventory, purchasing, receiving, sales, returns, supplier bills, bank matching and core accounting reports. The owner interview configures the working ERP without requiring custom code.</p>
   </div>
   <div class="benefits">
     <div class="benefit reveal"><h3>Fit the system to the shop</h3><p>Grocery, fashion, electronics, pharmacy, beauty, specialty retail, services, multiple stores, online channels, credit, expiry, and warranty needs change how Mosaic configures your system.</p></div>
@@ -373,45 +401,26 @@ footer a:hover{color:var(--ink)}
   </details>
 </div></section>
 
-<section><div class="wrap">
+<section style="padding-top:36px"><div class="wrap">
   <div class="sectionhead center reveal">
     <div class="eyebrow">Anywhere</div>
     <h2>The same shop, in your phone browser.</h2>
     <p>Host Mosaic securely and the owner interview and daily work run in the phone browser over HTTPS - there is no separate mobile app to maintain.</p>
   </div>
-  <div class="shot reveal" style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin-top:0">
+  <div class="shot reveal" style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;align-items:flex-start;margin-top:0">
     <div class="frame" style="max-width:300px"><img src="assets/ml-mobile-chooser.png" width="780" height="2158" loading="lazy" decoding="async" alt="The Mosaic interview answer-shaping chooser in a phone browser, with Standard built in selected" style="width:100%;height:auto"></div>
     <div class="frame" style="max-width:300px"><img src="assets/ml-mobile-today.png" width="780" height="1688" loading="lazy" decoding="async" alt="The Mosaic Today screen in a phone browser, showing stock on hand, today's sales, open tills and next steps for Northstar General Store" style="width:100%;height:auto"></div>
+    <div class="frame" style="max-width:300px"><video autoplay muted loop playsinline preload="metadata" poster="assets/ml-motion-mobile-poster.jpg" width="390" height="547" style="display:block;width:100%;height:auto" aria-label="Short recording of the real Mosaic app in a phone browser: Today, Sales and Stock for the demo store"><source src="assets/ml-motion-mobile.webm" type="video/webm"><source src="assets/ml-motion-mobile.mp4" type="video/mp4"></video></div>
   </div>
-  <div class="figure-note" style="text-align:center">The real interview and Today screens in a phone browser - the same v2.1 product, no separate app</div>
-</div></section>
-
-<section id="download" style="background:var(--white)"><div class="wrap reveal">
-  <div class="eyebrow">Download</div>
-  <h2>Get Mosaic Shop Intelligence free.</h2>
-  <p class="lede">Open source under the MIT license. Mosaic runs on your own computer and your data stays with you. Not ready to install? <a href="https://mosaic-erp-demo.onrender.com/?ref=product-page-dl">Try the live demo first</a> - no download needed.</p>
-  <div class="actions" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
-    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-windows-x64-setup.exe">Download for Windows (installer)</a>
-    <a class="btn alt" href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-windows-x64.exe">Windows portable exe</a>
-    <a class="btn" href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-macos-arm64.dmg">Download for Mac (Apple Silicon)</a>
-    <a class="btn alt" href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-macos-x64.dmg">Mac (Intel)</a>
-  </div>
-  <p style="margin:14px 0 0">Not sure it fits? <a href="/fit-check">Take the 1-minute fit check</a>.</p>
-  <div style="max-width:640px;margin-top:22px">
-    <p style="margin:0 0 10px"><b>Windows may show a SmartScreen warning.</b> This early Windows app is not code-signed yet, so Windows can show a blue "Windows protected your PC" screen. Choose <b>More info</b>, then <b>Run anyway</b>. Mosaic then opens in your browser at a private localhost address, and your data stays on your computer.</p>
-    <p style="margin:0 0 10px"><b>Mac may say the app cannot be checked for malicious software.</b> This early Mac app is not signed with an Apple Developer ID yet, so Gatekeeper can block the first open. Open the downloaded dmg, drag Mosaic Shop Intelligence to Applications, then <b>right-click the app and choose Open</b>, and confirm with <b>Open</b> in the dialog. You only need to do this once. Apple Silicon (M1 and later) and Intel Macs each have their own download above.</p>
-    <p style="margin:0 0 10px"><b>Everything is included, including the assistant.</b> On first run Mosaic downloads the optional local assistant model (about 1.2 GB) in the background - the whole ERP and the built-in deterministic chat work while it downloads, and the assistant runs fully offline afterwards. Allow about 3 GB of free RAM when the local assistant is on.</p>
-    <p style="margin:0 0 10px"><b>Installing and removing.</b> The Windows installer puts Mosaic Shop Intelligence in Settings &gt; Apps with a normal Uninstall button - the uninstaller stops the app and its local assistant server, then asks whether to keep or delete your shop data. A portable Windows exe (no install) is also on the release page. On Mac, removal is: quit Mosaic Shop Intelligence, drag the app to Trash, and delete the MosaicERP folder under ~/Library/Application Support to remove shop data.</p>
-    <p style="margin:0"><b>Linux users:</b> the guided install works today - install Python 3, download the source, and run two commands. <a href="https://github.com/Hearthplug/mosaic-erp#start-locally">Follow the guided install</a>.</p>
-  </div>
+  <div class="figure-note" style="text-align:center">Real screens and footage in a phone browser - the same v2.1 product, no separate app</div>
 </div></section>
 
 <section class="cta"><div class="wrap reveal">
-  <h2>Review the latest release.</h2>
-  <p class="lede">Start with the two-command local evaluation. Use the source and evidence to plan a properly operated PostgreSQL production rollout.</p>
+  <h2>Your shop, one sign-in away.</h2>
+  <p class="lede">Open the hosted app and set up your shop by answering plain-English questions. Prefer your own hardware? The same system is free to download and self-host.</p>
   <div class="actions" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
-    <a class="btn" href="https://mosaic-erp-demo.onrender.com/?ref=product-page-bottom">Try the live demo - no install</a>
-    <a class="btn alt" href="https://github.com/Hearthplug/mosaic-erp/releases/latest">Review the latest product tree</a>
+    <a class="btn" data-app-link href="">Open the app</a>
+    <a class="btn alt" href="https://mosaic-erp-demo.onrender.com/?ref=product-page-bottom">Try the live demo - no install</a>
     <a class="btn alt" href="https://github.com/Hearthplug/mosaic-erp">Read the source and guides</a>
   </div>
 </div></section>
@@ -425,6 +434,16 @@ footer a:hover{color:var(--ink)}
     <a href="https://www.tiktok.com/@hearthplug">TikTok · @hearthplug</a>
     <a href="https://www.instagram.com/mosaicbyhearthplug/">Instagram · @mosaicbyhearthplug</a>
   </div>
+</div></section>
+
+<section style="padding:30px 0;background:var(--white)"><div class="wrap reveal" style="text-align:center;font-size:14px">
+  <b>Prefer your own computer?</b> Mosaic is open source (MIT) -
+  <a href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-windows-x64-setup.exe">Windows installer</a> ·
+  <a href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-windows-x64.exe">Windows portable</a> ·
+  <a href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-macos-arm64.dmg">Mac (Apple Silicon)</a> ·
+  <a href="https://github.com/Hearthplug/mosaic-erp/releases/latest/download/MosaicERP-macos-x64.dmg">Mac (Intel)</a> ·
+  <a href="https://github.com/Hearthplug/mosaic-erp#download-the-desktop-app">Install notes</a> ·
+  <a href="/fit-check">Fit check</a>
 </div></section>
 
 <footer><div class="wrap">
@@ -446,5 +465,8 @@ footer a:hover{color:var(--ink)}
 <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "e29c479cfc634e69b9da7a96c33cf1c7"}'></script>
 <!-- End Cloudflare Web Analytics -->
 <script>(function(){try{var r=new URLSearchParams(location.search).get('ref');if(r){var i=new Image();i.src='https://mosaic-erp.pages.dev/api/ref-hit?site=product&ref='+encodeURIComponent(r);}}catch(e){}})();</script>
+<script>
+document.querySelectorAll('a[data-app-link]').forEach(function(a){ a.href = window.MOSAIC_APP_URL; });
+</script>
 </body>
 </html>
