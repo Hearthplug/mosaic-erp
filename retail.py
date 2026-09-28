@@ -83,6 +83,13 @@ class Retail:
   self.s._audit(wid,actor,'sale.complete',{'id':sale,'number':number,'total_minor':total,'journal_id':journal['id'],'cogs_minor':cogs})
   return {'id':sale,'number':number,'total_minor':total,'paid_minor':paid,'journal_id':journal['id'],'cogs_minor':cogs}
 
+ def receipt(self,wid,sale_id):
+  s=self.s._db.execute("SELECT s.*,l.name AS location_name,l.code AS location_code,(SELECT name FROM workspaces WHERE id=s.workspace_id) AS company FROM sales s JOIN locations l ON l.id=s.location_id WHERE s.id=? AND s.workspace_id=?",(sale_id,wid)).fetchone()
+  if not s:raise NotFound('sale not found')
+  lines=[dict(x) for x in self.s._db.execute("SELECT sl.quantity,sl.unit_price_minor,sl.discount_minor,sl.tax_minor,sl.total_minor,p.name,p.sku FROM sale_lines sl JOIN retail_products p ON p.id=sl.product_id WHERE sl.sale_id=? ORDER BY sl.id",(sale_id,)).fetchall()]
+  tenders=[dict(t) for t in self.s._db.execute("SELECT kind,amount_minor FROM tender_entries WHERE sale_id=? AND workspace_id=? ORDER BY received_at,id",(sale_id,wid)).fetchall()]
+  return {'sale_id':sale_id,'number':s['number'],'sold_at':s['sold_at'],'status':s['status'],'currency':s['currency'],'company':s['company'] or '', 'store_name':s['location_name'],'store_code':s['location_code'],'lines':lines,'tenders':tenders,'subtotal_minor':s['subtotal_minor'],'tax_minor':s['tax_minor'],'total_minor':s['total_minor'],'paid_minor':s['paid_minor']}
+
  def set_credit(self,wid,actor,party_id,limit_minor,terms_days=0,blocked=False):
   with self.s.tx():
    self.s._db.execute('INSERT INTO credit_policies(workspace_id,party_id,limit_minor,terms_days,blocked) VALUES(?,?,?,?,?) ON CONFLICT(workspace_id,party_id) DO UPDATE SET limit_minor=excluded.limit_minor,terms_days=excluded.terms_days,blocked=excluded.blocked',(wid,party_id,int(limit_minor),int(terms_days),int(blocked)));self.s._audit(wid,actor,'credit.policy',{'party_id':party_id,'limit_minor':int(limit_minor),'blocked':blocked})
