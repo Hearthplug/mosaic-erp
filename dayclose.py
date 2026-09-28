@@ -105,7 +105,7 @@ def day_summary(store, wid, day):
         "GROUP BY t.kind", (wid, day_start, day_end)).fetchall()
     pos_paid = {'cash': 0, 'bank': 0}
     for r in tenders:
-        pos_paid['cash' if r['k'] == 'cash' else 'bank'] += int(r['t'])
+        pos_paid['cash' if r['k'] in ('cash', 'refund_cash') else 'bank'] += int(r['t'])
     credit = store._db.execute(
         "SELECT COALESCE(SUM(balance_minor),0) AS t FROM documents "
         "WHERE workspace_id=? AND kind='sales_invoice' AND status='posted' AND issue_date=? AND balance_minor>0",
