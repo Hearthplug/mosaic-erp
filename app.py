@@ -899,6 +899,8 @@ class H(BaseHTTPRequestHandler):
             wid, actor, _ = self._auth('owner'); return self.out(201,ONBOARDING.start(wid,actor),rid=rid) or 201
         if p == '/api/onboarding/answer':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.answer(wid,actor,d['id'],d['key'],d['value']),rid=rid) or 200
+        if p == '/api/onboarding/modules':
+            wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(200,ONBOARDING.set_modules(wid,actor,d['id'],d.get('overrides') or {}),rid=rid) or 200
         if p == '/api/onboarding/apply':
             wid, actor, _ = self._auth('owner'); d=self._body()
             result=ONBOARDING.apply(wid,actor,d['id'])
