@@ -38,10 +38,41 @@ const sf=$('#sales-from'),sto=$('#sales-to');if(sf){sf.onchange=()=>{SALES_FROM=
 addEventListener('hashchange',()=>select(location.hash.slice(1)));
 
 function renderStock(){const rows=LISTS.stock.map(r=>{const tr=document.createElement('tr');if(LOW_SET.has(r.location_id+':'+r.product_id))tr.dataset.low='1';
-  tr.appendChild(cell(r.name,'',r.sku));tr.appendChild(cell(r.location_name,'',r.location_code));tr.appendChild(cell(fmtQty(r.on_hand)+(r.unit&&r.unit!=='each'?' '+r.unit:''),'num'));return tr});
+  tr.appendChild(cell(r.name,'',r.sku));tr.appendChild(cell(r.location_name,'',r.location_code));tr.appendChild(cell(fmtQty(r.on_hand)+(r.unit&&r.unit!=='each'?' '+r.unit:''),'num'));
+  const wb=document.createElement('button');wb.type='button';wb.className='filter-chip';wb.textContent='Why?';wb.title='Every movement that makes this number';wb.onclick=()=>whyOpen(r);
+  const wt=document.createElement('td');wt.className='num';wt.appendChild(wb);tr.appendChild(wt);return tr});
   fill('stock-table',rows,'No items yet. Your first delivery appears here.');
   $('#stock-count').textContent=LISTS.stock.length?LISTS.stock.length+' rows':'';
-  $('#kpi-stock').textContent=LISTS.stock.length?fmtQty(LISTS.stock.reduce((a,r)=>a+Number(r.on_hand||0),0)):'0';if($('#move-tiles'))moveRender()}
+  $('#kpi-stock').textContent=LISTS.stock.length?fmtQty(LISTS.stock.reduce((a,r)=>a+Number(r.on_hand||0),0)):'0';if($('#move-tiles'))moveRender();recountStores()}
+const KIND_LABEL={opening:'Opening stock',purchase:'Delivery received',receipt:'Delivery received',sale:'Sale',return:'Customer return',transfer_in:'Moved in from another store',transfer_out:'Moved to another store',count_adjustment:'Recount adjustment'};
+function whyOpen(r){get('/api/retail/stock-movements?product_id='+encodeURIComponent(r.product_id)+'&location_id='+encodeURIComponent(r.location_id)).then(j=>{
+  $('#why-title').textContent='Why '+r.name+' at '+r.location_name+' is '+fmtQty(j.on_hand);
+  const rows=j.movements.map(m=>{const tr=document.createElement('tr');
+   let what=KIND_LABEL[m.kind]||m.kind;if(m.sale_number)what+=' '+m.sale_number;else if(m.po_number)what+=' '+m.po_number;
+   tr.appendChild(cell(fmtWhen(m.effective_at)));tr.appendChild(cell(what));
+   const d=Number(m.quantity_delta);tr.appendChild(cell((d>0?'+':'')+fmtQty(m.quantity_delta),'num'));tr.appendChild(cell(fmtQty(m.balance_after),'num'));return tr});
+  fill('why-table',rows,'No movements yet.');$('#why-card').hidden=false;$('#why-card').scrollIntoView({behavior:'smooth',block:'nearest'})}).catch(e=>notice(false,e.message))}
+let RECOUNT_STORE='';
+function recountStores(){const box=$('#recount-store');if(!box)return;const seen={};LISTS.stock.forEach(r=>{seen[r.location_id]=r.location_name});box.innerHTML='';
+ Object.keys(seen).forEach(lid=>{const b=document.createElement('button');b.type='button';b.className='filter-chip'+(RECOUNT_STORE===lid?' on':'');b.textContent=seen[lid];b.onclick=()=>{RECOUNT_STORE=lid;$('#recount-result').textContent='';recountStores();recountItems()};box.appendChild(b)});recountItems()}
+function recountItems(){const wrap=$('#recount-items');if(!wrap)return;wrap.innerHTML='';
+ if(!RECOUNT_STORE){$('#recount-go').disabled=true;return}
+ LISTS.stock.filter(r=>r.location_id===RECOUNT_STORE).forEach(r=>{
+  const row=document.createElement('div');row.className='recount-row';
+  const lab=document.createElement('span');lab.className='recount-name';lab.textContent=r.name;
+  const exp=document.createElement('span');exp.className='recount-exp';exp.textContent='register '+fmtQty(r.on_hand);
+  const inp=document.createElement('input');inp.type='number';inp.min='0';inp.step='any';inp.placeholder='counted';inp.setAttribute('aria-label','Counted '+r.name);inp.dataset.pid=r.product_id;
+  const v=document.createElement('span');v.className='recount-var';
+  inp.oninput=()=>{if(inp.value===''){v.textContent=''}else{const d=Number(inp.value)-Number(r.on_hand);v.textContent=(d>0?'+':'')+fmtQty(d);v.style.color=d?'#c94b25':'inherit'}recountReady()};
+  row.appendChild(lab);row.appendChild(exp);row.appendChild(inp);row.appendChild(v);wrap.appendChild(row)});
+ recountReady()}
+function recountReady(){$('#recount-go').disabled=![...document.querySelectorAll('#recount-items input')].some(i=>i.value!=='')}
+$('#why-close').onclick=()=>{$('#why-card').hidden=true};
+$('#recount-go').onclick=()=>{const counts={};document.querySelectorAll('#recount-items input').forEach(i=>{if(i.value!=='')counts[i.dataset.pid]=i.value});
+ api('/api/retail/counts',{location_id:RECOUNT_STORE,counts}).then(x=>{
+  const n=Object.keys(counts).length;
+  $('#recount-result').textContent='Recount posted for '+n+(n===1?' item':' items')+'. Every difference is now in the item\u2019s stock story under Why?, reviewed by you.';
+  get('/api/retail/stock-register').then(j=>{LISTS.stock=j.rows;renderStock()})}).catch(e=>{$('#recount-result').textContent=e.message})};
 let SALES_FROM='',SALES_TO='';
 function renderSales(){const vis=LISTS.sales.filter(r=>{const d=(r.sold_at||'').slice(0,10);return (!SALES_FROM||d>=SALES_FROM)&&(!SALES_TO||d<=SALES_TO)});const rows=vis.map(r=>{const tr=document.createElement('tr');tr.className='sale-openable';tr.title='Tap to see the bill or refund items';tr.onclick=()=>openSaleDetail(r.id);
   tr.appendChild(cell(r.number,'cell-main'));tr.appendChild(cell(fmtWhen(r.sold_at)));tr.appendChild(cell(r.location_code));tr.appendChild(cell(String(r.line_count),'num'));tr.appendChild(cell(fmtMoney(r.total_minor,r.currency),'num'));tr.appendChild(cell(fmtMoney(r.paid_minor,r.currency),'num'));tr.appendChild(pillCell(r.status));return tr});

@@ -692,6 +692,10 @@ class H(BaseHTTPRequestHandler):
             for v in agg.values():
                 q=v['on_hand']; v['on_hand']=format(q.normalize(),'f'); out.append(v)
             return self.out(200,{'rows':out},rid=rid) or 200
+        if p == '/api/retail/stock-movements':
+            wid, _, _ = self._auth('viewer'); product=qs.get('product_id',[None])[0]; location=qs.get('location_id',[None])[0]
+            if not product or not location: raise AuthError(400,'product_id and location_id are required')
+            return self.out(200,RETAIL.stock_movements(wid,product,location),rid=rid) or 200
         if p == '/api/retail/sales-list':
             wid, _, _ = self._auth('viewer')
             rows=STORE._db.execute("SELECT s.id,s.number,s.sold_at,s.status,s.currency,s.total_minor,s.paid_minor,l.code AS location_code,(SELECT COUNT(*) FROM sale_lines sl WHERE sl.sale_id=s.id) AS line_count FROM sales s JOIN locations l ON l.id=s.location_id WHERE s.workspace_id=? ORDER BY s.sold_at DESC LIMIT 50",(wid,)).fetchall()
