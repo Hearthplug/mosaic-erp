@@ -692,6 +692,10 @@ class H(BaseHTTPRequestHandler):
             for v in agg.values():
                 q=v['on_hand']; v['on_hand']=format(q.normalize(),'f'); out.append(v)
             return self.out(200,{'rows':out},rid=rid) or 200
+        if p == '/api/retail/receipt':
+            wid, _, _ = self._auth('viewer'); sale=qs.get('sale_id',[None])[0]
+            if not sale: raise AuthError(400,'sale_id is required')
+            return self.out(200,RETAIL.receipt(wid,sale),rid=rid) or 200
         if p == '/api/retail/stock-movements':
             wid, _, _ = self._auth('viewer'); product=qs.get('product_id',[None])[0]; location=qs.get('location_id',[None])[0]
             if not product or not location: raise AuthError(400,'product_id and location_id are required')
