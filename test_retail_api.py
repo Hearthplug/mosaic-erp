@@ -19,7 +19,7 @@ class API(unittest.TestCase):
   self.assertEqual(r['on_hand'],'4');self.assertEqual(len(r['movements']),2)
   sale,rcpt=r['movements']
   self.assertEqual((sale['kind'],sale['quantity_delta'],sale['balance_after']),('sale','-1','4'));self.assertTrue(sale['sale_number'])
-  self.assertEqual((rcpt['kind'],rcpt['quantity_delta'],rcpt['balance_after']),('receipt','5','5'));self.assertTrue(rcpt['po_number'])
+  self.assertEqual((rcpt['kind'],rcpt['quantity_delta'],rcpt['balance_after']),('receipt','5','5'));self.assertTrue(rcpt['po_number']);_,po2=call(self.p,'POST','/api/retail/purchases',{'vendor_id':v['id'],'location_id':l['id'],'ordered_on':'2026-09-17','lines':[{'product_id':p['id'],'quantity':'100','unit_cost_minor':300}]},k);call(self.p,'POST','/api/retail/purchases/approve',{'purchase_order_id':po2['id']},k);line2=app.STORE._db.execute('SELECT id FROM purchase_order_lines WHERE purchase_order_id=?',(po2['id'],)).fetchone()['id'];call(self.p,'POST','/api/retail/purchases/receive',{'purchase_order_id':po2['id'],'received':{line2:'100'}},k);_,r2=call(self.p,'GET',f"/api/retail/stock-movements?product_id={p['id']}&location_id={l['id']}",key=k);self.assertEqual(r2['movements'][0]['quantity_delta'],'100');self.assertEqual(r2['on_hand'],'104')
  def test_register_endpoints_require_auth_and_return_rows(self):
   for path in ('/api/retail/stock-register','/api/retail/sales-list','/api/retail/purchases-list','/api/retail/cash-sessions'):
    try:call(self.p,'GET',path)

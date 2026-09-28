@@ -114,7 +114,7 @@ class Retail:
   bal=Decimal('0');out=[]
   for r in rows:
    bal+=Decimal(str(r['quantity_delta']))
-   out.append({'id':r['id'],'effective_at':r['effective_at'],'kind':r['kind'],'quantity_delta':str(Decimal(str(r['quantity_delta'])).normalize()),'balance_after':format(bal.normalize(),'f'),'source_type':r['source_type'],'sale_number':r['sale_number'],'po_number':r['po_number']})
+   out.append({'id':r['id'],'effective_at':r['effective_at'],'kind':r['kind'],'quantity_delta':format(Decimal(str(r['quantity_delta'])).normalize(),'f'),'balance_after':format(bal.normalize(),'f'),'source_type':r['source_type'],'sale_number':r['sale_number'],'po_number':r['po_number']})
   out.reverse();return {'movements':out[:int(limit)],'on_hand':format(bal.normalize(),'f')}
  def count_stock(self,wid,actor,location_id,counts,approved_by):
   cid=ident('cnt')
