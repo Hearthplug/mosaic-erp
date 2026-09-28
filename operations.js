@@ -7,9 +7,21 @@ const VIEWS={
   money:{title:'Money',sub:'Tills (cash drawers) and period locks (stopping changes to a finished month).'}
 };
 let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='USD',LOW_SET=new Set();
+const PREVIEW_SESSION=new URLSearchParams(location.search).get('preview');
+const MODULE_RAIL_GATES={inventory:'stock',sales:'sales',purchasing:'buying',finance:'money'};
+function applyProfile(prof,ccy){
+  if(!prof)return;
+  const mods=new Set(prof.enabled_modules||[]);
+  $$('.rail-item[data-view]').forEach(b=>{const gate=Object.keys(MODULE_RAIL_GATES).find(k=>MODULE_RAIL_GATES[k]===b.dataset.view);if(gate)b.hidden=!mods.has(gate)});
+  const saleWord=((prof.terminology||{}).sale)||'Sale';
+  const railSales=$('.rail-item[data-view="sales"]');
+  if(railSales&&railSales.lastChild&&railSales.lastChild.nodeType===3)railSales.lastChild.textContent=saleWord==='Sale'?'Sales':saleWord+'s';
+  VIEWS.sales.title=saleWord==='Sale'?'Sales':saleWord+'s';
+  if(ccy){CURRENCY=ccy;updateMoneyLabels()}
+}
 let IDBY_LABEL={},PO_LINES={};
 
-function api(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}).then(r=>r.json().then(j=>{if(r.status===401){MosaicAuth.expired();throw Error('Signed out')};if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
+function api(path,body){if(PREVIEW_SESSION){notice(false,'Preview only - nothing is saved');return Promise.reject(Error('Preview only'))}return fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...MosaicAuth.headers},body:JSON.stringify(body)}).then(r=>r.json().then(j=>{if(r.status===401){MosaicAuth.expired();throw Error('Signed out')};if(!r.ok)throw Error(j.error||'Could not complete');return j}))}
 function get(path){return fetch(path,{headers:MosaicAuth.headers}).then(r=>{if(r.status===401){MosaicAuth.clear();throw Error('Signed out')}if(!r.ok)throw Error('Could not load');return r.json()})}
 function data(f){return Object.fromEntries(new FormData(f))}
 function esc(x){return String(x==null?'':x)}
@@ -149,6 +161,9 @@ function refreshExport(){return get('/api/retail/export').then(x=>{EXP=x;PO_LINE
 function productLabel(id){const o=IDBY_LABEL['prodbyid:'+id];return o||id}
 function updateMoneyLabels(){document.querySelectorAll('label').forEach(l=>{if(['Cash received','Unit cost','Amount'].includes(l.childNodes[0].textContent.trim()))l.childNodes[0].textContent=l.childNodes[0].textContent.trim()+' ('+CURRENCY+')'})}
 function connect(){if(!MosaicAuth.require())return;
+  if(PREVIEW_SESSION&&!$('.preview-banner')){const bar=document.createElement('div');bar.className='preview-banner';bar.textContent='Preview - nothing is saved. This is how the app will look after you apply the new setup.';document.body.prepend(bar);document.body.classList.add('preview-mode')}
+  if(PREVIEW_SESSION){get('/api/onboarding/review-preview?id='+encodeURIComponent(PREVIEW_SESSION)).then(p=>applyProfile(p.profile,p.currency)).catch(e=>notice(false,'Could not load the preview: '+e.message))}
+  else{get('/api/operations/profile').then(p=>{if(p.profile)applyProfile(p.profile)}).catch(()=>{})}
   let identity=JSON.parse(localStorage.getItem('mosaicIdentity')||'{}');
   $('#company').textContent=identity.workspace_name||'Your company';
   if(!identity.workspace_name)get('/api/workspace').then(w=>{if(w&&w.name)$('#company').textContent=w.name}).catch(()=>{});

@@ -356,3 +356,4 @@ tr.po-picked td{background:var(--accent-soft)}
 .recount-row:last-child{border-bottom:0}.recount-name{font-weight:600}.recount-exp{color:var(--secondary);font-size:11.5px;white-space:nowrap}.recount-var{font-size:11.5px;text-align:right;font-variant-numeric:tabular-nums}
 .recount-row input{height:32px;border:1px solid var(--hairline-strong);border-radius:7px;padding:0 8px;font:13px var(--font);width:100%;min-width:0}
 @media(max-width:560px){.recount-row{grid-template-columns:minmax(0,1fr) 76px 44px}.recount-exp{display:none}}
+.preview-banner{position:sticky;top:0;z-index:40;background:var(--accent);color:#fff;font-weight:600;font-size:13px;padding:8px 16px;text-align:center}
