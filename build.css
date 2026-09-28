@@ -86,3 +86,4 @@
 @media(max-width:760px){.voicechips{flex-direction:column;align-items:stretch}.voicechip{width:100%}}
 #file-result{margin-top:12px}
 #file-result-actions{margin-top:10px}
+.billqtynote{font-weight:400;font-size:11px;color:var(--secondary)}
