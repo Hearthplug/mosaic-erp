@@ -1,0 +1,45 @@
+{
+ "schema": "mosaic.intake-e1.evidence.v1",
+ "round": 2,
+ "date": "2026-09-28",
+ "kaggle_notebook": "https://www.kaggle.com/code/ziasiy/intake-e1-round2",
+ "kaggle_run_version": 2,
+ "kaggle_run_seconds": 6509.4,
+ "kaggle_run_status": "successful",
+ "adapter_dataset": "https://www.kaggle.com/datasets/ziasiy/mosaic-intake-e1-round2-adapter",
+ "hardware": "Kaggle GPU T4 x2 (free quota)",
+ "dataset_sha256": "1ebedb5fed596a51972b80d0db7695f2b413d5747defc4f109d0949e12b011d7",
+ "adapter_manifest": {
+  "schema": "mosaic.checkpoint.v3",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+  "train_records": 1185,
+  "development_records": 237,
+  "seed": 20261001,
+  "response_only_loss": true,
+  "prior_validation_loaded": false,
+  "hidden_test_loaded": false
+ },
+ "training": {
+  "steps": "114/114",
+  "epochs": 3.0,
+  "train_runtime_seconds": 5182.2,
+  "train_loss": 0.19821564323808016,
+  "final_eval_loss": 0.05424731224775314,
+  "final_eval_mean_token_accuracy": 0.988674887589046
+ },
+ "dev_eval": {
+  "records": 237,
+  "parse_failures": 0,
+  "label_accuracy": 0.810126582278481,
+  "exact_overall_rate": 0.679324894514768,
+  "mapping_exact_rate": 0.7974683544303798,
+  "missing_exact_rate": 0.9324894514767933,
+  "clarify_precision": 0.9636363636363636,
+  "clarify_recall": 0.8548387096774194
+ },
+ "notes": [
+  "Development metrics only; not a promotion gate. Hidden test and unsafe fail-closed evidence are separate and not yet generated.",
+  "Version 1 failed at 3m47s on the torchvision::nms import chain; Version 2 added the setup-cell torchvision uninstall that the builder now emits."
+ ]
+}
