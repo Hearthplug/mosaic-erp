@@ -1023,6 +1023,13 @@ class H(BaseHTTPRequestHandler):
             wid, actor, _ = self._auth('editor'); d=self._body(); return self.out(200,build_bills.draft_from_extraction(STORE,wid,d.get('extraction') or {}),rid=rid) or 200
         if p == '/api/build/record-bill':
             d=self._body(); wid, actor, _ = self._operational_auth('document.post','owner'); return self.out(201,build_bills.record_bill(STORE,BOOKS,wid,actor,d),rid=rid) or 201
+        if p == '/api/build/bill-stock-draft':
+            wid, _, _ = self._auth('editor'); d=self._body(); return self.out(200,build_bills.stock_draft(STORE,wid,d.get('lines') or []),rid=rid) or 200
+        if p == '/api/build/record-bill-stock':
+            d=self._body()
+            lines=d.get('lines') or []
+            total=sum(int((Decimal(str(x.get('quantity','1')))*int(x.get('unit_cost_minor') or 0)).quantize(Decimal('1'))) for x in lines) if lines else 0
+            wid, actor, _ = self._operational_auth('purchase.approve','owner',d.get('location_id'),total); return self.out(201,build_bills.record_bill_stock(STORE,BOOKS,RETAIL,wid,actor,d),rid=rid) or 201
         if p == '/api/build/register-draft':
             wid, actor, _ = self._auth('editor'); d=self._body()
             if d.get('csv'):return self.out(200,build_registers.draft_from_csv(STORE,wid,d.get('register',''),d['csv']),rid=rid) or 200
