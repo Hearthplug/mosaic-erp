@@ -643,6 +643,9 @@ class H(BaseHTTPRequestHandler):
             return self.out(200, (ROOT / 'interview.js').read_text(encoding='utf-8'), 'application/javascript; charset=utf-8', rid=rid) or 200
         if p == '/operations':
             return self.out(200,(ROOT/'operations.html').read_text(encoding='utf-8'),'text/html; charset=utf-8',rid=rid) or 200
+        if p in ('/mobile-nav.css','/mobile-nav.js'):
+            kind='text/css; charset=utf-8' if p.endswith('.css') else 'application/javascript; charset=utf-8'
+            return self.out(200,(ROOT/p[1:]).read_text(encoding='utf-8'),kind,rid=rid) or 200
         if p == '/operations.css':
             return self.out(200,(ROOT/'operations.css').read_text(encoding='utf-8'),'text/css; charset=utf-8',rid=rid) or 200
         if p in ('/settings.js','/settings.css'):
