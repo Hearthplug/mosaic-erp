@@ -775,6 +775,17 @@ class H(BaseHTTPRequestHandler):
             wid, _, _ = self._auth('viewer')
             rows=STORE._db.execute('SELECT id,name,query FROM saved_reports WHERE workspace_id=? ORDER BY created_at DESC LIMIT 50',(wid,)).fetchall()
             return self.out(200,{'reports':[dict(r) for r in rows]},rid=rid) or 200
+        if p == '/api/dashboards':
+            wid, _, _ = self._auth('viewer')
+            rows=STORE._db.execute('SELECT id,name,query FROM dashboards WHERE workspace_id=? ORDER BY created_at ASC LIMIT 24',(wid,)).fetchall()
+            cur=BOOKS.status(wid).get('base_currency','USD')
+            cards=[]
+            for r in rows:
+                parsed=custom_report.parse(r['query'])
+                if 'clarify' in parsed:
+                    cards.append({'id':r['id'],'name':r['name'],'query':r['query'],'error':parsed['clarify']}); continue
+                c=custom_report.card(STORE,wid,parsed,cur); c.update({'id':r['id'],'name':r['name'],'query':r['query']}); cards.append(c)
+            return self.out(200,{'dashboards':cards},rid=rid) or 200
         if p == '/api/dayclose/closes':
             wid, _, _ = self._auth('viewer'); return self.out(200, {'closes': dayclose.list_closes(STORE, wid)}, rid=rid) or 200
         if p == '/api/dayclose/share':
@@ -1048,6 +1059,25 @@ class H(BaseHTTPRequestHandler):
         if p == '/api/reports/saved/delete':
             wid, _, _ = self._auth('editor'); d=self._body()
             STORE._db.execute('DELETE FROM saved_reports WHERE workspace_id=? AND id=?',(wid,d.get('id',''))); STORE._db.commit()
+            return self.out(200,{'deleted':True},rid=rid) or 200
+        if p == '/api/dashboards':
+            wid, _, _ = self._auth('editor'); d=self._body()
+            query=(d.get('query') or '').strip()
+            if not query: raise ValueError('Describe the dashboard you want, like "sales by item last month".')
+            parsed=custom_report.parse(query)
+            if 'clarify' in parsed: return self.out(200,parsed,rid=rid) or 200
+            if STORE._db.execute('SELECT COUNT(*) AS c FROM dashboards WHERE workspace_id=?',(wid,)).fetchone()['c']>=12: raise ValueError('You already have 12 dashboards. Remove one before adding another.')
+            cur=BOOKS.status(wid).get('base_currency','USD')
+            card=custom_report.card(STORE,wid,parsed,cur)
+            import secrets
+            did='dash_'+secrets.token_hex(8)
+            name=(d.get('name') or '').strip() or card['title']
+            STORE._db.execute('INSERT INTO dashboards(id,workspace_id,name,query,created_at) VALUES(?,?,?,?,?)',(did,wid,name,query,utcnow())); STORE._db.commit()
+            card.update({'id':did,'name':name,'query':query})
+            return self.out(201,card,rid=rid) or 201
+        if p == '/api/dashboards/delete':
+            wid, _, _ = self._auth('editor'); d=self._body()
+            STORE._db.execute('DELETE FROM dashboards WHERE workspace_id=? AND id=?',(wid,d.get('id',''))); STORE._db.commit()
             return self.out(200,{'deleted':True},rid=rid) or 200
         if p == '/api/migrations/stage':
             wid, actor, _ = self._auth('owner'); d=self._body(); return self.out(201,MIGRATIONS_API.stage(wid,actor,d['kind'],d['csv'],d.get('source_system','upload')),rid=rid) or 201
