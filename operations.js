@@ -4,7 +4,7 @@ const VIEWS={
   stock:{title:'Stock',sub:'What you have, and where it is.'},
   sales:{title:'Sales',sub:'Every bill, payment and refund.'},
   buying:{title:'Buying',sub:'Orders, deliveries and supplier bills.'},
-  money:{title:'Money',sub:'Tills (cash drawers) and period locks (stopping changes to a finished month).'}
+  money:{title:'Money',sub:'Open and close tills, and check cash.'}
 };
 let LISTS={stock:[],sales:[],buying:[],money:[]},CURRENCY='USD',LOW_SET=new Set();
 const PREVIEW_SESSION=new URLSearchParams(location.search).get('preview');
@@ -240,6 +240,8 @@ $('#bill-match').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/
 $('#add-vendor').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/accounting/parties',{kind:'vendor',name:d.name},'Supplier added');e.target.reset()};
 $('#add-item').onsubmit=e=>{e.preventDefault();let d=data(e.target);run('/api/retail/products',{sku:d.sku,name:d.name,selling_price_minor:Math.round(+d.price*100),cost_minor:Math.round(+d.cost*100),...(d.barcode?{barcode:d.barcode}:{})},'Item added');e.target.reset()};
 const periodChips=$('#period-chips'),periodLockId=$('#period-lock-id'),periodLockBtn=$('#close button[type=submit]');
+const periodLockOpen=$('#period-lock-open'),periodLockCard=$('#close');
+periodLockOpen.onclick=()=>{const show=periodLockOpen.getAttribute('aria-expanded')!=='true';periodLockOpen.setAttribute('aria-expanded',String(show));periodLockCard.hidden=!show;if(show)periodLockCard.scrollIntoView({behavior:'smooth',block:'nearest'})};
 const loadPeriods=async()=>{const ps=await get('/api/accounting/periods');periodChips.innerHTML='';const today=new Date().toISOString().slice(0,10);const open=ps.filter(p=>p.status==='open');const lockable=open.filter(p=>p.ends_on<today);const running=open.filter(p=>p.ends_on>=today);if(!lockable.length){periodChips.innerHTML='<span class="hint">No finished periods to lock yet</span>';}lockable.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=p.name+' ('+p.starts_on+' to '+p.ends_on+')';b.onclick=()=>{periodChips.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));b.classList.add('on');periodLockId.value=p.id;periodLockBtn.disabled=false;};periodChips.appendChild(b);});running.forEach(p=>{const s=document.createElement('span');s.className='hint';s.textContent=p.name+' is still running - it can be locked after '+p.ends_on+'.';periodChips.appendChild(s);});};
 $('#close').onsubmit=e=>{e.preventDefault();if(!periodLockId.value)return;run('/api/accounting/periods/lock',{period_id:periodLockId.value},'Period locked').then(()=>{periodLockId.value='';periodLockBtn.disabled=true;loadPeriods();});};
 loadPeriods();

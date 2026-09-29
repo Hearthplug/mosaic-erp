@@ -371,3 +371,9 @@ tr.po-picked td{background:var(--accent-soft)}
 #recount-go:disabled{opacity:1;background:#f0ede6;border-color:#b7b7b1;color:#404640;box-shadow:none;cursor:not-allowed}
 #recount-go:disabled:hover{background:#f0ede6;border-color:#b7b7b1}
 #recount-items input::placeholder{color:#515750;opacity:1}
+
+/* A period lock is rare: keep till work prominent and open the lock on demand. */
+.money-period-actions{margin-top:16px}
+.money-period-actions>.btn{min-height:40px}
+.money-period-actions>.btn[aria-expanded="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.money-period-actions>.actioncard{max-width:650px;margin-top:12px}

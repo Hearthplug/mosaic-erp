@@ -266,7 +266,10 @@
           <div class="till-change" id="cash-diff"></div>
           <div class="actionrow"><button class="btn primary" id="cash-close-go" type="button" disabled>Close till</button></div>
         </div>
-        <form class="card actioncard" id="close">
+      </div>
+      <div class="money-period-actions">
+        <button class="btn" id="period-lock-open" type="button" aria-expanded="false" aria-controls="close">Lock a finished period</button>
+        <form class="card actioncard" id="close" hidden>
           <h3>Lock a finished period</h3>
           <p class="hint">Locking stops any changes to that month's books - new sales and refunds can no longer be recorded in it. Lock only after the period has ended and you have checked the books match your bank and cash.</p>
           <div class="pick-label">Open period</div>
