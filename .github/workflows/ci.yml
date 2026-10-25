@@ -9,7 +9,7 @@ jobs:
   source-and-deployment:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
         with: {version: v3.18.6}
       - run: pip install --requirement requirements.txt
@@ -40,6 +40,6 @@ jobs:
     env:
       MOSAIC_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/mosaic?sslmode=disable
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - run: pip install --requirement requirements.txt
       - run: python3 -m unittest test_postgres_integration test_postgres_erp_live
