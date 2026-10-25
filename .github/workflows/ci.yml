@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: azure/setup-helm@bf6a7d304bc2fdb57e0331155b7ebf2c504acf0a
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
         with: {version: v3.18.6}
       - run: pip install --requirement requirements.txt
       - run: python3 -m unittest test_customization test_persistence test_postgres_contract test_auth_experience test_oauth test_operational_rbac_api test_concurrency_erp
